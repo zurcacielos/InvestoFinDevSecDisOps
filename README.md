@@ -8,6 +8,7 @@ KeyVaultComparer is a professional developer tool designed to visually compare s
 - [Quick Start](#quick-start)
 - [Manual Startup](#manual-startup)
 - [Features & System Specifications](./FEATURES.md)
+- [Azure Key Vault API Strategies](./azure-keyvault-api-strategies.md)
 
 ## Prerequisites
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
