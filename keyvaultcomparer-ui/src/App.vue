@@ -51,6 +51,12 @@ const hasFetchedValues = computed(() => {
 
 // Inspections
 const hasInspectionsRun = ref(false);
+const inspectionSeverities = ref({
+  Critical: true,
+  High: true,
+  Medium: true,
+  Low: true
+});
 
 const runInspectionsOnVisible = () => {
   if (vaultUris.value.length === 0 || results.value.length === 0) return;
@@ -180,6 +186,10 @@ const inspectionReportData = computed(() => {
   });
 });
 
+const filteredInspectionReportData = computed(() => {
+  return inspectionReportData.value.filter(f => inspectionSeverities.value[f.severity]);
+});
+
 const filteredResultsForGrid = computed(() => {
   let base = results.value;
   
@@ -264,6 +274,73 @@ const downloadGrantScript = () => {
   showGrantAccessModal.value = false;
 };
 
+const downloadStagedScript = () => {
+  if (stagedChanges.value.length === 0) return;
+  let scriptContent = '# Apply Staged Changes locally\n\n';
+  stagedChanges.value.forEach(change => {
+    let vaultName = change.vaultUri;
+    try { vaultName = new URL(change.vaultUri).hostname.split('.')[0]; } catch {}
+    
+    if (change.type === 'DELETE') {
+      scriptContent += `az keyvault secret delete --vault-name "${vaultName}" --name "${change.secretName}"\n`;
+    } else {
+      scriptContent += `az keyvault secret set --vault-name "${vaultName}" --name "${change.secretName}" --value "${change.newValue}"\n`;
+    }
+  });
+  
+  const blob = new Blob([scriptContent], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'apply-staged-changes.ps1';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const copyInspectionsMarkdown = async () => {
+  let md = '# Security Inspections Report\n\n';
+  if (filteredInspectionReportData.value.length === 0) {
+    md += 'No vulnerabilities found for the active filters.\n';
+  } else {
+    filteredInspectionReportData.value.forEach(f => {
+      md += `### [${f.severity}] ${f.secret} @ ${f.vault}\n`;
+      md += `**${f.rule}**: ${f.message}\n\n`;
+    });
+  }
+  try {
+    await navigator.clipboard.writeText(md);
+    alert('Markdown copied to clipboard!');
+  } catch (err) {
+    alert('Failed to copy: ' + err);
+  }
+};
+
+const downloadInspectionsCSV = () => {
+  if (filteredInspectionReportData.value.length === 0) return;
+  
+  const headers = ['Severity', 'Vault', 'Secret Name', 'Rule', 'Message'];
+  const rows = filteredInspectionReportData.value.map(f => [
+    f.severity,
+    f.vault,
+    f.secret,
+    f.rule,
+    f.message.replace(/"/g, '""')
+  ]);
+  
+  let csvContent = headers.join(',') + '\n';
+  rows.forEach(row => {
+    csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+  });
+  
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'inspections-report.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 onMounted(async () => {
   await authStore.connectToAzure(); 
 });
@@ -290,6 +367,70 @@ onMounted(async () => {
           @clear-filters="clearFilters"
           @show-regex-help="showRegexHelpDialog = true"
         />
+      </template>
+
+      <template #staged>
+        <div class="flex items-center justify-center gap-12">
+          <div class="flex items-center">
+            <span class="text-sm font-medium text-slate-700">Pending Actions: <span class="text-blue-600">{{ stagedChanges.length }}</span></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="downloadStagedScript" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download script (PS1)
+            </button>
+            <button 
+              @click="stagedStore.applyStagedChanges(dataStore.fetchComparison)" 
+              class="px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="stagedChanges.length === 0"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Apply {{ Math.min(stagedChanges.length, 5) }} changes to Azure
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <template #inspections>
+        <div class="flex items-center justify-center gap-12">
+          <div class="flex items-center gap-4">
+            <span class="text-sm font-medium text-slate-700">Severity:</span>
+            <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 cursor-pointer hover:text-rose-600 transition-colors">
+              <input type="checkbox" v-model="inspectionSeverities.Critical" class="rounded text-rose-600 focus:ring-rose-500 cursor-pointer" />
+              Critical
+            </label>
+            <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 cursor-pointer hover:text-orange-600 transition-colors">
+              <input type="checkbox" v-model="inspectionSeverities.High" class="rounded text-orange-600 focus:ring-orange-500 cursor-pointer" />
+              High
+            </label>
+            <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 cursor-pointer hover:text-amber-600 transition-colors">
+              <input type="checkbox" v-model="inspectionSeverities.Medium" class="rounded text-amber-600 focus:ring-amber-500 cursor-pointer" />
+              Medium
+            </label>
+            <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 cursor-pointer hover:text-slate-900 transition-colors">
+              <input type="checkbox" v-model="inspectionSeverities.Low" class="rounded text-slate-600 focus:ring-slate-500 cursor-pointer" />
+              Low
+            </label>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="copyInspectionsMarkdown" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+              </svg>
+              Copy Markdown
+            </button>
+            <button @click="downloadInspectionsCSV" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download CSV
+            </button>
+          </div>
+        </div>
       </template>
     </AppHeader>
 
@@ -372,16 +513,16 @@ onMounted(async () => {
             <p class="text-base font-medium">No inspections have run yet.</p>
             <p class="text-sm mt-1">Go to the Analyze Data tab, be sure you have fetched values and run inspections to view the report.</p>
           </div>
-          <div v-else-if="inspectionReportData.length === 0" class="text-center py-20 text-emerald-600">
+          <div v-else-if="filteredInspectionReportData.length === 0" class="text-center py-20 text-emerald-600">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-emerald-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p class="text-base font-medium">Zero vulnerabilities found!</p>
-            <p class="text-sm mt-1 text-emerald-500">All visible secrets passed the inspections.</p>
+            <p class="text-sm mt-1 text-emerald-500">All visible secrets passed the active inspection filters.</p>
           </div>
           <div v-else class="space-y-4">
             <div 
-              v-for="(f, i) in inspectionReportData" 
+              v-for="(f, i) in filteredInspectionReportData" 
               :key="i"
               class="bg-white border rounded-lg p-2 shadow-sm flex items-start gap-2"
               :class="{

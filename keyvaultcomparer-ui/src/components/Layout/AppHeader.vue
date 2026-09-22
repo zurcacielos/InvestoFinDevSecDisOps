@@ -95,6 +95,14 @@ const handleTabChange = (val: 'select' | 'analyze' | 'staged' | 'inspections' | 
       <template #analyze-data>
         <slot name="analyze-data"></slot>
       </template>
+
+      <template #staged>
+        <slot name="staged"></slot>
+      </template>
+
+      <template #inspections>
+        <slot name="inspections"></slot>
+      </template>
     </Ribbon>
   </div>
 </template>
