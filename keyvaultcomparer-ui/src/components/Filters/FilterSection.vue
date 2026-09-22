@@ -53,7 +53,7 @@ const hideHistoryDropdown = () => {
     <!-- Section 2: Filter -->
     <div class="lg:col-span-4 flex flex-col gap-3 lg:pr-4">
       <div class="flex items-center gap-1.5">
-        <div class="font-bold text-slate-800 text-sm">2. Filter Secrets by Name (Regex)</div>
+        <div class="font-bold text-slate-800 text-sm">2. Filter/reduce name set to fetch less values</div>
       </div>
       <div class="flex items-center gap-2">
         <div class="relative flex-1 max-w-xs">
