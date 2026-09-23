@@ -12,10 +12,13 @@ namespace KeyVaultComparer.Api.Services
     public class KeyVaultService
     {
         private readonly Azure.Core.TokenCredential _credential;
+        private readonly SecretClientOptions _options;
 
         public KeyVaultService(Azure.Core.TokenCredential credential)
         {
             _credential = credential;
+            _options = new SecretClientOptions();
+            _options.Diagnostics.ApplicationId = "KeyVaultComparerApp";
         }
 
         public async Task<Dictionary<string, VaultSyncResult>> GetAllSecretNamesAsync(List<string> vaultUris)
@@ -32,7 +35,7 @@ namespace KeyVaultComparer.Api.Services
                 var vaultNames = new List<SecretMetadata>();
                 try
                 {
-                    var client = new SecretClient(new Uri(uri), _credential);
+                    var client = new SecretClient(new Uri(uri), _credential, _options);
                     await foreach (var secretProp in client.GetPropertiesOfSecretsAsync())
                     {
                         if (secretProp.Enabled.GetValueOrDefault())
@@ -89,7 +92,7 @@ namespace KeyVaultComparer.Api.Services
 
             try
             {
-                var client = new SecretClient(new Uri(vaultUri), _credential);
+                var client = new SecretClient(new Uri(vaultUri), _credential, _options);
                 var fetchTasks = secretNames.Select(async name =>
                 {
                     try
@@ -154,7 +157,7 @@ namespace KeyVaultComparer.Api.Services
             var tasks = changes.Select(async change => 
             {
                 try {
-                    var client = new SecretClient(new Uri(change.VaultUri), _credential);
+                    var client = new SecretClient(new Uri(change.VaultUri), _credential, _options);
                     await client.SetSecretAsync(change.SecretName, change.NewValue);
                 } catch(Exception ex) {
                     errors.Add($"Failed to update {change.SecretName} in {change.VaultUri}: {ex.Message}");
