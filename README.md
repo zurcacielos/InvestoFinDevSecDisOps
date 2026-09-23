@@ -22,6 +22,9 @@ Before starting the application, ensure you are logged into Azure:
 az login
 ```
 
+## Security
+**Important:** For security reasons, the backend API is strictly restricted to the machine where it runs (bound to `127.0.0.1` via `appsettings.json`). It cannot be accessed externally over the local network.
+
 ## Quick Start
 To start both the backend and frontend simultaneously, simply run the provided PowerShell script from the root directory:
 ```powershell
