@@ -5,11 +5,11 @@ import { useAuthStore } from '../../stores/authStore';
 import { useStagedStore } from '../../stores/stagedStore';
 
 const props = defineProps<{
-  modelValue: 'select' | 'analyze' | 'staged' | 'inspections' | 'logs';
+  modelValue: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs';
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: 'select' | 'analyze' | 'staged' | 'inspections' | 'logs'): void;
+  (e: 'update:modelValue', value: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs'): void;
   (e: 'show-help'): void;
 }>();
 
@@ -19,7 +19,7 @@ const { globalError, profile } = storeToRefs(authStore);
 const stagedStore = useStagedStore();
 const { stagedChanges } = storeToRefs(stagedStore);
 
-const handleTabChange = (val: 'select' | 'analyze' | 'staged' | 'inspections' | 'logs') => {
+const handleTabChange = (val: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs') => {
   emit('update:modelValue', val);
 };
 </script>
@@ -98,6 +98,10 @@ const handleTabChange = (val: 'select' | 'analyze' | 'staged' | 'inspections' | 
 
       <template #staged>
         <slot name="staged"></slot>
+      </template>
+
+      <template #usage>
+        <slot name="usage"></slot>
       </template>
 
       <template #inspections>

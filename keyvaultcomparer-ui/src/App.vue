@@ -16,6 +16,7 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useFilterStore } from './stores/filterStore';
 import { useStagedStore } from './stores/stagedStore';
 import { useUiStateStore } from './stores/uiStateStore';
+import { useUsageStore } from './stores/usageStore';
 import { useSecurityAnalysis } from './composables/useSecurityAnalysis';
 
 import { analyzeSecret, analyzeMetadata, type InspectionResult } from './inspections';
@@ -34,6 +35,8 @@ const { allSortedNames } = storeToRefs(filterStore);
 
 const stagedStore = useStagedStore();
 const { stagedChanges } = storeToRefs(stagedStore);
+
+const usageStore = useUsageStore();
 
 const { results, rowUsageCount, colUsageCount, vulnerableValuesMap } = useSecurityAnalysis();
 
@@ -432,12 +435,48 @@ onMounted(async () => {
           </div>
         </div>
       </template>
+
+      <template #usage>
+        <div class="flex items-center justify-center gap-12">
+          <div v-if="!usageStore.isAuditingEnabled" class="flex items-center gap-4">
+            <div class="text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg text-sm font-medium border border-amber-200">
+              Audit logs missing for some vaults!
+            </div>
+            <button @click="usageStore.downloadAuditScript" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download setup script (PS1)
+            </button>
+          </div>
+          <button 
+            @click="usageStore.fetchUsageStats(vaultUris)" 
+            class="px-4 py-1.5 font-medium text-sm rounded-lg transition-colors shadow-sm flex items-center gap-2"
+            :class="usageStore.isFetchingUsage ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
+            :disabled="usageStore.isFetchingUsage || vaultUris.length === 0"
+          >
+            <svg v-if="usageStore.isFetchingUsage" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            {{ usageStore.isFetchingUsage ? 'Querying Azure Monitor...' : 'Fetch Usage Stats' }}
+          </button>
+          <div v-if="typeof usageStore.insightCount === 'number'" class="flex items-center gap-2">
+            <span class="text-sm font-medium text-slate-700">
+              Insights retrieved: <span class="text-emerald-600">{{ usageStore.insightCount }}</span>
+            </span>
+          </div>
+        </div>
+      </template>
     </AppHeader>
 
     <!-- Main Content Layout -->
     <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-2 gap-2">
 
-      <div v-show="currentTab === 'select' || currentTab === 'analyze'" class="w-full h-full flex flex-col gap-2 min-h-0">
+      <div v-show="currentTab === 'select' || currentTab === 'analyze' || currentTab === 'usage'" class="w-full h-full flex flex-col gap-2 min-h-0">
         <GridTable 
           :filteredResults="filteredResultsForGrid"
           :allSortedNamesLength="allSortedNames.length"

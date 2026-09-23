@@ -112,6 +112,13 @@ app.MapGet("/api/profile", async (ProfileService service) =>
 })
 .WithName("GetProfile");
 
+app.MapPost("/api/vaults/usage", async ([FromBody] List<string> vaultUris, KeyVaultManagementService service) =>
+{
+    var stats = await service.GetVaultUsageStatsAsync(vaultUris);
+    return Results.Ok(stats);
+})
+.WithName("GetVaultsUsage");
+
 app.MapGet("/api/subscriptions", async (KeyVaultManagementService service) =>
 {
     var subs = await service.GetSubscriptionsAsync();

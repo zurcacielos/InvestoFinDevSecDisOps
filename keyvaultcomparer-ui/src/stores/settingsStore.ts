@@ -24,6 +24,7 @@ export interface UiSettings {
   showStagedOnly: boolean;
   securityByRow: boolean;
   securityByCol: boolean;
+  showUsageColumn: boolean;
 }
 
 export const defaultUiSettings: UiSettings = {
@@ -35,7 +36,8 @@ export const defaultUiSettings: UiSettings = {
   showReusedValues: false,
   showStagedOnly: false,
   securityByRow: false,
-  securityByCol: false
+  securityByCol: false,
+  showUsageColumn: false
 };
 
 export const identiconEmojis = [

@@ -6,6 +6,7 @@ import { useUiStateStore } from '../../stores/uiStateStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useStagedStore } from '../../stores/stagedStore';
 import { useClipboardStore } from '../../stores/clipboardStore';
+import { useUsageStore } from '../../stores/usageStore';
 import type { SecretComparisonRow, SecretValueStatus } from '../../composables/useSecurityAnalysis';
 
 const props = defineProps<{
@@ -30,6 +31,8 @@ const stagedStore = useStagedStore();
 
 const clipboardStore = useClipboardStore();
 const { copiedCell, internalClipboard } = storeToRefs(clipboardStore);
+
+const usageStore = useUsageStore();
 
 const secretNameColumnWidth = ref(250);
 const isResizing = ref(false);
@@ -62,6 +65,45 @@ const getVaultName = (uri: string) => {
   } catch {
     return uri;
   }
+};
+
+const getRelativeTime = (timestamp: number) => {
+  const diffInMs = Math.max(0, Date.now() - timestamp);
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  
+  if (new Date(timestamp).toDateString() === new Date().toDateString()) {
+    return 'today';
+  }
+  
+  const effectiveDays = diffInDays === 0 ? 1 : diffInDays;
+
+  if (effectiveDays < 30) {
+    return `${effectiveDays} day${effectiveDays === 1 ? '' : 's'} ago`;
+  }
+  
+  const diffInMonths = Math.floor(effectiveDays / 30);
+  if (diffInMonths < 12) {
+    return `${diffInMonths} month${diffInMonths === 1 ? '' : 's'} ago`;
+  }
+  
+  const diffInYears = Math.floor(effectiveDays / 365);
+  return `${diffInYears} year${diffInYears === 1 ? '' : 's'} ago`;
+};
+
+const getLastUsedForRow = (secretName: string) => {
+  let maxDate = 0;
+  for (const uri of vaultUris.value) {
+    const key = `${uri}_${secretName}`.toLowerCase();
+    const d = usageStore.usageData[key];
+    if (d) {
+      const ms = new Date(d).getTime();
+      if (ms > maxDate) maxDate = ms;
+    }
+  }
+  if (maxDate === 0) return { text: '-', fullDate: '' };
+  
+  const fullDate = new Date(maxDate).toLocaleDateString() + ' ' + new Date(maxDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return { text: getRelativeTime(maxDate), fullDate };
 };
 
 const getValueColor = (colorIndex: number | undefined) => {
@@ -197,6 +239,13 @@ onUnmounted(() => {
                 <div class="h-full w-[2px] bg-slate-300 group-hover/resizer:bg-blue-400 transition-colors" :class="{'!bg-blue-500': isResizing}"></div>
               </div>
             </th>
+            <th 
+              v-if="uiSettings.showUsageColumn || uiStateStore.currentTab === 'usage'"
+              class="px-3 py-1.5 text-xs font-semibold tracking-wider sticky z-30 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]"
+              :style="{ left: `${58 + secretNameColumnWidth}px`, minWidth: '130px', maxWidth: '130px' }"
+            >
+              Last Used
+            </th>
             <th v-for="uri in vaultUris" :key="uri" class="px-3 py-1.5 text-xs font-semibold tracking-wider bg-slate-50" :title="knownSecretNames[uri]?.errorMessage">
               <div class="flex items-center justify-between">
                 <span :class="knownSecretNames[uri]?.errorMessage ? 'text-rose-600' : 'text-slate-900'">{{ getVaultName(uri) }}</span>
@@ -252,10 +301,19 @@ onUnmounted(() => {
               </div>
             </td>
             <td 
+              v-if="uiSettings.showUsageColumn || uiStateStore.currentTab === 'usage'"
+              class="px-3 py-1 text-xs text-slate-600 border-r border-slate-100 sticky z-10 bg-white group-hover:bg-slate-50 shadow-[1px_0_0_0_#f1f5f9]"
+              :style="{ left: `${58 + secretNameColumnWidth}px`, minWidth: '130px', maxWidth: '130px' }"
+              :title="getLastUsedForRow(row.secretName).fullDate"
+            >
+              {{ getLastUsedForRow(row.secretName).text }}
+            </td>
+            <td 
               v-for="uri in vaultUris" 
               :key="uri"
-              class="px-3 py-1 text-xs border-r border-slate-100 last:border-r-0 relative focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400 group/cell transition-colors cursor-cell"
+              class="px-2 py-1 text-xs border-r border-slate-100 bg-white group-hover:bg-slate-50 transition-colors relative focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400 group/cell cursor-cell"
               tabindex="0"
+              @dblclick="row.vaultValues[uri]?.value && toggleHighlight(row.vaultValues[uri]?.value)"
               @keydown.ctrl.c.prevent="handleCopy(uri, row.secretName, row.vaultValues[uri]?.value)"
               @keydown.meta.c.prevent="handleCopy(uri, row.secretName, row.vaultValues[uri]?.value)"
               @keydown.ctrl.v.prevent="handlePaste(uri, row.secretName, row.vaultValues[uri])"

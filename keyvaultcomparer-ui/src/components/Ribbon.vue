@@ -1,16 +1,18 @@
 <script setup lang="ts">
 const props = defineProps<{
-  modelValue: 'select' | 'analyze' | 'staged' | 'inspections' | 'logs'
+  modelValue: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs'
   stagedCount?: number
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: 'select' | 'analyze' | 'staged' | 'inspections' | 'logs'): void
+  (e: 'update:modelValue', value: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs'): void
 }>()
 
-const setTab = (tab: 'select' | 'analyze' | 'staged' | 'inspections' | 'logs') => {
+const setTab = (tab: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs') => {
   emit('update:modelValue', tab)
 }
+
+
 </script>
 
 <template>
@@ -42,6 +44,13 @@ const setTab = (tab: 'select' | 'analyze' | 'staged' | 'inspections' | 'logs') =
             :class="modelValue === 'analyze' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
           >
             Analyze Data
+          </button>
+          <button 
+            @click="setTab('usage')"
+            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2"
+            :class="modelValue === 'usage' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
+          >
+            Usage Stats
           </button>
           <button 
             @click="setTab('staged')"
@@ -88,6 +97,9 @@ const setTab = (tab: 'select' | 'analyze' | 'staged' | 'inspections' | 'logs') =
       </div>
       <div v-show="modelValue === 'analyze'">
         <slot name="analyze-data"></slot>
+      </div>
+      <div v-show="modelValue === 'usage'">
+        <slot name="usage"></slot>
       </div>
       <div v-show="modelValue === 'staged'">
         <slot name="staged"></slot>
