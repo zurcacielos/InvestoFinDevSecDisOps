@@ -1,3 +1,6 @@
+export type UsageFilterMode = 'None' | 'Unused' | 'UsedInLast' | 'NotUsedInLast' | 'UsedBetween';
+export type UsageFilterUnit = 'days' | 'months' | 'years';
+
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
@@ -7,6 +10,12 @@ export const useUsageStore = defineStore('usage', () => {
   const auditMissingVaults = ref<any[]>([]);
   const isFetchingUsage = ref(false);
   const insightCount = ref<number | null>(null);
+
+  const filterMode = ref<UsageFilterMode>('None');
+  const filterValue = ref<number>(30);
+  const filterUnit = ref<UsageFilterUnit>('days');
+  const filterStartDate = ref<string>('');
+  const filterEndDate = ref<string>('');
 
   const fetchUsageStats = async (vaultUris: string[]) => {
     isFetchingUsage.value = true;
@@ -36,6 +45,14 @@ export const useUsageStore = defineStore('usage', () => {
     } finally {
       isFetchingUsage.value = false;
     }
+  };
+
+  const clearFilters = () => {
+    filterMode.value = 'None';
+    filterValue.value = 30;
+    filterUnit.value = 'days';
+    filterStartDate.value = '';
+    filterEndDate.value = '';
   };
 
   const downloadAuditScript = () => {
@@ -83,6 +100,12 @@ export const useUsageStore = defineStore('usage', () => {
     isFetchingUsage,
     fetchUsageStats,
     insightCount,
-    downloadAuditScript
+    downloadAuditScript,
+    filterMode,
+    filterValue,
+    filterUnit,
+    filterStartDate,
+    filterEndDate,
+    clearFilters
   };
 });

@@ -251,6 +251,51 @@ const filteredResultsForGrid = computed(() => {
     );
   }
 
+  if (usageStore.filterMode !== 'None') {
+    base = base.filter(row => {
+      let maxDate = 0;
+      vaultUris.value.forEach(uri => {
+        const key = `${uri}_${row.secretName}`.toLowerCase();
+        const d = usageStore.usageData[key];
+        if (d) {
+          const ms = new Date(d).getTime();
+          if (ms > maxDate) maxDate = ms;
+        }
+      });
+      
+      if (usageStore.filterMode === 'Unused') {
+        return maxDate === 0;
+      }
+      
+      if (maxDate === 0) return false;
+      
+      const now = Date.now();
+      const diffInMs = Math.max(0, now - maxDate);
+      const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+      
+      if (usageStore.filterMode === 'UsedInLast' || usageStore.filterMode === 'NotUsedInLast') {
+        let thresholdDays = usageStore.filterValue;
+        if (usageStore.filterUnit === 'months') thresholdDays *= 30;
+        if (usageStore.filterUnit === 'years') thresholdDays *= 365;
+        
+        if (usageStore.filterMode === 'UsedInLast') {
+          return diffInDays <= thresholdDays;
+        } else {
+          return diffInDays > thresholdDays;
+        }
+      }
+      
+      if (usageStore.filterMode === 'UsedBetween') {
+        const start = usageStore.filterStartDate ? new Date(usageStore.filterStartDate).getTime() : 0;
+        const end = usageStore.filterEndDate ? new Date(usageStore.filterEndDate).getTime() : Infinity;
+        const adjustedEnd = end !== Infinity ? end + 86400000 - 1 : Infinity;
+        return maxDate >= start && maxDate <= adjustedEnd;
+      }
+      
+      return true;
+    });
+  }
+
   return base;
 });
 
@@ -262,6 +307,7 @@ const clearFilters = () => {
   uiSettings.value.showStagedOnly = false;
   uiSettings.value.securityByRow = false;
   uiSettings.value.securityByCol = false;
+  usageStore.clearFilters();
 };
 
 const getVaultName = (uri: string) => {
@@ -437,37 +483,77 @@ onMounted(async () => {
       </template>
 
       <template #usage>
-        <div class="flex items-center justify-center gap-12">
-          <div v-if="!usageStore.isAuditingEnabled" class="flex items-center gap-4">
-            <div class="text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg text-sm font-medium border border-amber-200">
-              Audit logs missing for some vaults!
+        <div class="flex flex-col w-full min-h-[84px] px-2 relative">
+          <!-- Top row: Filters and Actions -->
+          <div class="flex items-center justify-between w-full">
+            <!-- Left side: Filters -->
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-slate-600 whitespace-nowrap">Filter by Usage:</span>
+              <select v-model="usageStore.filterMode" class="text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors h-8">
+                <option value="None">All Secrets</option>
+                <option value="Unused">Unused (No usage stats)</option>
+                <option value="UsedInLast">Used in the last...</option>
+                <option value="NotUsedInLast">Not used in the last...</option>
+                <option value="UsedBetween">Used between...</option>
+              </select>
             </div>
-            <button @click="usageStore.downloadAuditScript" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+
+            <!-- Dynamic Filter Controls -->
+            <div v-if="usageStore.filterMode === 'UsedInLast' || usageStore.filterMode === 'NotUsedInLast'" class="flex items-center gap-2 animate-fade-in">
+              <input type="number" v-model="usageStore.filterValue" min="1" class="w-16 text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
+              <select v-model="usageStore.filterUnit" class="text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors h-8">
+                <option value="days">Days</option>
+                <option value="months">Months</option>
+                <option value="years">Years</option>
+              </select>
+            </div>
+
+            <div v-if="usageStore.filterMode === 'UsedBetween'" class="flex items-center gap-2 animate-fade-in">
+              <input type="date" v-model="usageStore.filterStartDate" class="text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
+              <span class="text-sm text-slate-500 font-medium">and</span>
+              <input type="date" v-model="usageStore.filterEndDate" class="text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
+            </div>
+          </div>
+
+          <!-- Right side: Actions -->
+          <div class="flex items-center gap-4">
+            <div v-if="!usageStore.isAuditingEnabled" class="flex items-center gap-4">
+              <div class="text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg text-sm font-medium border border-amber-200">
+                Audit logs missing for some vaults!
+              </div>
+              <button @click="usageStore.downloadAuditScript()" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors" title="Download PowerShell script to enable audit logs">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+                Setup Script
+              </button>
+            </div>
+
+            <button 
+              @click="usageStore.fetchUsageStats(vaultUris)" 
+              class="px-4 py-1.5 font-medium text-sm rounded-lg transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap"
+              :class="usageStore.isFetchingUsage ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
+              :disabled="usageStore.isFetchingUsage || vaultUris.length === 0"
+            >
+              <svg v-if="usageStore.isFetchingUsage" class="animate-spin -ml-1 mr-2 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Download setup script (PS1)
+              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {{ usageStore.isFetchingUsage ? 'Querying Azure Monitor...' : 'Fetch Usage Stats' }}
             </button>
           </div>
-          <button 
-            @click="usageStore.fetchUsageStats(vaultUris)" 
-            class="px-4 py-1.5 font-medium text-sm rounded-lg transition-colors shadow-sm flex items-center gap-2"
-            :class="usageStore.isFetchingUsage ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
-            :disabled="usageStore.isFetchingUsage || vaultUris.length === 0"
-          >
-            <svg v-if="usageStore.isFetchingUsage" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </div> <!-- End of Top row -->
+
+          <!-- Bottom Center Text Notification -->
+          <div v-if="typeof usageStore.insightCount === 'number' && !usageStore.isFetchingUsage" class="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-sm font-medium text-slate-500 flex items-center gap-1.5 animate-fade-in">
+            <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
             </svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            {{ usageStore.isFetchingUsage ? 'Querying Azure Monitor...' : 'Fetch Usage Stats' }}
-          </button>
-          <div v-if="typeof usageStore.insightCount === 'number'" class="flex items-center gap-2">
-            <span class="text-sm font-medium text-slate-700">
-              Insights retrieved: <span class="text-emerald-600">{{ usageStore.insightCount }}</span>
-            </span>
+            Insights retrieved: <span class="text-emerald-600">{{ usageStore.insightCount }}</span>
           </div>
         </div>
       </template>
