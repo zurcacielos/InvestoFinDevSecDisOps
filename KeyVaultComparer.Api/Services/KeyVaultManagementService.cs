@@ -130,7 +130,7 @@ namespace KeyVaultComparer.Api.Services
             return subs;
         }
 
-        public async Task<UsageStatsResponse> GetVaultUsageStatsAsync(List<string> vaultUris)
+        public async Task<UsageStatsResponse> GetVaultUsageStatsAsync(List<string> vaultUris, int days = 90)
         {
             var response = new UsageStatsResponse();
             if (vaultUris == null || !vaultUris.Any()) return response;
@@ -164,7 +164,7 @@ namespace KeyVaultComparer.Api.Services
             }
 
             var logsClient = new LogsQueryClient(_credential);
-            var timeRange = new QueryTimeRange(TimeSpan.FromDays(90));
+            var timeRange = new QueryTimeRange(TimeSpan.FromDays(days));
             
             var kql = @"
 AzureDiagnostics

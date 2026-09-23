@@ -8,6 +8,7 @@ import FilterSection from './components/Filters/FilterSection.vue';
 import GridTable from './components/ComparisonGrid/GridTable.vue';
 import AuthErrorModal from './components/Modals/AuthErrorModal.vue';
 import RegexHelpModal from './components/Modals/RegexHelpModal.vue';
+import QueryModal from './components/Modals/QueryModal.vue';
 import HelpModal from './components/Modals/HelpModal.vue';
 import GrantAccessModal from './components/Modals/GrantAccessModal.vue';
 import { useAuthStore } from './stores/authStore';
@@ -44,6 +45,7 @@ const uiStateStore = useUiStateStore();
 const { currentTab } = storeToRefs(uiStateStore);
 const showHelpDialog = ref(false);
 const showRegexHelpDialog = ref(false);
+const showQueryModal = ref(false);
 const showGrantAccessModal = ref(false);
 
 const hasFetchedValues = computed(() => {
@@ -483,9 +485,9 @@ onMounted(async () => {
       </template>
 
       <template #usage>
-        <div class="flex flex-col w-full min-h-[84px] px-2 relative">
-          <!-- Top row: Filters and Actions -->
-          <div class="flex items-center justify-between w-full">
+        <div class="flex flex-col w-full h-full min-h-[84px] px-2 py-1 relative">
+          <!-- Main Content Row -->
+          <div class="flex items-start justify-between w-full flex-1 pt-1">
             <!-- Left side: Filters -->
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
@@ -516,13 +518,13 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Right side: Actions -->
-          <div class="flex items-center gap-4">
-            <div v-if="!usageStore.isAuditingEnabled" class="flex items-center gap-4">
+          <!-- Right side: Actions Sector -->
+          <div class="flex items-stretch gap-4 shrink-0 self-stretch">
+            <div v-if="!usageStore.isAuditingEnabled" class="flex items-start pt-1">
               <div class="text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg text-sm font-medium border border-amber-200">
                 Audit logs missing for some vaults!
               </div>
-              <button @click="usageStore.downloadAuditScript()" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors" title="Download PowerShell script to enable audit logs">
+              <button @click="usageStore.downloadAuditScript()" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors ml-4" title="Download PowerShell script to enable audit logs">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
@@ -530,23 +532,46 @@ onMounted(async () => {
               </button>
             </div>
 
-            <button 
-              @click="usageStore.fetchUsageStats(vaultUris)" 
-              class="px-4 py-1.5 font-medium text-sm rounded-lg transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap"
-              :class="usageStore.isFetchingUsage ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
-              :disabled="usageStore.isFetchingUsage || vaultUris.length === 0"
-            >
-              <svg v-if="usageStore.isFetchingUsage" class="animate-spin -ml-1 mr-2 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {{ usageStore.isFetchingUsage ? 'Querying Azure Monitor...' : 'Fetch Usage Stats' }}
-            </button>
+            <!-- Query Limit Controls -->
+            <div class="flex items-start pt-1">
+              <div class="flex items-center gap-2 whitespace-nowrap">
+                <span class="text-sm font-medium text-slate-600">Query Last:</span>
+                <input type="number" v-model="usageStore.queryLimitValue" min="1" class="w-16 text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
+                <select v-model="usageStore.queryLimitUnit" class="text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors h-8">
+                  <option value="days">Days</option>
+                  <option value="months">Months</option>
+                  <option value="years">Years</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex flex-col items-center justify-between h-full pb-1">
+              <button 
+                @click="usageStore.fetchUsageStats(vaultUris)" 
+                class="px-4 py-1.5 font-medium text-sm rounded-lg transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap mt-1"
+                :class="usageStore.isFetchingUsage ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
+                :disabled="usageStore.isFetchingUsage || vaultUris.length === 0"
+              >
+                <svg v-if="usageStore.isFetchingUsage" class="animate-spin -ml-1 mr-2 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {{ usageStore.isFetchingUsage ? 'Querying Azure Monitor...' : 'Fetch Usage Stats' }}
+              </button>
+
+              <!-- Centered See Query Button (Natural Layout) -->
+              <button @click="showQueryModal = true" class="text-xs font-medium text-slate-400 hover:text-blue-500 transition-colors flex items-center gap-1 whitespace-nowrap">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                See Query
+              </button>
+            </div>
           </div>
-          </div> <!-- End of Top row -->
+          </div> <!-- End of Main Content Row -->
 
           <!-- Bottom Center Text Notification -->
           <div v-if="typeof usageStore.insightCount === 'number' && !usageStore.isFetchingUsage" class="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-sm font-medium text-slate-500 flex items-center gap-1.5 animate-fade-in">
@@ -693,6 +718,7 @@ onMounted(async () => {
 
     <AuthErrorModal :show="showAuthError" @retry="authStore.retryAuth()" />
     <RegexHelpModal :show="showRegexHelpDialog" @close="showRegexHelpDialog = false" />
+    <QueryModal :show="showQueryModal" @close="showQueryModal = false" />
     <GrantAccessModal :show="showGrantAccessModal" @close="showGrantAccessModal = false" @download="downloadGrantScript" />
     <HelpModal :show="showHelpDialog" @close="showHelpDialog = false" />
   </div>
