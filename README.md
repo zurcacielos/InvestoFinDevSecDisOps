@@ -10,6 +10,10 @@ KeyVaultComparer is a professional developer tool designed to visually compare s
 - [Features & System Specifications](./FEATURES.md)
 - [Azure Key Vault API Strategies](./azure-keyvault-api-strategies.md)
 
+Find duplicated values between Key Vaults or different secrets visually and quickly with Identicons and filters of reused by row/column/vault. Run inspections on secrets to find vulnerabilities, export MD for JIRA/Confluence, or CSV for further analysis. Check last used time for each secret and find outdated secrets.
+
+![Main Window](./docs/images/main_window.png)
+
 ## Prerequisites
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Node.js](https://nodejs.org/) (v18+ recommended)
