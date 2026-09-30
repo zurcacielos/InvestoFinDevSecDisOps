@@ -30,7 +30,7 @@ const copied = ref(false);
 
 const copyToClipboard = async () => {
   try {
-    await navigator.clipboard.writeText(queryText);
+    await navigator.clipboard.writeText(queryText.value);
     copied.value = true;
     setTimeout(() => { copied.value = false; }, 2000);
   } catch (err) {
