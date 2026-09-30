@@ -69,41 +69,25 @@ const getVaultName = (uri: string) => {
 
 const getRelativeTime = (timestamp: number) => {
   const diffInMs = Math.max(0, Date.now() - timestamp);
+  const diffInMins = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
   
-  if (new Date(timestamp).toDateString() === new Date().toDateString()) {
-    return 'today';
-  }
+  if (diffInMins < 60) return `${Math.max(1, diffInMins)}m`;
+  if (diffInHours < 24) return `${diffInHours}h`;
+  if (diffInDays < 365) return `${diffInDays}d`;
   
-  const effectiveDays = diffInDays === 0 ? 1 : diffInDays;
-
-  if (effectiveDays < 30) {
-    return `${effectiveDays} day${effectiveDays === 1 ? '' : 's'} ago`;
-  }
-  
-  const diffInMonths = Math.floor(effectiveDays / 30);
-  if (diffInMonths < 12) {
-    return `${diffInMonths} month${diffInMonths === 1 ? '' : 's'} ago`;
-  }
-  
-  const diffInYears = Math.floor(effectiveDays / 365);
-  return `${diffInYears} year${diffInYears === 1 ? '' : 's'} ago`;
+  const diffInYears = Math.floor(diffInDays / 365);
+  return `${diffInYears}y`;
 };
 
-const getLastUsedForRow = (secretName: string) => {
-  let maxDate = 0;
-  for (const uri of vaultUris.value) {
-    const key = `${uri}_${secretName}`.toLowerCase();
-    const d = usageStore.usageData[key];
-    if (d) {
-      const ms = new Date(d).getTime();
-      if (ms > maxDate) maxDate = ms;
-    }
-  }
-  if (maxDate === 0) return { text: '-', fullDate: '' };
-  
-  const fullDate = new Date(maxDate).toLocaleDateString() + ' ' + new Date(maxDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return { text: getRelativeTime(maxDate), fullDate };
+const getUsageForCell = (uri: string, secretName: string) => {
+  const key = `${uri}_${secretName}`.toLowerCase();
+  const d = usageStore.usageData[key];
+  if (!d) return null;
+  const ms = new Date(d).getTime();
+  const fullDate = new Date(ms).toLocaleDateString() + ' ' + new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return { text: getRelativeTime(ms), fullDate };
 };
 
 const getValueColor = (colorIndex: number | undefined) => {
@@ -239,13 +223,7 @@ onUnmounted(() => {
                 <div class="h-full w-[2px] bg-slate-300 group-hover/resizer:bg-blue-400 transition-colors" :class="{'!bg-blue-500': isResizing}"></div>
               </div>
             </th>
-            <th 
-              v-if="uiSettings.showUsageColumn || uiStateStore.currentTab === 'usage'"
-              class="px-3 py-1.5 text-xs font-semibold tracking-wider sticky z-30 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]"
-              :style="{ left: `${58 + secretNameColumnWidth}px`, minWidth: '130px', maxWidth: '130px' }"
-            >
-              Last Used
-            </th>
+
             <th v-for="uri in vaultUris" :key="uri" class="px-3 py-1.5 text-xs font-semibold tracking-wider bg-slate-50" :title="knownSecretNames[uri]?.errorMessage">
               <div class="flex items-center justify-between">
                 <span :class="knownSecretNames[uri]?.errorMessage ? 'text-rose-600' : 'text-slate-900'">{{ getVaultName(uri) }}</span>
@@ -300,14 +278,7 @@ onUnmounted(() => {
                 </button>
               </div>
             </td>
-            <td 
-              v-if="uiSettings.showUsageColumn || uiStateStore.currentTab === 'usage'"
-              class="px-3 py-1 text-xs text-slate-600 border-r border-slate-100 sticky z-10 bg-white group-hover:bg-slate-50 shadow-[1px_0_0_0_#f1f5f9]"
-              :style="{ left: `${58 + secretNameColumnWidth}px`, minWidth: '130px', maxWidth: '130px' }"
-              :title="getLastUsedForRow(row.secretName).fullDate"
-            >
-              {{ getLastUsedForRow(row.secretName).text }}
-            </td>
+
             <td 
               v-for="uri in vaultUris" 
               :key="uri"
@@ -397,6 +368,14 @@ onUnmounted(() => {
                   
                   <svg v-if="loadingCells[uri]?.[row.secretName]" class="animate-spin h-3.5 w-3.5 text-blue-500 ml-1 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 </span>
+              </div>
+              
+              <div 
+                v-if="getUsageForCell(uri, row.secretName)"
+                class="absolute bottom-0 right-0 text-[10px] text-slate-500 font-medium bg-slate-100/80 px-1 py-0.5 rounded-tl-md border-t border-l border-slate-200 cursor-help backdrop-blur-sm"
+                :title="getUsageForCell(uri, row.secretName)?.fullDate"
+              >
+                {{ getUsageForCell(uri, row.secretName)?.text }}
               </div>
             </td>
           </tr>

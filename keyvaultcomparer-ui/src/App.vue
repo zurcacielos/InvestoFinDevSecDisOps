@@ -255,46 +255,42 @@ const filteredResultsForGrid = computed(() => {
 
   if (usageStore.filterMode !== 'None') {
     base = base.filter(row => {
-      let maxDate = 0;
-      vaultUris.value.forEach(uri => {
+      return vaultUris.value.some(uri => {
         const key = `${uri}_${row.secretName}`.toLowerCase();
         const d = usageStore.usageData[key];
-        if (d) {
-          const ms = new Date(d).getTime();
-          if (ms > maxDate) maxDate = ms;
-        }
-      });
-      
-      if (usageStore.filterMode === 'Unused') {
-        return maxDate === 0;
-      }
-      
-      if (maxDate === 0) return false;
-      
-      const now = Date.now();
-      const diffInMs = Math.max(0, now - maxDate);
-      const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-      
-      if (usageStore.filterMode === 'UsedInLast' || usageStore.filterMode === 'NotUsedInLast') {
-        let thresholdDays = usageStore.filterValue;
-        if (usageStore.filterUnit === 'months') thresholdDays *= 30;
-        if (usageStore.filterUnit === 'years') thresholdDays *= 365;
+        const cellDate = d ? new Date(d).getTime() : 0;
         
-        if (usageStore.filterMode === 'UsedInLast') {
-          return diffInDays <= thresholdDays;
-        } else {
-          return diffInDays > thresholdDays;
+        if (usageStore.filterMode === 'Unused') {
+          return cellDate === 0;
         }
-      }
-      
-      if (usageStore.filterMode === 'UsedBetween') {
-        const start = usageStore.filterStartDate ? new Date(usageStore.filterStartDate).getTime() : 0;
-        const end = usageStore.filterEndDate ? new Date(usageStore.filterEndDate).getTime() : Infinity;
-        const adjustedEnd = end !== Infinity ? end + 86400000 - 1 : Infinity;
-        return maxDate >= start && maxDate <= adjustedEnd;
-      }
-      
-      return true;
+        
+        if (cellDate === 0) return false;
+        
+        const now = Date.now();
+        const diffInMs = Math.max(0, now - cellDate);
+        const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+        
+        if (usageStore.filterMode === 'UsedInLast' || usageStore.filterMode === 'NotUsedInLast') {
+          let thresholdDays = usageStore.filterValue;
+          if (usageStore.filterUnit === 'months') thresholdDays *= 30;
+          if (usageStore.filterUnit === 'years') thresholdDays *= 365;
+          
+          if (usageStore.filterMode === 'UsedInLast') {
+            return diffInDays <= thresholdDays;
+          } else {
+            return diffInDays > thresholdDays;
+          }
+        }
+        
+        if (usageStore.filterMode === 'UsedBetween') {
+          const start = usageStore.filterStartDate ? new Date(usageStore.filterStartDate).getTime() : 0;
+          const end = usageStore.filterEndDate ? new Date(usageStore.filterEndDate).getTime() : Infinity;
+          const adjustedEnd = end !== Infinity ? end + 86400000 - 1 : Infinity;
+          return cellDate >= start && cellDate <= adjustedEnd;
+        }
+        
+        return true;
+      });
     });
   }
 
