@@ -85,7 +85,8 @@ const getUsageForCell = (uri: string, secretName: string) => {
   const key = `${uri}_${secretName}`.toLowerCase();
   const d = usageStore.usageData[key];
   if (!d) return null;
-  const ms = new Date(d).getTime();
+  const dateStr = d.endsWith('Z') ? d : d + 'Z';
+  const ms = new Date(dateStr).getTime();
   const fullDate = new Date(ms).toLocaleDateString() + ' ' + new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return { text: getRelativeTime(ms), fullDate };
 };

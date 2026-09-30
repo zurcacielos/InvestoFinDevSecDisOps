@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useFilterStore } from '../stores/filterStore'
+import { useUsageStore } from '../stores/usageStore'
+
 const props = defineProps<{
   modelValue: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs'
   stagedCount?: number
@@ -12,7 +15,8 @@ const setTab = (tab: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' |
   emit('update:modelValue', tab)
 }
 
-
+const filterStore = useFilterStore()
+const usageStore = useUsageStore()
 </script>
 
 <template>
@@ -40,17 +44,19 @@ const setTab = (tab: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' |
           </button>
           <button 
             @click="setTab('analyze')"
-            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2"
+            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
             :class="modelValue === 'analyze' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
           >
             Analyze Data
+            <span v-if="filterStore.nameFilter.trim()" class="flex h-1.5 w-1.5 rounded-full bg-blue-500" title="Active Filter"></span>
           </button>
           <button 
             @click="setTab('usage')"
-            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2"
+            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
             :class="modelValue === 'usage' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
           >
             Usage Stats
+            <span v-if="usageStore.filterMode !== 'None'" class="flex h-1.5 w-1.5 rounded-full bg-amber-500" title="Active Filter"></span>
           </button>
           <button 
             @click="setTab('staged')"
@@ -68,10 +74,11 @@ const setTab = (tab: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' |
           </button>
           <button 
             @click="setTab('inspections')"
-            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2"
+            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
             :class="modelValue === 'inspections' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
           >
             Inspections Report
+            <span v-if="filterStore.inspectionFilter !== 'None'" class="flex h-1.5 w-1.5 rounded-full bg-rose-500" title="Active Filter"></span>
           </button>
           <button 
             @click="setTab('logs')"
