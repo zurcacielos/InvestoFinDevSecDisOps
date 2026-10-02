@@ -22,9 +22,10 @@ export interface UiSettings {
   statusFilter: 'Any' | '=' | '≠' | 'Missing';
   showReusedValues: boolean;
   showStagedOnly: boolean;
-  securityByRow: boolean;
-  securityByCol: boolean;
   showUsageColumn: boolean;
+  useGithubOrg: boolean;
+  githubOrg: string;
+  githubBaseUrl: string;
 }
 
 export const defaultUiSettings: UiSettings = {
@@ -37,7 +38,10 @@ export const defaultUiSettings: UiSettings = {
   showStagedOnly: false,
   securityByRow: false,
   securityByCol: false,
-  showUsageColumn: false
+  showUsageColumn: false,
+  useGithubOrg: false,
+  githubOrg: '',
+  githubBaseUrl: 'https://github.com'
 };
 
 export const identiconEmojis = [

@@ -22,7 +22,7 @@ const dataStore = useDataStore();
 const { vaultUris, knownSecretNames } = storeToRefs(dataStore);
 
 const uiStateStore = useUiStateStore();
-const { loadingCells } = storeToRefs(uiStateStore);
+const { loadingCells, currentTab } = storeToRefs(uiStateStore);
 
 const settingsStore = useSettingsStore();
 const { uiSettings } = storeToRefs(settingsStore);
@@ -99,6 +99,28 @@ const getValueColor = (colorIndex: number | undefined) => {
     case 4: return 'text-fuchsia-500';
     default: return 'text-slate-500';
   }
+};
+
+const codeColumns = [
+  { id: 'any', label: 'Any Place', icon: '🌍', query: (key: string) => `"${key}"` },
+  { id: 'pipelines', label: 'Pipelines', icon: '🚀', query: (key: string) => `"${key}" path:**/*azure-pipelines*.y*ml` },
+  { id: 'helm', label: 'Helm', icon: '☸️', query: (key: string) => `"${key}" path:**/*values*.yaml` },
+  { id: 'appsettings', label: 'Appsettings', icon: '⚙️', query: (key: string) => `"${key}" path:**/*appsettings*.json` },
+  { id: 'csharp_gen', label: 'C# (All)', icon: '🔷', query: (key: string) => `"${key}" language:csharp` },
+  { id: 'csharp_get', label: 'C# (.Get)', icon: '🎯', query: (key: string) => `"GetValue(\\"${key}\\")" language:csharp` }
+];
+
+const openGithubSearch = (key: string, columnId: string) => {
+  const col = codeColumns.find(c => c.id === columnId);
+  if (!col) return;
+  const org = uiSettings.value.useGithubOrg && uiSettings.value.githubOrg 
+    ? `org:${uiSettings.value.githubOrg} ` 
+    : '';
+  const query = org + col.query(key);
+  const encodedQuery = encodeURIComponent(query);
+  const baseUrl = uiSettings.value.githubBaseUrl || 'https://github.com';
+  const finalUrl = `${baseUrl.replace(/\/$/, '')}/search?q=${encodedQuery}&type=code`;
+  window.open(finalUrl, '_blank');
 };
 
 const getCellClasses = (statusObj: SecretValueStatus | undefined) => {
@@ -225,20 +247,30 @@ onUnmounted(() => {
               </div>
             </th>
 
-            <th v-for="uri in vaultUris" :key="uri" class="px-3 py-1.5 text-xs font-semibold tracking-wider bg-slate-50" :title="knownSecretNames[uri]?.errorMessage">
-              <div class="flex items-center justify-between">
-                <span :class="knownSecretNames[uri]?.errorMessage ? 'text-rose-600' : 'text-slate-900'">{{ getVaultName(uri) }}</span>
-                <button 
-                  @click="dataStore.fetchValuesForVault(uri)" 
-                  class="text-slate-400 hover:text-blue-600 transition-colors bg-white rounded-full p-1 shadow-sm border border-slate-200"
-                  title="Fetch values for this vault"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </button>
-              </div>
-            </th>
+            <template v-if="currentTab !== 'code'">
+              <th v-for="uri in vaultUris" :key="uri" class="px-3 py-1.5 text-xs font-semibold tracking-wider bg-slate-50" :title="knownSecretNames[uri]?.errorMessage">
+                <div class="flex items-center justify-between">
+                  <span :class="knownSecretNames[uri]?.errorMessage ? 'text-rose-600' : 'text-slate-900'">{{ getVaultName(uri) }}</span>
+                  <button 
+                    @click="dataStore.fetchValuesForVault(uri)" 
+                    class="text-slate-400 hover:text-blue-600 transition-colors bg-white rounded-full p-1 shadow-sm border border-slate-200"
+                    title="Fetch values for this vault"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+              </th>
+            </template>
+            <template v-else>
+              <th v-for="col in codeColumns" :key="col.id" class="px-3 py-1.5 text-xs font-semibold tracking-wider bg-slate-50 text-slate-700 text-center border-l border-slate-100">
+                <div class="flex items-center justify-center gap-1.5">
+                  <span>{{ col.icon }}</span>
+                  <span>{{ col.label }}</span>
+                </div>
+              </th>
+            </template>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -280,105 +312,127 @@ onUnmounted(() => {
               </div>
             </td>
 
-            <td 
-              v-for="uri in vaultUris" 
-              :key="uri"
-              class="px-2 py-1 text-xs border-r border-slate-100 bg-white group-hover:bg-slate-50 transition-colors relative focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400 group/cell cursor-cell"
-              tabindex="0"
-              @dblclick="row.vaultValues[uri]?.value && toggleHighlight(row.vaultValues[uri]?.value)"
-              @keydown.ctrl.c.prevent="handleCopy(uri, row.secretName, row.vaultValues[uri]?.value)"
-              @keydown.meta.c.prevent="handleCopy(uri, row.secretName, row.vaultValues[uri]?.value)"
-              @keydown.ctrl.v.prevent="handlePaste(uri, row.secretName, row.vaultValues[uri])"
-              @keydown.meta.v.prevent="handlePaste(uri, row.secretName, row.vaultValues[uri])"
-              :class="[getCellClasses(row.vaultValues[uri]), copiedCell?.uri === uri && copiedCell?.secretName === row.secretName ? '!outline-dashed !outline-2 !outline-blue-500 !outline-offset-[-2px] z-30' : '']"
-            >
-              <button 
-                v-if="row.vaultValues[uri]?.isStaged"
-                @click.stop="stagedStore.revertChange(uri, row.secretName)"
-                class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 bg-white shadow border border-slate-200 rounded p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 hover:border-amber-300 transition-all z-20"
-                title="Revert Change"
+            <template v-if="currentTab !== 'code'">
+              <td 
+                v-for="uri in vaultUris" 
+                :key="uri"
+                class="px-2 py-1 text-xs border-r border-slate-100 bg-white group-hover:bg-slate-50 transition-colors relative focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400 group/cell cursor-cell"
+                tabindex="0"
+                @dblclick="row.vaultValues[uri]?.value && toggleHighlight(row.vaultValues[uri]?.value)"
+                @keydown.ctrl.c.prevent="handleCopy(uri, row.secretName, row.vaultValues[uri]?.value)"
+                @keydown.meta.c.prevent="handleCopy(uri, row.secretName, row.vaultValues[uri]?.value)"
+                @keydown.ctrl.v.prevent="handlePaste(uri, row.secretName, row.vaultValues[uri])"
+                @keydown.meta.v.prevent="handlePaste(uri, row.secretName, row.vaultValues[uri])"
+                :class="[getCellClasses(row.vaultValues[uri]), copiedCell?.uri === uri && copiedCell?.secretName === row.secretName ? '!outline-dashed !outline-2 !outline-blue-500 !outline-offset-[-2px] z-30' : '']"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                </svg>
-              </button>
-              <div class="flex items-center justify-center gap-2">
                 <button 
-                  v-if="row.vaultValues[uri]?.status === 'Not Retrieved'" 
-                  @click.stop="dataStore.fetchValuesForVaultAndNames(uri, [row.secretName])" 
-                  class="text-slate-300 hover:text-blue-600 transition-colors hover:bg-slate-50 rounded-full p-1.5 border border-transparent hover:border-slate-200 mx-auto"
-                  :disabled="loadingCells[uri]?.[row.secretName]"
-                  :class="{'opacity-50 cursor-not-allowed': loadingCells[uri]?.[row.secretName]}"
-                  title="Fetch value"
+                  v-if="row.vaultValues[uri]?.isStaged"
+                  @click.stop="stagedStore.revertChange(uri, row.secretName)"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 bg-white shadow border border-slate-200 rounded p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 hover:border-amber-300 transition-all z-20"
+                  title="Revert Change"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                   </svg>
                 </button>
-                <span v-else-if="loadingCells[uri]?.[row.secretName] && !row.vaultValues[uri]?.value && row.vaultValues[uri]?.status !== 'Missing' && row.vaultValues[uri]?.status !== 'Error'" class="text-blue-500 italic text-sm font-medium flex items-center gap-1 mx-auto">
-                  <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                </span>
-                <span v-else-if="row.vaultValues[uri]?.status === 'Missing'" class="text-slate-300 font-bold mx-auto text-lg">
-                  -
-                </span>
-                <span v-else-if="row.vaultValues[uri]?.status === 'Forbidden'" class="text-red-600 font-bold text-sm bg-red-50 px-2 py-1 rounded cursor-help shadow-sm border border-red-200" :title="row.vaultValues[uri]?.errorMessage">
-                  [403 Forbidden]
-                </span>
-                <span v-else-if="row.vaultValues[uri]?.status === 'Error'" class="text-rose-500 italic text-sm font-medium">
-                  Error
-                </span>
-                <span v-else class="font-mono tracking-widest font-semibold flex items-center gap-2 px-1.5 py-0.5 rounded transition-all duration-200" :class="[uiSettings.colorMatchByRow ? getValueColor(row.vaultValues[uri]?.colorIndex) : '', {'bg-yellow-100 ring-2 ring-yellow-400 shadow-sm': highlightedValue === row.vaultValues[uri]?.value, 'opacity-40 grayscale': loadingCells[uri]?.[row.secretName]}]">
-                  <template v-if="visibleSecrets.has(row.secretName)">
-                    <span class="tracking-normal block max-w-[250px] overflow-x-auto align-bottom secret-scroll pb-0.5">{{ row.vaultValues[uri]?.value }}</span>
-                    <span 
-                      v-if="row.vaultValues[uri]?.identiconEmoji"  
-                      class="cursor-pointer hover:scale-125 transition-transform text-lg drop-shadow-sm ml-1"
-                      title="Value Identicon"
-                      @click.stop="toggleHighlight(row.vaultValues[uri]?.value)"
-                    >
-                      {{ row.vaultValues[uri]?.identiconEmoji }}
-                    </span>
-                  </template>
-                  <template v-else>
-                    <span class="block max-w-[250px] overflow-x-auto align-bottom secret-scroll pb-0.5">******</span>
-                    <span 
-                      v-if="row.vaultValues[uri]?.identiconEmoji" 
-                      class="cursor-pointer hover:scale-125 transition-transform text-lg drop-shadow-sm ml-1"
-                      title="Value Identicon"
-                      @click.stop="toggleHighlight(row.vaultValues[uri]?.value)"
-                    >
-                      {{ row.vaultValues[uri]?.identiconEmoji }}
-                    </span>
-                  </template>
-                  
-                  <span 
-                    v-if="row.vaultValues[uri]?.inspections?.length"
-                    class="ml-1.5 cursor-help flex items-center justify-center rounded-full transition-transform hover:scale-110 drop-shadow-sm w-5 h-5 ring-1 bg-black ring-green-400 shrink-0"
-                    :class="{
-                      'text-[#00FFFF]': row.vaultValues[uri]?.highestSeverity === 'Low',
-                      'text-[#FFFF00]': row.vaultValues[uri]?.highestSeverity === 'Medium',
-                      'text-[#FF8800]': row.vaultValues[uri]?.highestSeverity === 'High',
-                      'text-[#FF0000]': row.vaultValues[uri]?.highestSeverity === 'Critical'
-                    }"
-                    :title="(row.vaultValues[uri]?.inspections || []).map(i => `• [${i.severity}] ${i.ruleName}: ${i.message}`).join('\n')"
+                <div class="flex items-center justify-center gap-2">
+                  <button 
+                    v-if="row.vaultValues[uri]?.status === 'Not Retrieved'" 
+                    @click.stop="dataStore.fetchValuesForVaultAndNames(uri, [row.secretName])" 
+                    class="text-slate-300 hover:text-blue-600 transition-colors hover:bg-slate-50 rounded-full p-1.5 border border-transparent hover:border-slate-200 mx-auto"
+                    :disabled="loadingCells[uri]?.[row.secretName]"
+                    :class="{'opacity-50 cursor-not-allowed': loadingCells[uri]?.[row.secretName]}"
+                    title="Fetch value"
                   >
-                    <span class="text-[11px] font-bold uppercase leading-none flex items-center justify-center h-full w-full pb-[1px]">
-                      {{ row.vaultValues[uri]?.highestSeverity?.substring(0, 1) }}
-                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                  <span v-else-if="loadingCells[uri]?.[row.secretName] && !row.vaultValues[uri]?.value && row.vaultValues[uri]?.status !== 'Missing' && row.vaultValues[uri]?.status !== 'Error'" class="text-blue-500 italic text-sm font-medium flex items-center gap-1 mx-auto">
+                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   </span>
-                  
-                  <svg v-if="loadingCells[uri]?.[row.secretName]" class="animate-spin h-3.5 w-3.5 text-blue-500 ml-1 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                </span>
-              </div>
-              
-              <div 
-                v-if="getUsageForCell(uri, row.secretName)"
-                class="absolute bottom-0 right-0 text-[10px] text-slate-500 font-medium bg-slate-100/80 px-1 py-0.5 rounded-tl-md border-t border-l border-slate-200 cursor-help backdrop-blur-sm"
-                :title="getUsageForCell(uri, row.secretName)?.fullDate"
+                  <span v-else-if="row.vaultValues[uri]?.status === 'Missing'" class="text-slate-300 font-bold mx-auto text-lg">
+                    -
+                  </span>
+                  <span v-else-if="row.vaultValues[uri]?.status === 'Forbidden'" class="text-red-600 font-bold text-sm bg-red-50 px-2 py-1 rounded cursor-help shadow-sm border border-red-200" :title="row.vaultValues[uri]?.errorMessage">
+                    [403 Forbidden]
+                  </span>
+                  <span v-else-if="row.vaultValues[uri]?.status === 'Error'" class="text-rose-500 italic text-sm font-medium">
+                    Error
+                  </span>
+                  <span v-else class="font-mono tracking-widest font-semibold flex items-center gap-2 px-1.5 py-0.5 rounded transition-all duration-200" :class="[uiSettings.colorMatchByRow ? getValueColor(row.vaultValues[uri]?.colorIndex) : '', {'bg-yellow-100 ring-2 ring-yellow-400 shadow-sm': highlightedValue === row.vaultValues[uri]?.value, 'opacity-40 grayscale': loadingCells[uri]?.[row.secretName]}]">
+                    <template v-if="visibleSecrets.has(row.secretName)">
+                      <span class="tracking-normal block max-w-[250px] overflow-x-auto align-bottom secret-scroll pb-0.5">{{ row.vaultValues[uri]?.value }}</span>
+                      <span 
+                        v-if="row.vaultValues[uri]?.identiconEmoji"  
+                        class="cursor-pointer hover:scale-125 transition-transform text-lg drop-shadow-sm ml-1"
+                        title="Value Identicon"
+                        @click.stop="toggleHighlight(row.vaultValues[uri]?.value)"
+                      >
+                        {{ row.vaultValues[uri]?.identiconEmoji }}
+                      </span>
+                    </template>
+                    <template v-else>
+                      <span class="block max-w-[250px] overflow-x-auto align-bottom secret-scroll pb-0.5">******</span>
+                      <span 
+                        v-if="row.vaultValues[uri]?.identiconEmoji" 
+                        class="cursor-pointer hover:scale-125 transition-transform text-lg drop-shadow-sm ml-1"
+                        title="Value Identicon"
+                        @click.stop="toggleHighlight(row.vaultValues[uri]?.value)"
+                      >
+                        {{ row.vaultValues[uri]?.identiconEmoji }}
+                      </span>
+                    </template>
+                    
+                    <span 
+                      v-if="row.vaultValues[uri]?.inspections?.length"
+                      class="ml-1.5 cursor-help flex items-center justify-center rounded-full transition-transform hover:scale-110 drop-shadow-sm w-5 h-5 ring-1 bg-black ring-green-400 shrink-0"
+                      :class="{
+                        'text-[#00FFFF]': row.vaultValues[uri]?.highestSeverity === 'Low',
+                        'text-[#FFFF00]': row.vaultValues[uri]?.highestSeverity === 'Medium',
+                        'text-[#FF8800]': row.vaultValues[uri]?.highestSeverity === 'High',
+                        'text-[#FF0000]': row.vaultValues[uri]?.highestSeverity === 'Critical'
+                      }"
+                      :title="(row.vaultValues[uri]?.inspections || []).map(i => `• [${i.severity}] ${i.ruleName}: ${i.message}`).join('\n')"
+                    >
+                      <span class="text-[11px] font-bold uppercase leading-none flex items-center justify-center h-full w-full pb-[1px]">
+                        {{ row.vaultValues[uri]?.highestSeverity?.substring(0, 1) }}
+                      </span>
+                    </span>
+                    
+                    <svg v-if="loadingCells[uri]?.[row.secretName]" class="animate-spin h-3.5 w-3.5 text-blue-500 ml-1 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  </span>
+                </div>
+                
+                <div 
+                  v-if="getUsageForCell(uri, row.secretName)"
+                  class="absolute bottom-0 right-0 text-[10px] text-slate-500 font-medium bg-slate-100/80 px-1 py-0.5 rounded-tl-md border-t border-l border-slate-200 cursor-help backdrop-blur-sm"
+                  :title="getUsageForCell(uri, row.secretName)?.fullDate"
+                >
+                  {{ getUsageForCell(uri, row.secretName)?.text }}
+                </div>
+              </td>
+            </template>
+            <template v-else>
+              <td 
+                v-for="col in codeColumns" 
+                :key="col.id"
+                class="px-2 py-1 border-r border-slate-100 bg-white group-hover:bg-slate-50 transition-colors relative"
               >
-                {{ getUsageForCell(uri, row.secretName)?.text }}
-              </div>
-            </td>
+                <div class="flex items-center justify-center h-full w-full">
+                  <button 
+                    @click.stop="openGithubSearch(row.secretName, col.id)"
+                    class="text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 shadow-sm rounded-md px-2 py-1 flex items-center justify-center gap-1.5 transition-all opacity-40 group-hover:opacity-100 focus:opacity-100 outline-none focus:ring-2 focus:ring-blue-500"
+                    title="Search across GitHub"
+                  >
+                    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"></path></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </template>
           </tr>
         </tbody>
       </table>

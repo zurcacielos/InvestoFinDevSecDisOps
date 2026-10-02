@@ -48,6 +48,16 @@ const showRegexHelpDialog = ref(false);
 const showQueryModal = ref(false);
 const showGrantAccessModal = ref(false);
 
+const useGithubOrgInput = ref(settingsStore.uiSettings.useGithubOrg);
+const githubOrgInput = ref(settingsStore.uiSettings.githubOrg);
+const githubBaseUrlInput = ref(settingsStore.uiSettings.githubBaseUrl);
+const saveGithubSettings = () => {
+  settingsStore.uiSettings.useGithubOrg = useGithubOrgInput.value;
+  settingsStore.uiSettings.githubOrg = githubOrgInput.value;
+  settingsStore.uiSettings.githubBaseUrl = githubBaseUrlInput.value;
+  settingsStore.saveUiSettings();
+};
+
 const hasFetchedValues = computed(() => {
   return Object.values(vaultData.value).some(vault => 
     Object.values(vault).some(v => v.status !== 'Missing' && v.status !== 'Not Retrieved' && v.status !== 'Loading')
@@ -578,12 +588,36 @@ onMounted(async () => {
           </div>
         </div>
       </template>
+
+      <template #code>
+        <div class="flex flex-col w-full h-full min-h-[84px] px-2 py-1 relative">
+          <div class="flex items-center gap-6 pt-1">
+            <div class="flex items-center gap-2">
+              <label class="flex items-center gap-1.5 text-sm font-medium text-slate-600 cursor-pointer select-none hover:text-slate-800 transition-colors">
+                <input type="checkbox" v-model="useGithubOrgInput" @change="saveGithubSettings" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer border-slate-300" />
+                Organization:
+              </label>
+              <input type="text" v-model="githubOrgInput" @blur="saveGithubSettings" @keyup.enter="saveGithubSettings" :disabled="!useGithubOrgInput" :class="{'opacity-50 cursor-not-allowed': !useGithubOrgInput}" placeholder="e.g. microsoft" class="w-48 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-slate-600">Base URL:</span>
+              <input type="text" v-model="githubBaseUrlInput" @blur="saveGithubSettings" @keyup.enter="saveGithubSettings" placeholder="https://github.com" class="w-64 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
+            </div>
+          </div>
+          <div class="text-sm text-slate-500 mt-3 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Click the GitHub icon in any cell below to open a new tab and search for the key across your entire organization.
+          </div>
+        </div>
+      </template>
     </AppHeader>
 
     <!-- Main Content Layout -->
     <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-2 gap-2">
 
-      <div v-show="currentTab === 'select' || currentTab === 'analyze' || currentTab === 'usage'" class="w-full h-full flex flex-col gap-2 min-h-0">
+      <div v-show="currentTab === 'select' || currentTab === 'analyze' || currentTab === 'usage' || currentTab === 'code'" class="w-full h-full flex flex-col gap-2 min-h-0">
         <GridTable 
           :filteredResults="filteredResultsForGrid"
           :allSortedNamesLength="allSortedNames.length"

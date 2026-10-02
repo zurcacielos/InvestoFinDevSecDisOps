@@ -3,15 +3,15 @@ import { useFilterStore } from '../stores/filterStore'
 import { useUsageStore } from '../stores/usageStore'
 
 const props = defineProps<{
-  modelValue: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs'
+  modelValue: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code'
   stagedCount?: number
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs'): void
+  (e: 'update:modelValue', value: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code'): void
 }>()
 
-const setTab = (tab: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs') => {
+const setTab = (tab: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code') => {
   emit('update:modelValue', tab)
 }
 
@@ -57,6 +57,16 @@ const usageStore = useUsageStore()
           >
             Usage Stats
             <span v-if="usageStore.filterMode !== 'None'" class="flex h-1.5 w-1.5 rounded-full bg-amber-500" title="Active Filter"></span>
+          </button>
+          <button 
+            @click="setTab('code')"
+            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
+            :class="modelValue === 'code' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
+            Code
           </button>
           <button 
             @click="setTab('staged')"
@@ -107,6 +117,9 @@ const usageStore = useUsageStore()
       </div>
       <div v-show="modelValue === 'usage'">
         <slot name="usage"></slot>
+      </div>
+      <div v-show="modelValue === 'code'">
+        <slot name="code"></slot>
       </div>
       <div v-show="modelValue === 'staged'">
         <slot name="staged"></slot>
