@@ -195,7 +195,7 @@ const hideHistoryDropdown = () => {
             class="rounded border-amber-300 text-amber-600 disabled:cursor-not-allowed" 
             :disabled="stagedChanges.length === 0"
           /> 
-          Show Staged Only
+          Staged
         </label>
         <button @click="emit('clear-filters')" class="px-3 py-1.5 text-xs text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">Clear Filters</button>
       </div>
