@@ -274,9 +274,30 @@ const showAllHiddenColumns = () => {
   hideContextMenu();
 };
 
-const showAssociatedLibrary = (vaultName: string) => {
+const isLibraryVisible = (vaultName: string) => {
   const group = devopsDataStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
-  if (group) {
+  if (!group) return false;
+  return devopsDataStore.selectedGroupIds.includes(group.id) && !uiSettings.value.hiddenColumns.includes(group.id.toString());
+};
+
+const toggleAssociatedLibrary = (vaultName: string) => {
+  const group = devopsDataStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
+  if (!group) {
+    alert('No Variable Group found for this vault in the fetched libraries.');
+    return;
+  }
+  
+  const isCurrentlyVisible = isLibraryVisible(vaultName);
+  
+  if (isCurrentlyVisible) {
+    // Hide it
+    const strId = group.id.toString();
+    if (!uiSettings.value.hiddenColumns.includes(strId)) {
+      uiSettings.value.hiddenColumns.push(strId);
+      settingsStore.saveUiSettings();
+    }
+  } else {
+    // Show it
     if (!devopsDataStore.selectedGroupIds.includes(group.id)) {
       devopsDataStore.toggleGroupSelection(group.id);
     }
@@ -285,8 +306,6 @@ const showAssociatedLibrary = (vaultName: string) => {
       uiSettings.value.hiddenColumns = uiSettings.value.hiddenColumns.filter(id => id !== strId);
       settingsStore.saveUiSettings();
     }
-  } else {
-    alert('No Variable Group found for this vault in the fetched libraries.');
   }
 };
 
@@ -378,12 +397,13 @@ onUnmounted(() => {
                 <div v-else class="flex items-center justify-between">
                   <div class="flex items-center gap-1">
                     <span :class="knownSecretNames[col.id]?.errorMessage ? 'text-rose-600' : 'text-slate-900'">{{ col.name }}</span>
-                    <!-- Show Associated Library Button -->
+                    <!-- Toggle Associated Library Button -->
                     <button 
                       v-if="currentTab === 'devops'"
-                      @click="showAssociatedLibrary(col.name)"
-                      class="text-slate-400 hover:text-blue-600 transition-colors p-0.5 ml-1 flex items-center justify-center bg-white rounded shadow-sm border border-slate-200"
-                      title="Show Associated Library"
+                      @click="toggleAssociatedLibrary(col.name)"
+                      class="transition-colors p-0.5 ml-1 flex items-center justify-center rounded shadow-sm border"
+                      :class="isLibraryVisible(col.name) ? 'text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:text-blue-700' : 'text-slate-400 border-slate-200 bg-white hover:text-blue-600'"
+                      :title="isLibraryVisible(col.name) ? 'Hide Associated Library' : 'Show Associated Library'"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M0 8.899l2.247-2.966 8.405-3.416V.045l7.37 5.393L2.966 8.36v8.224L0 15.73zm24-4.45v14.652L18.247 24l-9.303-3.056V24l-5.978-7.416 15.057 1.798V5.438z" />
