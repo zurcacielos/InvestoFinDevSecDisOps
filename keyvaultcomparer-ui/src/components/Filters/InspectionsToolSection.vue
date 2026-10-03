@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
+
 import { useFilterStore } from '../../stores/filterStore';
-import { useSettingsStore } from '../../stores/settingsStore';
-import { useStagedStore } from '../../stores/stagedStore';
 import { useDataStore } from '../../stores/dataStore';
 import { useUiStateStore } from '../../stores/uiStateStore';
 
@@ -23,11 +22,6 @@ const emit = defineEmits<{
 const filterStore = useFilterStore();
 const { inspectionFilter } = storeToRefs(filterStore);
 
-const settingsStore = useSettingsStore();
-const { uiSettings } = storeToRefs(settingsStore);
-
-const stagedStore = useStagedStore();
-const { stagedChanges } = storeToRefs(stagedStore);
 
 const dataStore = useDataStore();
 const { vaultUris } = storeToRefs(dataStore);
@@ -80,18 +74,6 @@ const { globalLoadingValues: loadingValues } = storeToRefs(uiStateStore);
         <option value="Low">{{ hasInspectionsRun ? `Low (${inspectionCounts.Low})` : 'Low' }}</option>
       </select>
 
-      <label 
-        class="flex items-center gap-1 text-xs text-amber-700 font-medium bg-amber-50 px-2 py-1.5 rounded border border-amber-200 transition-opacity"
-        :class="stagedChanges.length === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-amber-100'"
-      >
-        <input 
-          type="checkbox" 
-          v-model="uiSettings.showStagedOnly" 
-          class="rounded border-amber-300 text-amber-600 disabled:cursor-not-allowed" 
-          :disabled="stagedChanges.length === 0"
-        /> 
-        Staged
-      </label>
       <button @click="emit('clear-filters')" class="px-3 py-1.5 text-xs text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">Clear Filters</button>
     </div>
   </div>
