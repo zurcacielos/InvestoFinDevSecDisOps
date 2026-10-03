@@ -142,12 +142,17 @@ app.MapGet("/api/devops/variablegroups", async ([FromQuery] string organization,
         if (response.IsSuccessStatusCode)
         {
             var content = await response.Content.ReadAsStringAsync();
+            if (response.StatusCode == System.Net.HttpStatusCode.NonAuthoritativeInformation || content.TrimStart().StartsWith("<"))
+            {
+                return Results.BadRequest(new { error = "Authentication to Azure DevOps failed. The API returned a sign-in page.", details = "Please ensure your Azure AD token has access to this DevOps organization." });
+            }
             return Results.Content(content, "application/json");
         }
         else
         {
             var error = await response.Content.ReadAsStringAsync();
-            return Results.BadRequest(new { error = $"ADO API Error ({response.StatusCode})", details = error });
+            var details = error.TrimStart().StartsWith("<") ? "HTML Sign-In Page / Unauthorized" : error;
+            return Results.BadRequest(new { error = $"ADO API Error ({response.StatusCode})", details = details });
         }
     }
     catch (Exception ex)
