@@ -533,9 +533,9 @@ onMounted(async () => {
       <template #usage>
         <div class="flex flex-col w-full h-full min-h-[84px] px-2 py-1 relative">
           <!-- Main Content Row -->
-          <div class="flex items-start justify-between w-full flex-1 pt-1">
+          <div class="flex flex-col lg:flex-row items-start gap-6 lg:gap-8 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 flex-1 pt-1">
             <!-- Left side: Filters -->
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 lg:pr-2">
             <div class="flex items-center gap-2">
               <span class="text-sm font-medium text-slate-600 whitespace-nowrap">Filter by Usage:</span>
               <select v-model="usageStore.filterMode" class="text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors h-8">
@@ -565,7 +565,7 @@ onMounted(async () => {
           </div>
 
           <!-- Right side: Actions Sector -->
-          <div class="flex items-stretch gap-4 shrink-0 self-stretch">
+          <div class="flex items-stretch gap-6 shrink-0 self-stretch lg:pl-2">
             <div v-if="!usageStore.isAuditingEnabled" class="flex items-start pt-1">
               <div class="text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg text-sm font-medium border border-amber-200">
                 Audit logs missing for some vaults!
