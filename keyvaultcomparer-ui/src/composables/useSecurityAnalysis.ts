@@ -112,6 +112,18 @@ export function useSecurityAnalysis() {
 
   const results = computed<SecretComparisonRow[]>(() => {
     const filtered = filterStore.filteredNames;
+    const selectedGroups = devopsDataStore.selectedGroups; // Force reactivity tracking
+    
+    // Pre-compute case-insensitive maps for each selected group
+    const groupVariableMaps = selectedGroups.map(group => {
+      const lowerCaseVars = new Map<string, any>();
+      if (group.variables) {
+        for (const [k, v] of Object.entries(group.variables)) {
+          lowerCaseVars.set(k.toLowerCase(), v);
+        }
+      }
+      return { id: group.id, vars: lowerCaseVars };
+    });
     
     return filtered.slice(0, settingsStore.uiSettings.resultLimit > 0 ? settingsStore.uiSettings.resultLimit : undefined).map(name => {
       const row: SecretComparisonRow = {
@@ -121,9 +133,10 @@ export function useSecurityAnalysis() {
         globalStatus: 'Missing'
       };
       
-      devopsDataStore.selectedGroups.forEach(group => {
-        const variable = group.variables[name];
-        row.libraryValues![group.id] = variable || null;
+      const lowerName = name.toLowerCase();
+      groupVariableMaps.forEach(groupMap => {
+        const variable = groupMap.vars.get(lowerName);
+        row.libraryValues![groupMap.id] = variable || null;
       });
       
       dataStore.vaultUris.forEach(uri => {
