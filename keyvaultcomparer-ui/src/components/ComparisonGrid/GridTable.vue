@@ -117,7 +117,7 @@ const openGithubSearch = (key: string, columnId: string) => {
     ? `org:${uiSettings.value.githubOrg} ` 
     : '';
   const query = org + col.query(key);
-  const encodedQuery = encodeURIComponent(query);
+  const encodedQuery = encodeURIComponent(query).replace(/%20/g, '+');
   const baseUrl = uiSettings.value.githubBaseUrl || 'https://github.com';
   const finalUrl = `${baseUrl.replace(/\/$/, '')}/search?q=${encodedQuery}&type=code`;
   window.open(finalUrl, '_blank');
