@@ -43,6 +43,33 @@ const devopsDataStore = useDevopsDataStore();
 
 const { results, rowUsageCount, colUsageCount, vulnerableValuesMap } = useSecurityAnalysis();
 
+// DevOps Search State
+const devopsSearchQuery = ref('');
+const devopsShowDropdown = ref(false);
+
+const filteredVariableGroups = computed(() => {
+  const query = devopsSearchQuery.value.trim().toLowerCase();
+  let groups = devopsDataStore.variableGroups;
+  if (query) {
+    groups = groups.filter(g => {
+      const gName = g.name.toLowerCase();
+      const vName = (g.providerData?.vault || '').toLowerCase();
+      return gName.includes(query) || vName.includes(query);
+    });
+  }
+  return groups.filter(g => !devopsDataStore.selectedGroupIds.includes(g.id));
+});
+
+const selectVariableGroup = (groupId: number) => {
+  if (!devopsDataStore.selectedGroupIds.includes(groupId)) {
+    devopsDataStore.toggleGroupSelection(groupId);
+  }
+};
+
+const hideDevopsDropdown = () => {
+  setTimeout(() => { devopsShowDropdown.value = false; }, 200);
+};
+
 const uiStateStore = useUiStateStore();
 const { currentTab } = storeToRefs(uiStateStore);
 const showHelpDialog = ref(false);
@@ -643,20 +670,74 @@ onMounted(async () => {
             </div>
           </div>
           
-          <div class="mt-3 flex gap-2 flex-wrap" v-if="devopsDataStore.variableGroups.length > 0">
-            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider self-center mr-2">Libraries (Columns):</span>
-            <label 
-              v-for="group in devopsDataStore.variableGroups" 
-              :key="group.id"
-              class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border select-none"
-              :class="devopsDataStore.selectedGroupIds.includes(group.id) ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'"
-            >
-              <input type="checkbox" :checked="devopsDataStore.selectedGroupIds.includes(group.id)" @change="devopsDataStore.toggleGroupSelection(group.id)" class="hidden" />
-              <svg v-if="devopsDataStore.selectedGroupIds.includes(group.id)" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-              </svg>
-              {{ group.name }}
-            </label>
+          <div class="mt-3 flex gap-4 items-start" v-if="devopsDataStore.variableGroups.length > 0">
+            <div class="flex flex-col gap-1 w-72 shrink-0 relative">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Search Libraries:</span>
+              <div class="relative w-full">
+                <input 
+                  type="text"
+                  v-model="devopsSearchQuery"
+                  @focus="devopsShowDropdown = true"
+                  @blur="hideDevopsDropdown"
+                  @keydown.esc="devopsShowDropdown = false"
+                  placeholder="Search group or vault name..."
+                  class="w-full border border-slate-300 rounded-lg px-2 py-1 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div class="absolute right-2 inset-y-0 flex items-center pointer-events-none text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <ul 
+                  v-if="devopsShowDropdown && filteredVariableGroups.length > 0" 
+                  class="absolute z-50 w-full mt-1 bg-white border border-slate-200 shadow-lg max-h-60 rounded-md overflow-auto py-1 text-left"
+                >
+                  <li 
+                    v-for="group in filteredVariableGroups" 
+                    :key="group.id" 
+                    @mousedown.prevent="selectVariableGroup(group.id)"
+                    class="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm flex flex-col"
+                  >
+                    <span class="font-medium text-slate-800">{{ group.name }}</span>
+                    <span v-if="group.providerData?.vault" class="text-xs text-slate-500 font-mono mt-0.5">Vault: {{ group.providerData.vault }}</span>
+                  </li>
+                </ul>
+                <div 
+                  v-else-if="devopsShowDropdown && filteredVariableGroups.length === 0"
+                  class="absolute z-50 w-full mt-1 bg-white border border-slate-200 shadow-lg rounded-md p-3 text-sm text-slate-500 text-center"
+                >
+                  No matches found
+                </div>
+              </div>
+            </div>
+
+            <div class="flex-1 flex flex-col">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Selected Libraries (Columns):</span>
+              <div class="flex flex-wrap gap-2">
+                <div 
+                  v-for="group in devopsDataStore.selectedGroups" 
+                  :key="group.id"
+                  class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium bg-blue-50 border border-blue-200 text-blue-800 shadow-sm"
+                >
+                  <div class="flex flex-col max-w-[200px]">
+                    <span class="truncate" :title="group.name">{{ group.name }}</span>
+                    <span v-if="group.providerData?.vault" class="text-[10px] text-blue-500 font-mono truncate" :title="group.providerData.vault">Vault: {{ group.providerData.vault }}</span>
+                  </div>
+                  <button 
+                    @click="devopsDataStore.toggleGroupSelection(group.id)" 
+                    class="ml-1 text-blue-400 hover:text-rose-500 focus:outline-none transition-colors p-0.5"
+                    title="Remove column"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+                <div v-if="devopsDataStore.selectedGroups.length === 0" class="text-xs text-slate-400 py-1 italic">
+                  Search and select a library to add it as a column.
+                </div>
+              </div>
+            </div>
           </div>
           <div v-else-if="!devopsDataStore.isLoading" class="text-xs text-slate-400 mt-2">
             No libraries fetched yet.
