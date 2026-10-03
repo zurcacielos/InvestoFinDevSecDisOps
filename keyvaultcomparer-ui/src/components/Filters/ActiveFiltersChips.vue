@@ -124,4 +124,5 @@ const clearAllFilters = () => {
       Clear All Filters
     </button>
   </div>
+  <div v-else class="h-[24px]"></div>
 </template>
