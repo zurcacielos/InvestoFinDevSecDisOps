@@ -131,7 +131,7 @@ app.MapGet("/api/devops/variablegroups", async ([FromQuery] string organization,
     try
     {
         var tokenContext = new TokenRequestContext(new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" });
-        var token = await credential.GetTokenAsync(tokenContext);
+        var token = await credential.GetTokenAsync(tokenContext, default);
 
         using var client = new HttpClient();
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
