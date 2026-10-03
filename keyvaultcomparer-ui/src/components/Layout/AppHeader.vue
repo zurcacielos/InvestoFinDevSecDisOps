@@ -6,11 +6,11 @@ import { useStagedStore } from '../../stores/stagedStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 
 const props = defineProps<{
-  modelValue: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs';
+  modelValue: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops';
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs'): void;
+  (e: 'update:modelValue', value: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops'): void;
   (e: 'show-help'): void;
 }>();
 
@@ -23,7 +23,7 @@ const { stagedChanges } = storeToRefs(stagedStore);
 const settingsStore = useSettingsStore();
 const { uiSettings } = storeToRefs(settingsStore);
 
-const handleTabChange = (val: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs') => {
+const handleTabChange = (val: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops') => {
   emit('update:modelValue', val);
 };
 
@@ -134,6 +134,10 @@ const toggleDemoMode = () => {
 
       <template #code>
         <slot name="code"></slot>
+      </template>
+
+      <template #devops>
+        <slot name="devops"></slot>
       </template>
     </Ribbon>
   </div>

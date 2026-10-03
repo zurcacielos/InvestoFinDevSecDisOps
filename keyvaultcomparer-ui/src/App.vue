@@ -21,6 +21,7 @@ import { useUsageStore } from './stores/usageStore';
 import { useSecurityAnalysis } from './composables/useSecurityAnalysis';
 
 import { analyzeSecret, analyzeMetadata, type InspectionResult } from './inspections';
+import { apiFetch } from './services/apiClient';
 
 const authStore = useAuthStore();
 const { showAuthError } = storeToRefs(authStore);
@@ -398,6 +399,36 @@ const downloadInspectionsCSV = () => {
   URL.revokeObjectURL(url);
 };
 
+const adoOrg = ref(localStorage.getItem('adoOrg') || '');
+const adoProject = ref(localStorage.getItem('adoProject') || '');
+const adoResults = ref<any>(null);
+const adoLoading = ref(false);
+const adoError = ref('');
+
+const fetchAdoVariables = async () => {
+  if (!adoOrg.value || !adoProject.value) return;
+  
+  localStorage.setItem('adoOrg', adoOrg.value);
+  localStorage.setItem('adoProject', adoProject.value);
+  
+  adoLoading.value = true;
+  adoError.value = '';
+  adoResults.value = null;
+  
+  try {
+    const res = await apiFetch(`/api/devops/variablegroups?organization=${encodeURIComponent(adoOrg.value)}&project=${encodeURIComponent(adoProject.value)}`);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      throw new Error(errData?.error || errData?.details || 'Unknown ADO API error');
+    }
+    adoResults.value = await res.json();
+  } catch (err: any) {
+    adoError.value = err.message || 'Failed to fetch Variable Groups';
+  } finally {
+    adoLoading.value = false;
+  }
+};
+
 onMounted(async () => {
   await authStore.connectToAzure(); 
 });
@@ -743,6 +774,39 @@ onMounted(async () => {
         </svg>
         <h2 class="text-xl font-bold text-slate-700">Audit Logs</h2>
         <p class="mt-2 text-sm max-w-md text-center">Past synchronization events and errors will be listed here.</p>
+      </div>
+      <!-- DevOps Tab -->
+      <div v-if="currentTab === 'devops'" class="w-full h-full flex flex-col min-h-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 bg-slate-50 flex items-end gap-4 shrink-0">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">ADO Organization</label>
+            <input v-model="adoOrg" type="text" placeholder="e.g. contoso" class="px-3 py-1.5 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none w-48" @keyup.enter="fetchAdoVariables" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">ADO Project</label>
+            <input v-model="adoProject" type="text" placeholder="e.g. MyProject" class="px-3 py-1.5 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none w-48" @keyup.enter="fetchAdoVariables" />
+          </div>
+          <button 
+            @click="fetchAdoVariables" 
+            class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+            :disabled="adoLoading || !adoOrg || !adoProject"
+          >
+            {{ adoLoading ? 'Fetching...' : 'Test Connection' }}
+          </button>
+        </div>
+        
+        <div class="flex-1 overflow-auto p-4 bg-slate-50/50">
+          <div v-if="adoError" class="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-md mb-4 text-sm font-medium">
+            {{ adoError }}
+          </div>
+          <div v-if="adoResults" class="space-y-4">
+            <h3 class="font-bold text-slate-700">Found {{ adoResults.count || 0 }} Variable Groups</h3>
+            <pre class="bg-slate-900 text-green-400 p-4 rounded-lg text-xs font-mono overflow-auto">{{ JSON.stringify(adoResults.value, null, 2) }}</pre>
+          </div>
+          <div v-else-if="!adoLoading && !adoError" class="text-center py-20 text-slate-500">
+            <p class="text-sm">Enter your Azure DevOps Organization and Project name to test Variable Group fetching using your current az login credential.</p>
+          </div>
+        </div>
       </div>
     </main>
 

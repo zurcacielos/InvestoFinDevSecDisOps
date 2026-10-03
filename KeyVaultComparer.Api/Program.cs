@@ -126,4 +126,35 @@ app.MapGet("/api/subscriptions", async (KeyVaultManagementService service) =>
 })
 .WithName("GetSubscriptions");
 
+app.MapGet("/api/devops/variablegroups", async ([FromQuery] string organization, [FromQuery] string project, TokenCredential credential) =>
+{
+    try
+    {
+        var tokenContext = new TokenRequestContext(new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" });
+        var token = await credential.GetTokenAsync(tokenContext);
+
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
+        
+        var url = $"https://dev.azure.com/{organization}/{project}/_apis/distributedtask/variablegroups?api-version=7.1-preview.2";
+        var response = await client.GetAsync(url);
+        
+        if (response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            return Results.Content(content, "application/json");
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            return Results.BadRequest(new { error = $"ADO API Error ({response.StatusCode})", details = error });
+        }
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.WithName("GetAdoVariableGroups");
+
 app.Run();
