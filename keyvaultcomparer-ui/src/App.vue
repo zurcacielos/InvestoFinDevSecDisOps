@@ -7,6 +7,7 @@ import VaultSelector from './components/VaultManagement/VaultSelector.vue';
 import FilterSection from './components/Filters/FilterSection.vue';
 import InspectionsToolSection from './components/Filters/InspectionsToolSection.vue';
 import GridTable from './components/ComparisonGrid/GridTable.vue';
+import ActiveFiltersChips from './components/Filters/ActiveFiltersChips.vue';
 import AuthErrorModal from './components/Modals/AuthErrorModal.vue';
 import RegexHelpModal from './components/Modals/RegexHelpModal.vue';
 import QueryModal from './components/Modals/QueryModal.vue';
@@ -763,6 +764,9 @@ onMounted(async () => {
     </AppHeader>
 
     <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-2 gap-2">
+
+      <!-- Active Filters Chips -->
+      <ActiveFiltersChips />
 
       <div v-show="['select', 'analyze', 'inspections-tool', 'usage', 'code', 'devops'].includes(currentTab)" class="w-full h-full flex flex-col gap-2 min-h-0">
         <GridTable 
