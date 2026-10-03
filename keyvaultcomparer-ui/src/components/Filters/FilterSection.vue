@@ -40,9 +40,9 @@ const hideHistoryDropdown = () => {
 </script>
 
 <template>
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
+  <div class="flex flex-col lg:flex-row gap-6 lg:gap-8 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
     <!-- Section 2: Filter -->
-    <div class="lg:col-span-6 flex flex-col gap-3 lg:pr-4">
+    <div class="flex-1 flex flex-col gap-3 lg:pr-4">
       <div class="flex items-center gap-1.5">
         <div class="font-bold text-slate-800 text-sm">2. Filter/reduce name set to fetch less values</div>
       </div>
@@ -111,12 +111,12 @@ const hideHistoryDropdown = () => {
     </div>
 
     <!-- Section 3: Fetch -->
-    <div class="lg:col-span-6 flex flex-col gap-3 lg:px-4 pt-4 lg:pt-0">
+    <div class="lg:w-[320px] flex-shrink-0 flex flex-col gap-3 lg:px-4 pt-4 lg:pt-0">
       <div class="font-bold text-slate-800 text-sm">3. Fetch Values for Visible Rows</div>
       <button 
         @click="emit('fetch-comparison')" 
         :disabled="loadingValues || vaultUris.length === 0 || filteredResultsLength === 0"
-        class="w-full sm:w-auto px-8 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         <svg v-if="loadingValues" class="animate-spin -ml-1 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         <span v-else>Fetch Values ({{ filteredResultsLength }} of {{ allSortedNamesLength }})</span>
