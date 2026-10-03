@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia';
 import AppHeader from './components/Layout/AppHeader.vue';
 import VaultSelector from './components/VaultManagement/VaultSelector.vue';
 import FilterSection from './components/Filters/FilterSection.vue';
+import InspectionsToolSection from './components/Filters/InspectionsToolSection.vue';
 import GridTable from './components/ComparisonGrid/GridTable.vue';
 import AuthErrorModal from './components/Modals/AuthErrorModal.vue';
 import RegexHelpModal from './components/Modals/RegexHelpModal.vue';
@@ -447,11 +448,21 @@ onMounted(async () => {
           :hasInspectionsRun="hasInspectionsRun"
           :inspectionCounts="inspectionCounts"
           @fetch-comparison="dataStore.fetchComparison()"
+          @clear-filters="clearFilters"
+          @show-regex-help="showRegexHelpDialog = true"
+        />
+      </template>
+
+      <template #inspections-tool>
+        <InspectionsToolSection 
+          :hasFetchedValues="hasFetchedValues"
+          :filteredResultsLength="filteredResultsForGrid.length"
+          :hasInspectionsRun="hasInspectionsRun"
+          :inspectionCounts="inspectionCounts"
           @run-inspections="runInspectionsOnVisible"
           @clear-inspections="clearInspections"
           @show-report="currentTab = 'inspections'"
           @clear-filters="clearFilters"
-          @show-regex-help="showRegexHelpDialog = true"
         />
       </template>
 
@@ -751,10 +762,9 @@ onMounted(async () => {
       </template>
     </AppHeader>
 
-    <!-- Main Content Layout -->
     <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-2 gap-2">
 
-      <div v-show="['select', 'analyze', 'usage', 'code', 'devops'].includes(currentTab)" class="w-full h-full flex flex-col gap-2 min-h-0">
+      <div v-show="['select', 'analyze', 'inspections-tool', 'usage', 'code', 'devops'].includes(currentTab)" class="w-full h-full flex flex-col gap-2 min-h-0">
         <GridTable 
           :filteredResults="filteredResultsForGrid"
           :allSortedNamesLength="allSortedNames.length"
@@ -769,7 +779,7 @@ onMounted(async () => {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
           <h2 class="text-xl font-bold text-slate-700">No Staged Changes</h2>
-          <p class="mt-2 text-sm max-w-md text-center">Modifications made in the Analyze Data Grid, with Ctrl+C / Ctrl+V, to copy/paste values from one cell to another, will appear here for review before committing and applying them to Azure Key Vault.</p>
+          <p class="mt-2 text-sm max-w-md text-center">Modifications made in the Fetch Values Grid, with Ctrl+C / Ctrl+V, to copy/paste values from one cell to another, will appear here for review before committing and applying them to Azure Key Vault.</p>
         </div>
         <div v-else class="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div class="flex-1 overflow-auto">
@@ -828,7 +838,7 @@ onMounted(async () => {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <p class="text-base font-medium">No inspections have run yet.</p>
-            <p class="text-sm mt-1">Go to the Analyze Data tab, be sure you have fetched values and run inspections to view the report.</p>
+            <p class="text-sm mt-1">Go to the Inspections tab, run them, and view the report.</p>
           </div>
           <div v-else-if="filteredInspectionReportData.length === 0" class="text-center py-20 text-emerald-600">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-emerald-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

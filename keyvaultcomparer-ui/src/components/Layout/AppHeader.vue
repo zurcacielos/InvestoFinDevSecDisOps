@@ -6,11 +6,11 @@ import { useStagedStore } from '../../stores/stagedStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 
 const props = defineProps<{
-  modelValue: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops';
+  modelValue: 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops';
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops'): void;
+  (e: 'update:modelValue', value: 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops'): void;
   (e: 'show-help'): void;
 }>();
 
@@ -23,7 +23,7 @@ const { stagedChanges } = storeToRefs(stagedStore);
 const settingsStore = useSettingsStore();
 const { uiSettings } = storeToRefs(settingsStore);
 
-const handleTabChange = (val: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops') => {
+const handleTabChange = (val: 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops') => {
   emit('update:modelValue', val);
 };
 
@@ -118,6 +118,10 @@ const toggleDemoMode = () => {
       
       <template #analyze-data>
         <slot name="analyze-data"></slot>
+      </template>
+
+      <template #inspections-tool>
+        <slot name="inspections-tool"></slot>
       </template>
 
       <template #staged>

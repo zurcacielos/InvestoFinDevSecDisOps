@@ -3,15 +3,15 @@ import { useFilterStore } from '../stores/filterStore'
 import { useUsageStore } from '../stores/usageStore'
 
 const props = defineProps<{
-  modelValue: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops'
+  modelValue: 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops'
   stagedCount?: number
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops'): void
+  (e: 'update:modelValue', value: 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops'): void
 }>()
 
-const setTab = (tab: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops') => {
+const setTab = (tab: 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops') => {
   emit('update:modelValue', tab)
 }
 
@@ -47,8 +47,16 @@ const usageStore = useUsageStore()
             class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
             :class="modelValue === 'analyze' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
           >
-            Analyze Data
+            Fetch Values
             <span v-if="filterStore.nameFilter.trim()" class="flex h-1.5 w-1.5 rounded-full bg-blue-500" title="Active Filter"></span>
+          </button>
+          <button 
+            @click="setTab('inspections-tool')"
+            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
+            :class="modelValue === 'inspections-tool' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
+          >
+            Inspections
+            <span v-if="filterStore.inspectionFilter !== 'None'" class="flex h-1.5 w-1.5 rounded-full bg-rose-500" title="Active Filter"></span>
           </button>
           <button 
             @click="setTab('usage')"
