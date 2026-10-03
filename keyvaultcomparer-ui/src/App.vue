@@ -650,7 +650,7 @@ onMounted(async () => {
               <tbody class="text-sm divide-y divide-slate-100">
                 <tr v-for="(change, idx) in stagedChanges" :key="idx" class="hover:bg-slate-50 transition-colors">
                   <td class="px-3 py-1 text-xs font-medium text-slate-700">{{ getVaultName(change.vaultUri) }}</td>
-                  <td class="px-3 py-1 text-xs font-medium text-slate-900">{{ change.secretName }}</td>
+                  <td class="px-3 py-1 text-xs font-medium text-slate-900 transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}">{{ change.secretName }}</td>
                   <td class="px-3 py-1 text-xs">
                     <span 
                       class="px-2 py-1 rounded-md text-xs font-bold"
@@ -659,10 +659,10 @@ onMounted(async () => {
                       {{ change.type }}
                     </span>
                   </td>
-                  <td class="px-3 py-1 text-xs text-slate-500 font-mono text-xs max-w-xs truncate" :title="change.originalValue || ''">
+                  <td class="px-3 py-1 text-xs text-slate-500 font-mono text-xs max-w-xs truncate transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}" :title="change.originalValue || ''">
                     {{ change.originalValue || '(Missing)' }}
                   </td>
-                  <td class="px-3 py-1 text-xs font-mono text-xs max-w-xs truncate text-amber-600" :title="change.newValue">
+                  <td class="px-3 py-1 text-xs font-mono text-xs max-w-xs truncate text-amber-600 transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}" :title="change.newValue">
                     {{ change.newValue }}
                   </td>
                   <td class="px-3 py-1 text-xs text-right">

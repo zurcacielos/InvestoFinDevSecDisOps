@@ -299,7 +299,7 @@ onUnmounted(() => {
               :style="{ left: '58px', width: `${secretNameColumnWidth}px`, minWidth: `${secretNameColumnWidth}px`, maxWidth: `${secretNameColumnWidth}px` }"
             >
               <div class="flex items-center justify-between w-full h-full">
-                <span class="pr-2 line-clamp-2 break-all whitespace-normal" :title="row.secretName">{{ row.secretName }}</span>
+                <span class="pr-2 line-clamp-2 break-all whitespace-normal transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}" :title="row.secretName">{{ row.secretName }}</span>
                 <button 
                   @click="dataStore.fetchValuesForRow(row.secretName)"
                   class="fetch-btn text-slate-400 hover:text-blue-600 transition-colors bg-white rounded-full p-1.5 shadow-sm border border-slate-200 flex-shrink-0"
@@ -362,7 +362,7 @@ onUnmounted(() => {
                   </span>
                   <span v-else class="font-mono tracking-widest font-semibold flex items-center gap-2 px-1.5 py-0.5 rounded transition-all duration-200" :class="[uiSettings.colorMatchByRow ? getValueColor(row.vaultValues[uri]?.colorIndex) : '', {'bg-yellow-100 ring-2 ring-yellow-400 shadow-sm': highlightedValue === row.vaultValues[uri]?.value, 'opacity-40 grayscale': loadingCells[uri]?.[row.secretName]}]">
                     <template v-if="visibleSecrets.has(row.secretName)">
-                      <span class="tracking-normal block max-w-[250px] overflow-x-auto align-bottom secret-scroll pb-0.5">{{ row.vaultValues[uri]?.value }}</span>
+                      <span class="tracking-normal block max-w-[250px] overflow-x-auto align-bottom secret-scroll pb-0.5 transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}">{{ row.vaultValues[uri]?.value }}</span>
                       <span 
                         v-if="row.vaultValues[uri]?.identiconEmoji"  
                         class="cursor-pointer hover:scale-125 transition-transform text-lg drop-shadow-sm ml-1"

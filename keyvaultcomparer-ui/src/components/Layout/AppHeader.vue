@@ -3,6 +3,7 @@ import { storeToRefs } from 'pinia';
 import Ribbon from '../Ribbon.vue';
 import { useAuthStore } from '../../stores/authStore';
 import { useStagedStore } from '../../stores/stagedStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 const props = defineProps<{
   modelValue: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs';
@@ -19,8 +20,16 @@ const { globalError, profile } = storeToRefs(authStore);
 const stagedStore = useStagedStore();
 const { stagedChanges } = storeToRefs(stagedStore);
 
+const settingsStore = useSettingsStore();
+const { uiSettings } = storeToRefs(settingsStore);
+
 const handleTabChange = (val: 'select' | 'analyze' | 'usage' | 'staged' | 'inspections' | 'logs') => {
   emit('update:modelValue', val);
+};
+
+const toggleDemoMode = () => {
+  settingsStore.uiSettings.demoMode = !settingsStore.uiSettings.demoMode;
+  settingsStore.saveUiSettings();
 };
 </script>
 
@@ -53,6 +62,21 @@ const handleTabChange = (val: 'select' | 'analyze' | 'usage' | 'staged' | 'inspe
     <!-- Navigation Ribbon -->
     <Ribbon :modelValue="modelValue" @update:modelValue="handleTabChange" :stagedCount="stagedChanges.length">
       <template #actions-right>
+        <button 
+          @click="toggleDemoMode" 
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-md transition-colors"
+          :class="uiSettings.demoMode ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'"
+          title="Demo mode will blur important info"
+        >
+          <svg v-if="uiSettings.demoMode" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          Demo
+        </button>
+
         <button 
           @click="emit('show-help')" 
           class="px-3 py-1.5 text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-md transition-colors"
