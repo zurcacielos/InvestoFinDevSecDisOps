@@ -463,7 +463,6 @@ onMounted(async () => {
           @run-inspections="runInspectionsOnVisible"
           @clear-inspections="clearInspections"
           @show-report="currentTab = 'inspections'"
-          @clear-filters="clearFilters"
         />
       </template>
 

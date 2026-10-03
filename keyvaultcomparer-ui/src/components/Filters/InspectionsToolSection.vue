@@ -16,7 +16,6 @@ const emit = defineEmits<{
   (e: 'run-inspections'): void;
   (e: 'clear-inspections'): void;
   (e: 'show-report'): void;
-  (e: 'clear-filters'): void;
 }>();
 
 const filterStore = useFilterStore();
@@ -73,8 +72,6 @@ const { globalLoadingValues: loadingValues } = storeToRefs(uiStateStore);
         <option value="Medium">{{ hasInspectionsRun ? `Medium (${inspectionCounts.Medium})` : 'Medium' }}</option>
         <option value="Low">{{ hasInspectionsRun ? `Low (${inspectionCounts.Low})` : 'Low' }}</option>
       </select>
-
-      <button @click="emit('clear-filters')" class="px-3 py-1.5 text-xs text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">Clear Filters</button>
     </div>
   </div>
 </template>
