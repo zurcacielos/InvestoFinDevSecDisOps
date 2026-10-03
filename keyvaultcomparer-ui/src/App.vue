@@ -763,7 +763,7 @@ onMounted(async () => {
       </template>
     </AppHeader>
 
-    <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-2 gap-2">
+    <main class="flex-1 flex flex-col min-h-0 overflow-hidden px-2 pb-2 pt-[2px] gap-[2px]">
 
       <!-- Active Filters Chips -->
       <ActiveFiltersChips />

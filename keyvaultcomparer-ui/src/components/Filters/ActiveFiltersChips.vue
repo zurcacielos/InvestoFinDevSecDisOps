@@ -98,6 +98,7 @@ const clearAllFilters = () => {
 
 <template>
   <div v-if="activeFilters.length > 0" class="flex flex-wrap items-center gap-2 px-1">
+    <span class="text-xs font-medium text-slate-400">Filters:</span>
     <div 
       v-for="filter in activeFilters" 
       :key="filter.id"
