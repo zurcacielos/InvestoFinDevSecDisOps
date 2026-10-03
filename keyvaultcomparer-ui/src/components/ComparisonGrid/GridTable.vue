@@ -280,12 +280,13 @@ const isLibraryVisible = (vaultName: string) => {
   return devopsDataStore.selectedGroupIds.includes(group.id) && !uiSettings.value.hiddenColumns.includes(group.id.toString());
 };
 
+const hasAssociatedLibrary = (vaultName: string) => {
+  return devopsDataStore.variableGroups.some(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
+};
+
 const toggleAssociatedLibrary = (vaultName: string) => {
   const group = devopsDataStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
-  if (!group) {
-    alert('No Variable Group found for this vault in the fetched libraries.');
-    return;
-  }
+  if (!group) return;
   
   const isCurrentlyVisible = isLibraryVisible(vaultName);
   
@@ -399,7 +400,7 @@ onUnmounted(() => {
                     <span :class="knownSecretNames[col.id]?.errorMessage ? 'text-rose-600' : 'text-slate-900'">{{ col.name }}</span>
                     <!-- Toggle Associated Library Button -->
                     <button 
-                      v-if="currentTab === 'devops'"
+                      v-if="currentTab === 'devops' && hasAssociatedLibrary(col.name)"
                       @click="toggleAssociatedLibrary(col.name)"
                       class="transition-colors p-0.5 ml-1 flex items-center justify-center rounded shadow-sm border"
                       :class="isLibraryVisible(col.name) ? 'text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:text-blue-700' : 'text-slate-400 border-slate-200 bg-white hover:text-blue-600'"
