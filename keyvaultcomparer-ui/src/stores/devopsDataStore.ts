@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { apiFetch } from '../services/apiClient';
 
 export interface AdoVariableGroup {
   id: number;
@@ -32,11 +33,11 @@ export const useDevopsDataStore = defineStore('devopsData', {
       this.variableGroups = [];
       
       try {
-        // Pointing to mock endpoint for now
-        const url = `http://localhost:8081/`; 
-        const res = await fetch(url);
+        const url = `/api/devops/variablegroups?organization=${encodeURIComponent(this.organization)}&project=${encodeURIComponent(this.project)}`;
+        const res = await apiFetch(url);
         if (!res.ok) {
-          throw new Error('Failed to fetch ADO variable groups');
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.error || errData?.details || 'Unknown ADO API error');
         }
         const data = await res.json();
         this.variableGroups = data.value || [];
