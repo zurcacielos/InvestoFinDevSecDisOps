@@ -20,7 +20,7 @@ const usageStore = useUsageStore()
 </script>
 
 <template>
-  <div class="bg-white rounded-b-xl shadow-sm border-b border-slate-200 flex flex-col shrink-0 relative z-30 mb-4">
+  <div class="bg-white rounded-b-xl shadow-sm border-b border-slate-200 flex flex-col shrink-0 relative z-30">
     <!-- Ribbon Tabs and Header -->
     <div class="flex items-center justify-between px-2 pt-1 bg-slate-50 border-b border-slate-200">
       
