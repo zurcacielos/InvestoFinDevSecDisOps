@@ -39,11 +39,11 @@ const { globalLoadingValues: loadingValues } = storeToRefs(uiStateStore);
 <template>
   <div class="flex flex-col gap-3">
     <div class="font-bold text-slate-800 text-sm">4. Analyze & Inspect</div>
-    <div class="flex items-center gap-2 w-full lg:max-w-xl">
+    <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap">
       <button 
         v-if="hasInspectionsRun"
         @click="emit('clear-inspections')" 
-        class="flex-[0.8] py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-semibold shadow-sm transition-colors flex items-center justify-center gap-2"
+        class="w-full sm:w-auto px-6 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-semibold shadow-sm transition-colors flex items-center justify-center gap-2"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         Clear Inspections
@@ -52,7 +52,7 @@ const { globalLoadingValues: loadingValues } = storeToRefs(uiStateStore);
         v-else
         @click="emit('run-inspections')" 
         :disabled="loadingValues || vaultUris.length === 0 || filteredResultsLength === 0 || !hasFetchedValues"
-        class="flex-[0.8] py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        class="w-full sm:w-auto px-8 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         Run Inspections
@@ -61,7 +61,7 @@ const { globalLoadingValues: loadingValues } = storeToRefs(uiStateStore);
       <button 
         @click="emit('show-report')" 
         :disabled="!hasInspectionsRun"
-        class="flex-[0.5] py-1.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:border-slate-200 disabled:text-slate-400 flex items-center justify-center gap-2"
+        class="w-full sm:w-auto px-6 py-1.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:border-slate-200 disabled:text-slate-400 flex items-center justify-center gap-2"
       >
         See Report
       </button>
