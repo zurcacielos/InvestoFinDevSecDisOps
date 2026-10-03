@@ -29,6 +29,8 @@ export interface UiSettings {
   githubOrg: string;
   githubBaseUrl: string;
   demoMode: boolean;
+  hiddenColumns: string[];
+  groupDevOpsColumns: boolean;
 }
 
 export const defaultUiSettings: UiSettings = {
@@ -45,7 +47,9 @@ export const defaultUiSettings: UiSettings = {
   useGithubOrg: false,
   githubOrg: '',
   githubBaseUrl: 'https://github.com',
-  demoMode: false
+  demoMode: false,
+  hiddenColumns: [],
+  groupDevOpsColumns: true
 };
 
 export const identiconEmojis = [

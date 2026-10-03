@@ -668,6 +668,11 @@ onMounted(async () => {
             <div v-if="devopsDataStore.error" class="text-rose-500 text-xs font-semibold ml-2">
               {{ devopsDataStore.error }}
             </div>
+            
+            <label class="flex items-center gap-1.5 ml-auto text-sm font-medium text-slate-700 cursor-pointer select-none border border-slate-200 bg-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
+              <input type="checkbox" v-model="settingsStore.uiSettings.groupDevOpsColumns" @change="settingsStore.saveUiSettings()" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+              Group Library &amp; Vault Columns
+            </label>
           </div>
           
           <div class="mt-3 flex gap-4 items-start" v-if="devopsDataStore.variableGroups.length > 0">
