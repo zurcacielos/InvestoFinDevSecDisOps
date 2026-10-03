@@ -102,7 +102,7 @@ const clearAllFilters = () => {
     <div 
       v-for="filter in activeFilters" 
       :key="filter.id"
-      class="flex items-center gap-1 bg-slate-100 rounded text-xs font-medium text-slate-600 px-2 py-0.5"
+      class="flex items-center gap-1 bg-white rounded text-xs font-medium text-slate-600 px-2 py-0.5"
     >
       <span>{{ filter.label }}</span>
       <button 
