@@ -130,6 +130,9 @@ const usageStore = useUsageStore()
       <div v-show="modelValue === 'analyze'">
         <slot name="analyze-data"></slot>
       </div>
+      <div v-show="modelValue === 'inspections-tool'">
+        <slot name="inspections-tool"></slot>
+      </div>
       <div v-show="modelValue === 'usage'">
         <slot name="usage"></slot>
       </div>
