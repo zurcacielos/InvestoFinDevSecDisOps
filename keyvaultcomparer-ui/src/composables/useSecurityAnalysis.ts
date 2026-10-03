@@ -19,16 +19,19 @@ export interface SecretValueStatus {
 export interface SecretComparisonRow {
   secretName: string;
   vaultValues: Record<string, SecretValueStatus>;
+  libraryValues?: Record<number, any>;
   globalStatus: string;
 }
 
 import { useStagedStore } from '../stores/stagedStore';
+import { useDevopsDataStore } from '../stores/devopsDataStore';
 
 export function useSecurityAnalysis() {
   const dataStore = useDataStore();
   const settingsStore = useSettingsStore();
   const filterStore = useFilterStore();
   const stagedStore = useStagedStore();
+  const devopsDataStore = useDevopsDataStore();
 
   const vulnerableValuesMap = computed(() => {
     const valueMap = new Map<string, Set<string>>(); // value -> Set of secretNames
@@ -114,8 +117,14 @@ export function useSecurityAnalysis() {
       const row: SecretComparisonRow = {
         secretName: name,
         vaultValues: {},
+        libraryValues: {},
         globalStatus: 'Missing'
       };
+      
+      devopsDataStore.selectedGroups.forEach(group => {
+        const variable = group.variables[name];
+        row.libraryValues![group.id] = variable || null;
+      });
       
       dataStore.vaultUris.forEach(uri => {
         const knownNamesForVault = dataStore.knownSecretNames[uri]?.secrets || [];

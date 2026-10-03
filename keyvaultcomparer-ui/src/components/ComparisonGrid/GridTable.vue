@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useStagedStore } from '../../stores/stagedStore';
 import { useClipboardStore } from '../../stores/clipboardStore';
 import { useUsageStore } from '../../stores/usageStore';
+import { useDevopsDataStore } from '../../stores/devopsDataStore';
 import type { SecretComparisonRow, SecretValueStatus } from '../../composables/useSecurityAnalysis';
 
 const props = defineProps<{
@@ -33,6 +34,8 @@ const clipboardStore = useClipboardStore();
 const { copiedCell, internalClipboard } = storeToRefs(clipboardStore);
 
 const usageStore = useUsageStore();
+
+const devopsDataStore = useDevopsDataStore();
 
 const secretNameColumnWidth = ref(250);
 const isResizing = ref(false);
@@ -248,6 +251,15 @@ onUnmounted(() => {
             </th>
 
             <template v-if="currentTab !== 'code'">
+              <th v-for="group in devopsDataStore.selectedGroups" :key="group.id" class="px-3 py-1.5 text-xs font-semibold tracking-wider bg-blue-50 text-blue-900 border-r border-blue-100 shadow-[inset_0_1px_0_0_#dbeafe]">
+                <div class="flex items-center justify-center gap-1.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                  </svg>
+                  <span>{{ group.name }}</span>
+                </div>
+              </th>
+              
               <th v-for="uri in vaultUris" :key="uri" class="px-3 py-1.5 text-xs font-semibold tracking-wider bg-slate-50" :title="knownSecretNames[uri]?.errorMessage">
                 <div class="flex items-center justify-between">
                   <span :class="knownSecretNames[uri]?.errorMessage ? 'text-rose-600' : 'text-slate-900'">{{ getVaultName(uri) }}</span>
@@ -313,6 +325,26 @@ onUnmounted(() => {
             </td>
 
             <template v-if="currentTab !== 'code'">
+              <td 
+                v-for="group in devopsDataStore.selectedGroups" 
+                :key="group.id"
+                class="px-2 py-1 text-xs border-r border-blue-50/50 bg-blue-50/20 group-hover:bg-blue-50/40 transition-colors relative text-center"
+              >
+                <div v-if="row.libraryValues?.[group.id]" class="flex items-center justify-center gap-1 text-emerald-600 font-bold">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span v-if="row.libraryValues[group.id].enabled === false" class="text-amber-500 text-xs ml-1 flex items-center" title="Disabled in ADO">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </span>
+                </div>
+                <div v-else class="text-slate-300 font-bold text-lg">
+                  -
+                </div>
+              </td>
+              
               <td 
                 v-for="uri in vaultUris" 
                 :key="uri"

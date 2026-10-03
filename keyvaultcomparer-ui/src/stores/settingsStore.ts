@@ -22,6 +22,8 @@ export interface UiSettings {
   statusFilter: 'Any' | '=' | '≠' | 'Missing';
   showReusedValues: boolean;
   showStagedOnly: boolean;
+  securityByRow: boolean;
+  securityByCol: boolean;
   showUsageColumn: boolean;
   useGithubOrg: boolean;
   githubOrg: string;

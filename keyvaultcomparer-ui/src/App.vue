@@ -18,10 +18,10 @@ import { useFilterStore } from './stores/filterStore';
 import { useStagedStore } from './stores/stagedStore';
 import { useUiStateStore } from './stores/uiStateStore';
 import { useUsageStore } from './stores/usageStore';
+import { useDevopsDataStore } from './stores/devopsDataStore';
 import { useSecurityAnalysis } from './composables/useSecurityAnalysis';
 
 import { analyzeSecret, analyzeMetadata, type InspectionResult } from './inspections';
-import { apiFetch } from './services/apiClient';
 
 const authStore = useAuthStore();
 const { showAuthError } = storeToRefs(authStore);
@@ -39,6 +39,7 @@ const stagedStore = useStagedStore();
 const { stagedChanges } = storeToRefs(stagedStore);
 
 const usageStore = useUsageStore();
+const devopsDataStore = useDevopsDataStore();
 
 const { results, rowUsageCount, colUsageCount, vulnerableValuesMap } = useSecurityAnalysis();
 
@@ -399,36 +400,6 @@ const downloadInspectionsCSV = () => {
   URL.revokeObjectURL(url);
 };
 
-const adoOrg = ref(localStorage.getItem('adoOrg') || '');
-const adoProject = ref(localStorage.getItem('adoProject') || '');
-const adoResults = ref<any>(null);
-const adoLoading = ref(false);
-const adoError = ref('');
-
-const fetchAdoVariables = async () => {
-  if (!adoOrg.value || !adoProject.value) return;
-  
-  localStorage.setItem('adoOrg', adoOrg.value);
-  localStorage.setItem('adoProject', adoProject.value);
-  
-  adoLoading.value = true;
-  adoError.value = '';
-  adoResults.value = null;
-  
-  try {
-    const res = await apiFetch(`/api/devops/variablegroups?organization=${encodeURIComponent(adoOrg.value)}&project=${encodeURIComponent(adoProject.value)}`);
-    if (!res.ok) {
-      const errData = await res.json().catch(() => null);
-      throw new Error(errData?.error || errData?.details || 'Unknown ADO API error');
-    }
-    adoResults.value = await res.json();
-  } catch (err: any) {
-    adoError.value = err.message || 'Failed to fetch Variable Groups';
-  } finally {
-    adoLoading.value = false;
-  }
-};
-
 onMounted(async () => {
   await authStore.connectToAzure(); 
 });
@@ -643,12 +614,61 @@ onMounted(async () => {
           </div>
         </div>
       </template>
+
+      <template #devops>
+        <div class="flex flex-col w-full h-full min-h-[84px] px-2 py-1 relative">
+          <div class="flex items-center gap-4 pt-1 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-slate-600">Org:</span>
+              <input v-model="devopsDataStore.organization" @keyup.enter="devopsDataStore.fetchVariableGroups" type="text" placeholder="e.g. contoso" class="w-32 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-slate-600">Project:</span>
+              <input v-model="devopsDataStore.project" @keyup.enter="devopsDataStore.fetchVariableGroups" type="text" placeholder="e.g. MyProject" class="w-32 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
+            </div>
+            <button 
+              @click="devopsDataStore.fetchVariableGroups" 
+              class="px-4 py-1.5 font-medium text-sm rounded-lg transition-colors shadow-sm flex items-center gap-2"
+              :class="devopsDataStore.isLoading ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
+              :disabled="devopsDataStore.isLoading || !devopsDataStore.organization || !devopsDataStore.project"
+            >
+              <svg v-if="devopsDataStore.isLoading" class="animate-spin -ml-1 mr-1 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ devopsDataStore.isLoading ? 'Fetching...' : 'Fetch Libraries' }}
+            </button>
+            <div v-if="devopsDataStore.error" class="text-rose-500 text-xs font-semibold ml-2">
+              {{ devopsDataStore.error }}
+            </div>
+          </div>
+          
+          <div class="mt-3 flex gap-2 flex-wrap" v-if="devopsDataStore.variableGroups.length > 0">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider self-center mr-2">Libraries (Columns):</span>
+            <label 
+              v-for="group in devopsDataStore.variableGroups" 
+              :key="group.id"
+              class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border select-none"
+              :class="devopsDataStore.selectedGroupIds.includes(group.id) ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'"
+            >
+              <input type="checkbox" :checked="devopsDataStore.selectedGroupIds.includes(group.id)" @change="devopsDataStore.toggleGroupSelection(group.id)" class="hidden" />
+              <svg v-if="devopsDataStore.selectedGroupIds.includes(group.id)" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+              {{ group.name }}
+            </label>
+          </div>
+          <div v-else-if="!devopsDataStore.isLoading" class="text-xs text-slate-400 mt-2">
+            No libraries fetched yet.
+          </div>
+        </div>
+      </template>
     </AppHeader>
 
     <!-- Main Content Layout -->
     <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-2 gap-2">
 
-      <div v-show="currentTab === 'select' || currentTab === 'analyze' || currentTab === 'usage' || currentTab === 'code'" class="w-full h-full flex flex-col gap-2 min-h-0">
+      <div v-show="['select', 'analyze', 'usage', 'code', 'devops'].includes(currentTab)" class="w-full h-full flex flex-col gap-2 min-h-0">
         <GridTable 
           :filteredResults="filteredResultsForGrid"
           :allSortedNamesLength="allSortedNames.length"
@@ -774,39 +794,6 @@ onMounted(async () => {
         </svg>
         <h2 class="text-xl font-bold text-slate-700">Audit Logs</h2>
         <p class="mt-2 text-sm max-w-md text-center">Past synchronization events and errors will be listed here.</p>
-      </div>
-      <!-- DevOps Tab -->
-      <div v-if="currentTab === 'devops'" class="w-full h-full flex flex-col min-h-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="p-4 border-b border-slate-200 bg-slate-50 flex items-end gap-4 shrink-0">
-          <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1">ADO Organization</label>
-            <input v-model="adoOrg" type="text" placeholder="e.g. contoso" class="px-3 py-1.5 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none w-48" @keyup.enter="fetchAdoVariables" />
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1">ADO Project</label>
-            <input v-model="adoProject" type="text" placeholder="e.g. MyProject" class="px-3 py-1.5 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none w-48" @keyup.enter="fetchAdoVariables" />
-          </div>
-          <button 
-            @click="fetchAdoVariables" 
-            class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-            :disabled="adoLoading || !adoOrg || !adoProject"
-          >
-            {{ adoLoading ? 'Fetching...' : 'Test Connection' }}
-          </button>
-        </div>
-        
-        <div class="flex-1 overflow-auto p-4 bg-slate-50/50">
-          <div v-if="adoError" class="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-md mb-4 text-sm font-medium">
-            {{ adoError }}
-          </div>
-          <div v-if="adoResults" class="space-y-4">
-            <h3 class="font-bold text-slate-700">Found {{ adoResults.count || 0 }} Variable Groups</h3>
-            <pre class="bg-slate-900 text-green-400 p-4 rounded-lg text-xs font-mono overflow-auto">{{ JSON.stringify(adoResults.value, null, 2) }}</pre>
-          </div>
-          <div v-else-if="!adoLoading && !adoError" class="text-center py-20 text-slate-500">
-            <p class="text-sm">Enter your Azure DevOps Organization and Project name to test Variable Group fetching using your current az login credential.</p>
-          </div>
-        </div>
       </div>
     </main>
 
