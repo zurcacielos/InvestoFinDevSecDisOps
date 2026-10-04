@@ -72,10 +72,14 @@ const activeFilters = computed(() => {
 
   // Usage Filter
   if (usageStore.filterMode !== 'None') {
-    let label = `Usage: ${usageStore.filterMode}`;
-    if (usageStore.filterMode === 'UsedBetween') {
+    let label = '';
+    if (usageStore.filterMode === 'Unused') {
+      label = 'Usage: Unused in any vault';
+    } else if (usageStore.filterMode === 'UnusedAll') {
+      label = 'Usage: Unused in all vaults';
+    } else if (usageStore.filterMode === 'UsedBetween') {
       label = `Usage: ${usageStore.filterStartDate} to ${usageStore.filterEndDate}`;
-    } else if (usageStore.filterMode !== 'Unused') {
+    } else {
       label = `Usage: ${usageStore.filterMode} ${usageStore.filterValue} ${usageStore.filterUnit}`;
     }
     
@@ -97,7 +101,7 @@ const clearAllFilters = () => {
 </script>
 
 <template>
-  <div v-if="activeFilters.length > 0" class="flex flex-wrap items-center justify-end gap-2 px-1 my-[4px]">
+  <div v-if="activeFilters.length > 0" class="flex flex-wrap items-center justify-center gap-2 px-1 my-[4px]">
     <span class="text-xs font-medium text-slate-400">Filters:</span>
     <div 
       v-for="filter in activeFilters" 
@@ -121,7 +125,7 @@ const clearAllFilters = () => {
       @click="clearAllFilters"
       class="text-xs font-semibold text-slate-400 hover:text-rose-600 transition-colors focus:outline-none"
     >
-      Clear All Filters
+      Clear All
     </button>
   </div>
   <div v-else class="h-[20px]"></div>

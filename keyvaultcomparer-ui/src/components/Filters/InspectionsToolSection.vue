@@ -10,12 +10,13 @@ const props = defineProps<{
   filteredResultsLength: number;
   hasInspectionsRun: boolean;
   inspectionCounts: Record<string, number>;
+  isShowingReport: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'run-inspections'): void;
   (e: 'clear-inspections'): void;
-  (e: 'show-report'): void;
+  (e: 'toggle-report'): void;
 }>();
 
 const filterStore = useFilterStore();
@@ -30,7 +31,7 @@ const { globalLoadingValues: loadingValues } = storeToRefs(uiStateStore);
 </script>
 
 <template>
-  <div class="flex flex-col gap-3">
+  <div class="flex flex-col gap-3 h-full">
     <div class="font-bold text-slate-800 text-sm">4. Analyze & Inspect</div>
     <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap">
       <button 
@@ -52,18 +53,18 @@ const { globalLoadingValues: loadingValues } = storeToRefs(uiStateStore);
       </button>
 
       <button 
-        @click="emit('show-report')" 
+        @click="emit('toggle-report')" 
         :disabled="!hasInspectionsRun"
         class="w-full sm:w-auto px-6 py-1.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:border-slate-200 disabled:text-slate-400 flex items-center justify-center gap-2"
       >
-        See Report
+        {{ isShowingReport ? 'See Table' : 'See Report' }}
       </button>
     </div>
     <div class="flex flex-wrap items-center gap-3 mt-auto">
       <select 
         v-model="inspectionFilter"
-        :disabled="!hasInspectionsRun || inspectionCounts.Any === 0"
-        class="bg-white border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+        :disabled="!hasInspectionsRun || inspectionCounts.Any === 0 || isShowingReport"
+        class="bg-white border border-slate-300 rounded-lg pl-3 pr-8 h-8 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
       >
         <option value="None">All Secrets</option>
         <option value="Any">{{ hasInspectionsRun ? `Any warning (${inspectionCounts.Any})` : 'Any warning' }}</option>

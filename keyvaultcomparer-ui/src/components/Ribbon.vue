@@ -1,22 +1,20 @@
 <script setup lang="ts">
 import { useFilterStore } from '../stores/filterStore'
-import { useUsageStore } from '../stores/usageStore'
 
 const props = defineProps<{
-  modelValue: 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops'
+  modelValue: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops'
   stagedCount?: number
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops'): void
+  (e: 'update:modelValue', value: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops'): void
 }>()
 
-const setTab = (tab: 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops') => {
+const setTab = (tab: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops') => {
   emit('update:modelValue', tab)
 }
 
 const filterStore = useFilterStore()
-const usageStore = useUsageStore()
 </script>
 
 <template>
@@ -58,14 +56,7 @@ const usageStore = useUsageStore()
             Inspections
             <span v-if="filterStore.inspectionFilter !== 'None'" class="flex h-1.5 w-1.5 rounded-full bg-rose-500" title="Active Filter"></span>
           </button>
-          <button 
-            @click="setTab('usage')"
-            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
-            :class="modelValue === 'usage' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
-          >
-            Usage Stats
-            <span v-if="usageStore.filterMode !== 'None'" class="flex h-1.5 w-1.5 rounded-full bg-amber-500" title="Active Filter"></span>
-          </button>
+
           <button 
             @click="setTab('code')"
             class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
@@ -97,14 +88,7 @@ const usageStore = useUsageStore()
               {{ stagedCount }}
             </span>
           </button>
-          <button 
-            @click="setTab('inspections')"
-            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
-            :class="modelValue === 'inspections' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
-          >
-            Inspections Report
-            <span v-if="filterStore.inspectionFilter !== 'None'" class="flex h-1.5 w-1.5 rounded-full bg-rose-500" title="Active Filter"></span>
-          </button>
+
           <button 
             @click="setTab('logs')"
             class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2"
@@ -133,18 +117,14 @@ const usageStore = useUsageStore()
       <div v-show="modelValue === 'inspections-tool'">
         <slot name="inspections-tool"></slot>
       </div>
-      <div v-show="modelValue === 'usage'">
-        <slot name="usage"></slot>
-      </div>
+
       <div v-show="modelValue === 'code'">
         <slot name="code"></slot>
       </div>
       <div v-show="modelValue === 'staged'">
         <slot name="staged"></slot>
       </div>
-      <div v-show="modelValue === 'inspections'">
-        <slot name="inspections"></slot>
-      </div>
+
       <div v-show="modelValue === 'devops'">
         <slot name="devops"></slot>
       </div>

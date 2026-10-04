@@ -1,4 +1,4 @@
-export type UsageFilterMode = 'None' | 'Unused' | 'UsedInLast' | 'NotUsedInLast' | 'UsedBetween';
+export type UsageFilterMode = 'None' | 'Unused' | 'UnusedAll' | 'UsedInLast' | 'NotUsedInLast' | 'UsedBetween';
 export type UsageFilterUnit = 'days' | 'months' | 'years';
 
 import { defineStore } from 'pinia';

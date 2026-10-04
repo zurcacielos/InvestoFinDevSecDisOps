@@ -5,13 +5,13 @@ export const useUiStateStore = defineStore('uiState', {
     globalLoadingValues: false,
     fetchingVaults: {} as Record<string, boolean>,
     loadingCells: {} as Record<string, Record<string, boolean>>,
-    currentTab: 'select' as 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops',
+    currentTab: 'select' as 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops',
   }),
   actions: {
     setGlobalLoading(val: boolean) {
       this.globalLoadingValues = val;
     },
-    setCurrentTab(tab: 'select' | 'analyze' | 'inspections-tool' | 'usage' | 'staged' | 'inspections' | 'logs' | 'code' | 'devops') {
+    setCurrentTab(tab: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops') {
       this.currentTab = tab;
     },
     setVaultFetching(uri: string, isFetching: boolean) {

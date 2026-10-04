@@ -21,6 +21,7 @@ import { useStagedStore } from './stores/stagedStore';
 import { useUiStateStore } from './stores/uiStateStore';
 import { useUsageStore } from './stores/usageStore';
 import { useDevopsDataStore } from './stores/devopsDataStore';
+import { useInspectionStore } from './stores/inspectionStore';
 import { useSecurityAnalysis } from './composables/useSecurityAnalysis';
 
 import { analyzeSecret, analyzeMetadata, type InspectionResult } from './inspections';
@@ -42,6 +43,7 @@ const { stagedChanges } = storeToRefs(stagedStore);
 
 const usageStore = useUsageStore();
 const devopsDataStore = useDevopsDataStore();
+const inspectionStore = useInspectionStore();
 
 const { results, rowUsageCount, colUsageCount, vulnerableValuesMap } = useSecurityAnalysis();
 
@@ -96,86 +98,11 @@ const hasFetchedValues = computed(() => {
 });
 
 // Inspections
-const hasInspectionsRun = ref(false);
-const inspectionSeverities = ref({
-  Critical: true,
-  High: true,
-  Medium: true,
-  Low: true
-});
-
-const runInspectionsOnVisible = () => {
-  if (vaultUris.value.length === 0 || results.value.length === 0) return;
-
-  results.value.forEach(row => {
-    vaultUris.value.forEach(uri => {
-      const currentVal = row.vaultValues[uri];
-      if (currentVal && currentVal.status === 'Present' && currentVal.value) {
-        
-        // Value analysis
-        const valueAnalysis = analyzeSecret(
-          row.secretName,
-          currentVal.value
-        );
-
-        // Metadata analysis
-        const metaList = dataStore.knownSecretNames[uri]?.secrets;
-        const secretMeta = metaList?.find(m => m.name === row.secretName);
-        const metadataInspections = secretMeta ? analyzeMetadata(secretMeta) : [];
-
-        // Merge results
-        const allInspections: InspectionResult[] = [...valueAnalysis.inspections, ...metadataInspections];
-
-        const valLower = currentVal.value.toLowerCase();
-        if (vulnerableValuesMap.value.has(valLower)) {
-          const usages = vulnerableValuesMap.value.get(valLower);
-          allInspections.push({
-            ruleName: 'Reused Secret',
-            severity: 'High',
-            message: `Reused in ${usages?.length} secrets: ${usages?.join(', ')}. Click identical values to highlight occurrences.`
-          });
-        }
-
-        // Recalculate highest severity
-        let highestSeverity: 'Low' | 'Medium' | 'High' | 'Critical' | undefined = undefined;
-        let maxScore = 0;
-        const severityScore = { 'Low': 1, 'Medium': 2, 'High': 3, 'Critical': 4 };
-        for (const ins of allInspections) {
-          const score = severityScore[ins.severity];
-          if (score > maxScore) {
-            maxScore = score;
-            highestSeverity = ins.severity;
-          }
-        }
-
-        const d = vaultData.value[uri]?.[row.secretName];
-        if (d) {
-          d.inspections = allInspections;
-          d.highestSeverity = highestSeverity;
-        }
-      }
-    });
-  });
-  hasInspectionsRun.value = true;
-};
-
-const clearInspections = () => {
-  results.value.forEach(row => {
-    vaultUris.value.forEach(uri => {
-      const d = vaultData.value[uri]?.[row.secretName];
-      if (d) {
-        d.inspections = undefined;
-        d.highestSeverity = undefined;
-      }
-    });
-  });
-  hasInspectionsRun.value = false;
-  filterStore.setInspectionFilter('None');
-};
+const runInspections = () => inspectionStore.runInspectionsOnVisible(results.value, vulnerableValuesMap.value);
 
 const inspectionCounts = computed(() => {
   const counts = { Any: 0, Critical: 0, High: 0, Medium: 0, Low: 0 };
-  if (!hasInspectionsRun.value) return counts;
+  if (!inspectionStore.hasInspectionsRun) return counts;
 
   let baseRes = results.value;
   if (uiSettings.value.showStagedOnly) {
@@ -198,7 +125,7 @@ const inspectionCounts = computed(() => {
 
 const inspectionReportData = computed(() => {
   const report: Array<{vault: string, secret: string, rule: string, message: string, severity: 'Low'|'Medium'|'High'|'Critical'}> = [];
-  if (!hasInspectionsRun.value) return report;
+  if (!inspectionStore.hasInspectionsRun) return report;
   
   let baseRes = results.value;
   if (uiSettings.value.showStagedOnly) {
@@ -233,13 +160,13 @@ const inspectionReportData = computed(() => {
 });
 
 const filteredInspectionReportData = computed(() => {
-  return inspectionReportData.value.filter(f => inspectionSeverities.value[f.severity]);
+  return inspectionReportData.value.filter(f => inspectionStore.inspectionSeverities[f.severity]);
 });
 
 const filteredResultsForGrid = computed(() => {
   let base = results.value;
   
-  if (filterStore.inspectionFilter !== 'None' && hasInspectionsRun.value) {
+  if (filterStore.inspectionFilter !== 'None' && inspectionStore.hasInspectionsRun) {
     base = base.filter(row => {
       return vaultUris.value.some(uri => {
         const val = row.vaultValues[uri];
@@ -296,7 +223,25 @@ const filteredResultsForGrid = computed(() => {
 
   if (usageStore.filterMode !== 'None') {
     base = base.filter(row => {
+      if (usageStore.filterMode === 'UnusedAll') {
+        const presentVaults = vaultUris.value.filter(uri => {
+          const val = row.vaultValues[uri];
+          return val && val.status !== 'Missing' && val.status !== 'Not Retrieved';
+        });
+        
+        if (presentVaults.length === 0) return false;
+        
+        return presentVaults.every(uri => {
+          const key = `${uri}_${row.secretName}`.toLowerCase();
+          const d = usageStore.usageData[key];
+          return !d;
+        });
+      }
+
       return vaultUris.value.some(uri => {
+        const val = row.vaultValues[uri];
+        if (!val || val.status === 'Missing' || val.status === 'Not Retrieved') return false;
+
         const key = `${uri}_${row.secretName}`.toLowerCase();
         const d = usageStore.usageData[key];
         const cellDate = d ? new Date(d).getTime() : 0;
@@ -442,28 +387,170 @@ onMounted(async () => {
         <VaultSelector @grant-access="showGrantAccessModal = true" />
       </template>
       <template #analyze-data>
-        <FilterSection 
-          :hasFetchedValues="hasFetchedValues"
-          :filteredResultsLength="filteredResultsForGrid.length"
-          :allSortedNamesLength="allSortedNames.length"
-          :hasInspectionsRun="hasInspectionsRun"
-          :inspectionCounts="inspectionCounts"
-          @fetch-comparison="dataStore.fetchComparison()"
-          @clear-filters="clearFilters"
-          @show-regex-help="showRegexHelpDialog = true"
-        />
+        <div class="flex flex-col lg:flex-row h-full">
+          <FilterSection 
+            :hasFetchedValues="hasFetchedValues"
+            :filteredResultsLength="filteredResultsForGrid.length"
+            :allSortedNamesLength="allSortedNames.length"
+            :hasInspectionsRun="inspectionStore.hasInspectionsRun"
+            :inspectionCounts="inspectionCounts"
+            @fetch-comparison="dataStore.fetchComparison()"
+            @clear-filters="clearFilters"
+            @show-regex-help="showRegexHelpDialog = true"
+          />
+
+          <!-- Vertical Divider -->
+          <div class="hidden lg:block w-px bg-slate-200 self-stretch mx-6 lg:mx-8 shrink-0"></div>
+
+          <!-- Usage Stats Section (Merged) -->
+          <div class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 py-1 min-w-max">
+            <!-- Row 1, Col 1: Query Limit -->
+            <div class="flex items-center gap-2 whitespace-nowrap">
+              <span class="text-sm font-medium text-slate-600">Query Last:</span>
+              <input type="number" v-model="usageStore.queryLimitValue" min="1" class="w-16 text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
+              <select v-model="usageStore.queryLimitUnit" class="text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors h-8">
+                <option value="days">Days</option>
+                <option value="months">Months</option>
+                <option value="years">Years</option>
+              </select>
+            </div>
+
+            <!-- Row 1, Col 2: Fetch Button & Notifications -->
+            <div class="flex items-center gap-4 relative">
+              <button 
+                @click="usageStore.fetchUsageStats(vaultUris)" 
+                class="px-5 py-2 font-medium text-sm rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
+                :class="usageStore.isFetchingUsage ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
+                :disabled="usageStore.isFetchingUsage || vaultUris.length === 0"
+              >
+                <svg v-if="usageStore.isFetchingUsage" class="animate-spin -ml-1 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {{ usageStore.isFetchingUsage ? 'Querying Azure Monitor...' : 'Fetch Usage Stats' }}
+              </button>
+
+              <div v-if="!usageStore.isAuditingEnabled" class="flex items-center ml-auto pl-4">
+                <div class="text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg text-xs font-medium border border-amber-200">
+                  Audit logs missing
+                </div>
+                <button @click="usageStore.downloadAuditScript()" class="px-2.5 py-1 text-xs font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-1.5 shadow-sm transition-colors ml-2" title="Download PowerShell script to enable audit logs">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  Setup Script
+                </button>
+              </div>
+
+              <!-- Notifications -->
+              <div v-if="typeof usageStore.insightCount === 'number' && !usageStore.isFetchingUsage" class="text-sm font-medium text-slate-500 flex items-center gap-1.5 animate-fade-in pl-2">
+                <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                </svg>
+                Insights: <span class="text-emerald-600">{{ usageStore.insightCount }}</span>
+              </div>
+            </div>
+
+            <!-- Row 2, Col 1: Show Filter -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-slate-600 whitespace-nowrap">Show:</span>
+              <select v-model="usageStore.filterMode" class="text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors h-8">
+                <option value="None">All Secrets</option>
+                <option value="UnusedAll">Unused in all vaults</option>
+                <option value="Unused">Unused in any vault</option>
+                <option value="UsedInLast">Used in the last...</option>
+                <option value="NotUsedInLast">Not used in the last...</option>
+                <option value="UsedBetween">Used between...</option>
+              </select>
+
+              <!-- Dynamic Filter Controls -->
+              <div v-if="usageStore.filterMode === 'UsedInLast' || usageStore.filterMode === 'NotUsedInLast'" class="flex items-center gap-2 animate-fade-in">
+                <input type="number" v-model="usageStore.filterValue" min="1" class="w-16 text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
+                <select v-model="usageStore.filterUnit" class="text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors h-8">
+                  <option value="days">Days</option>
+                  <option value="months">Months</option>
+                  <option value="years">Years</option>
+                </select>
+              </div>
+              <div v-if="usageStore.filterMode === 'UsedBetween'" class="flex items-center gap-2 animate-fade-in">
+                <input type="date" v-model="usageStore.filterStartDate" class="text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
+                <span class="text-sm text-slate-500 font-medium">and</span>
+                <input type="date" v-model="usageStore.filterEndDate" class="text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
+              </div>
+            </div>
+
+            <!-- Row 2, Col 2: See Query -->
+            <div class="flex items-center">
+              <button @click="showQueryModal = true" class="text-xs font-medium text-slate-400 hover:text-blue-500 transition-colors flex items-center gap-1 whitespace-nowrap">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                See Query
+              </button>
+            </div>
+          </div>
+        </div>
       </template>
 
       <template #inspections-tool>
-        <InspectionsToolSection 
-          :hasFetchedValues="hasFetchedValues"
-          :filteredResultsLength="filteredResultsForGrid.length"
-          :hasInspectionsRun="hasInspectionsRun"
-          :inspectionCounts="inspectionCounts"
-          @run-inspections="runInspectionsOnVisible"
-          @clear-inspections="clearInspections"
-          @show-report="currentTab = 'inspections'"
-        />
+        <div class="flex items-start gap-8 h-full pb-1 px-1 -mx-1 overflow-x-auto">
+          <InspectionsToolSection 
+            :hasFetchedValues="hasFetchedValues"
+            :filteredResultsLength="filteredResultsForGrid.length"
+            :hasInspectionsRun="inspectionStore.hasInspectionsRun"
+            :inspectionCounts="inspectionCounts"
+            :isShowingReport="inspectionStore.showInspectionReport"
+            @run-inspections="runInspections"
+            @clear-inspections="inspectionStore.clearInspections()"
+            @toggle-report="inspectionStore.showInspectionReport = !inspectionStore.showInspectionReport"
+          />
+
+          <!-- Vertical Divider -->
+          <div class="w-px bg-slate-200 self-stretch my-2 shrink-0"></div>
+
+          <!-- Checkboxes and Actions from Inspection Report Tab -->
+          <div class="flex flex-col gap-3 h-full min-w-max">
+            <div class="font-bold text-slate-800 text-sm">Report Filters & Actions</div>
+            <div class="flex items-center gap-6 mt-auto pb-0.5">
+              <div class="flex items-center gap-4">
+                <span class="text-sm font-medium text-slate-700" :class="!inspectionStore.showInspectionReport ? 'opacity-50' : ''">Severity:</span>
+                <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 transition-colors" :class="inspectionStore.showInspectionReport ? 'cursor-pointer hover:text-rose-600' : 'opacity-50 cursor-not-allowed'">
+                  <input type="checkbox" v-model="inspectionStore.inspectionSeverities.Critical" :disabled="!inspectionStore.showInspectionReport" class="rounded text-rose-600 focus:ring-rose-500" :class="inspectionStore.showInspectionReport ? 'cursor-pointer' : 'cursor-not-allowed disabled:bg-slate-100 disabled:border-slate-300'" />
+                  Critical
+                </label>
+                <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 transition-colors" :class="inspectionStore.showInspectionReport ? 'cursor-pointer hover:text-orange-600' : 'opacity-50 cursor-not-allowed'">
+                  <input type="checkbox" v-model="inspectionStore.inspectionSeverities.High" :disabled="!inspectionStore.showInspectionReport" class="rounded text-orange-600 focus:ring-orange-500" :class="inspectionStore.showInspectionReport ? 'cursor-pointer' : 'cursor-not-allowed disabled:bg-slate-100 disabled:border-slate-300'" />
+                  High
+                </label>
+                <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 transition-colors" :class="inspectionStore.showInspectionReport ? 'cursor-pointer hover:text-amber-600' : 'opacity-50 cursor-not-allowed'">
+                  <input type="checkbox" v-model="inspectionStore.inspectionSeverities.Medium" :disabled="!inspectionStore.showInspectionReport" class="rounded text-amber-600 focus:ring-amber-500" :class="inspectionStore.showInspectionReport ? 'cursor-pointer' : 'cursor-not-allowed disabled:bg-slate-100 disabled:border-slate-300'" />
+                  Medium
+                </label>
+                <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 transition-colors" :class="inspectionStore.showInspectionReport ? 'cursor-pointer hover:text-slate-900' : 'opacity-50 cursor-not-allowed'">
+                  <input type="checkbox" v-model="inspectionStore.inspectionSeverities.Low" :disabled="!inspectionStore.showInspectionReport" class="rounded text-slate-600 focus:ring-slate-500" :class="inspectionStore.showInspectionReport ? 'cursor-pointer' : 'cursor-not-allowed disabled:bg-slate-100 disabled:border-slate-300'" />
+                  Low
+                </label>
+              </div>
+              <div class="flex items-center gap-2">
+                <button @click="copyInspectionsMarkdown" :disabled="!inspectionStore.showInspectionReport" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                  </svg>
+                  Copy Markdown
+                </button>
+                <button @click="downloadInspectionsCSV" :disabled="!inspectionStore.showInspectionReport" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download CSV
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </template>
 
       <template #staged>
@@ -492,142 +579,7 @@ onMounted(async () => {
         </div>
       </template>
 
-      <template #inspections>
-        <div class="flex items-center justify-center gap-12">
-          <div class="flex items-center gap-4">
-            <span class="text-sm font-medium text-slate-700">Severity:</span>
-            <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 cursor-pointer hover:text-rose-600 transition-colors">
-              <input type="checkbox" v-model="inspectionSeverities.Critical" class="rounded text-rose-600 focus:ring-rose-500 cursor-pointer" />
-              Critical
-            </label>
-            <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 cursor-pointer hover:text-orange-600 transition-colors">
-              <input type="checkbox" v-model="inspectionSeverities.High" class="rounded text-orange-600 focus:ring-orange-500 cursor-pointer" />
-              High
-            </label>
-            <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 cursor-pointer hover:text-amber-600 transition-colors">
-              <input type="checkbox" v-model="inspectionSeverities.Medium" class="rounded text-amber-600 focus:ring-amber-500 cursor-pointer" />
-              Medium
-            </label>
-            <label class="flex items-center gap-1.5 text-sm font-medium text-slate-700 cursor-pointer hover:text-slate-900 transition-colors">
-              <input type="checkbox" v-model="inspectionSeverities.Low" class="rounded text-slate-600 focus:ring-slate-500 cursor-pointer" />
-              Low
-            </label>
-          </div>
-          <div class="flex items-center gap-2">
-            <button @click="copyInspectionsMarkdown" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-              </svg>
-              Copy Markdown
-            </button>
-            <button @click="downloadInspectionsCSV" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Download CSV
-            </button>
-          </div>
-        </div>
-      </template>
 
-      <template #usage>
-        <div class="flex flex-col w-full h-full min-h-[84px] px-2 py-1 relative">
-          <!-- Main Content Row -->
-          <div class="flex flex-col lg:flex-row items-start gap-6 lg:gap-8 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 flex-1 pt-1">
-            <!-- Left side: Filters -->
-          <div class="flex items-center gap-3 lg:pr-2">
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-slate-600 whitespace-nowrap">Filter by Usage:</span>
-              <select v-model="usageStore.filterMode" class="text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors h-8">
-                <option value="None">All Secrets</option>
-                <option value="Unused">Unused (No usage stats)</option>
-                <option value="UsedInLast">Used in the last...</option>
-                <option value="NotUsedInLast">Not used in the last...</option>
-                <option value="UsedBetween">Used between...</option>
-              </select>
-            </div>
-
-            <!-- Dynamic Filter Controls -->
-            <div v-if="usageStore.filterMode === 'UsedInLast' || usageStore.filterMode === 'NotUsedInLast'" class="flex items-center gap-2 animate-fade-in">
-              <input type="number" v-model="usageStore.filterValue" min="1" class="w-16 text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
-              <select v-model="usageStore.filterUnit" class="text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors h-8">
-                <option value="days">Days</option>
-                <option value="months">Months</option>
-                <option value="years">Years</option>
-              </select>
-            </div>
-
-            <div v-if="usageStore.filterMode === 'UsedBetween'" class="flex items-center gap-2 animate-fade-in">
-              <input type="date" v-model="usageStore.filterStartDate" class="text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
-              <span class="text-sm text-slate-500 font-medium">and</span>
-              <input type="date" v-model="usageStore.filterEndDate" class="text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
-            </div>
-          </div>
-
-          <!-- Right side: Actions Sector -->
-          <div class="flex items-stretch gap-6 shrink-0 self-stretch lg:pl-2">
-            <div v-if="!usageStore.isAuditingEnabled" class="flex items-start pt-1">
-              <div class="text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg text-sm font-medium border border-amber-200">
-                Audit logs missing for some vaults!
-              </div>
-              <button @click="usageStore.downloadAuditScript()" class="px-3 py-1.5 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-colors ml-4" title="Download PowerShell script to enable audit logs">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                Setup Script
-              </button>
-            </div>
-
-            <!-- Query Limit Controls -->
-            <div class="flex items-start pt-1">
-              <div class="flex items-center gap-2 whitespace-nowrap">
-                <span class="text-sm font-medium text-slate-600">Query Last:</span>
-                <input type="number" v-model="usageStore.queryLimitValue" min="1" class="w-16 text-sm bg-slate-100 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 h-8" />
-                <select v-model="usageStore.queryLimitUnit" class="text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-md px-3 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors h-8">
-                  <option value="days">Days</option>
-                  <option value="months">Months</option>
-                  <option value="years">Years</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="flex flex-col items-center justify-between h-full pb-1">
-              <button 
-                @click="usageStore.fetchUsageStats(vaultUris)" 
-                class="px-4 py-1.5 font-medium text-sm rounded-lg transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap mt-1"
-                :class="usageStore.isFetchingUsage ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
-                :disabled="usageStore.isFetchingUsage || vaultUris.length === 0"
-              >
-                <svg v-if="usageStore.isFetchingUsage" class="animate-spin -ml-1 mr-2 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {{ usageStore.isFetchingUsage ? 'Querying Azure Monitor...' : 'Fetch Usage Stats' }}
-              </button>
-
-              <!-- Centered See Query Button (Natural Layout) -->
-              <button @click="showQueryModal = true" class="text-xs font-medium text-slate-400 hover:text-blue-500 transition-colors flex items-center gap-1 whitespace-nowrap">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                See Query
-              </button>
-            </div>
-          </div>
-          </div> <!-- End of Main Content Row -->
-
-          <!-- Bottom Center Text Notification -->
-          <div v-if="typeof usageStore.insightCount === 'number' && !usageStore.isFetchingUsage" class="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-sm font-medium text-slate-500 flex items-center gap-1.5 animate-fade-in">
-            <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-            </svg>
-            Insights retrieved: <span class="text-emerald-600">{{ usageStore.insightCount }}</span>
-          </div>
-        </div>
-      </template>
 
       <template #code>
         <div class="flex flex-col w-full h-full min-h-[84px] px-2 py-1 relative">
@@ -767,7 +719,7 @@ onMounted(async () => {
       <!-- Active Filters Chips -->
       <ActiveFiltersChips />
 
-      <div v-show="['select', 'analyze', 'inspections-tool', 'usage', 'code', 'devops'].includes(currentTab)" class="w-full h-full flex flex-col gap-2 min-h-0">
+      <div v-show="['select', 'analyze', 'usage', 'code', 'devops'].includes(currentTab) || (currentTab === 'inspections-tool' && !inspectionStore.showInspectionReport)" class="w-full h-full flex flex-col gap-2 min-h-0">
         <GridTable 
           :filteredResults="filteredResultsForGrid"
           :allSortedNamesLength="allSortedNames.length"
@@ -834,9 +786,9 @@ onMounted(async () => {
       </div>
 
       <!-- Inspections Report Tab -->
-      <div v-show="currentTab === 'inspections'" class="w-full h-full flex flex-col min-h-0 bg-white rounded-xl shadow-sm border border-slate-200">
+      <div v-show="currentTab === 'inspections-tool' && inspectionStore.showInspectionReport" class="w-full h-full flex flex-col min-h-0 bg-white rounded-xl shadow-sm border border-slate-200">
         <div class="flex-1 overflow-auto p-3 bg-slate-50/50">
-          <div v-if="!hasInspectionsRun" class="text-center py-20 text-slate-500">
+          <div v-if="!inspectionStore.hasInspectionsRun" class="text-center py-20 text-slate-500">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-slate-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
