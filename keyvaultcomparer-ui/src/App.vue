@@ -124,8 +124,8 @@ const openAzureVault = (group: import('./stores/devopsDataStore').AdoVariableGro
     // If we have the ID (e.g. /subscriptions/.../resourceGroups/.../providers/Microsoft.KeyVault/vaults/...)
     url = `https://portal.azure.com/#resource${vaultMeta.id}/overview`;
   } else {
-    // Fallback: If we don't have the data in state, redirect to general Key Vaults list without injecting a wrong tenant
-    url = `https://portal.azure.com/#view/HubsExtension/BrowseResourceBlade/resourceType/Microsoft.KeyVault%2Fvaults`;
+    // Fallback: If we don't have the data in state (e.g., ADO-only vault), use global search to find the specific vault
+    url = `https://portal.azure.com/#blade/HubsExtension/SearchResourceBlade/searchQuery/%22${encodeURIComponent(vaultName)}%22`;
   }
   
   console.log('Generated Azure Vault URL:', url);
