@@ -249,10 +249,24 @@ const visibleColumns = computed(() => {
 });
 
 const contextMenu = ref({ show: false, x: 0, y: 0, colId: '' });
+
+const handleContextMenuEsc = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') hideContextMenu();
+};
+
 const showContextMenu = (e: MouseEvent, colId: string | number) => {
   contextMenu.value = { show: true, x: e.clientX, y: e.clientY, colId: colId.toString() };
+  setTimeout(() => {
+    window.addEventListener('click', hideContextMenu);
+    window.addEventListener('keydown', handleContextMenuEsc);
+  }, 0);
 };
-const hideContextMenu = () => { contextMenu.value.show = false; };
+
+const hideContextMenu = () => { 
+  contextMenu.value.show = false;
+  window.removeEventListener('click', hideContextMenu);
+  window.removeEventListener('keydown', handleContextMenuEsc);
+};
 
 const hideColumn = (colId: string) => {
   if (!uiSettings.value.hiddenColumns.includes(colId)) {
@@ -387,10 +401,8 @@ onUnmounted(() => {
                 @contextmenu.prevent="showContextMenu($event, col.id)"
               >
                 <!-- Group Header -->
-                <div v-if="col.type === 'group'" class="flex items-center justify-center gap-1.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M0 8.899l2.247-2.966 8.405-3.416V.045l7.37 5.393L2.966 8.36v8.224L0 15.73zm24-4.45v14.652L18.247 24l-9.303-3.056V24l-5.978-7.416 15.057 1.798V5.438z" />
-                  </svg>
+                <div v-if="col.type === 'group'" class="flex items-center justify-center gap-1">
+                  <span class="text-blue-600 font-bold">lib:</span>
                   <span>{{ col.name }}</span>
                 </div>
                 
@@ -403,11 +415,13 @@ onUnmounted(() => {
                       v-if="currentTab === 'devops' && hasAssociatedLibrary(col.name)"
                       @click="toggleAssociatedLibrary(col.name)"
                       class="transition-colors p-0.5 ml-1 flex items-center justify-center rounded shadow-sm border"
-                      :class="isLibraryVisible(col.name) ? 'text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:text-blue-700' : 'text-slate-400 border-slate-200 bg-white hover:text-blue-600'"
+                      :class="!isLibraryVisible(col.name) ? 'text-blue-600 border-blue-300 bg-blue-50 hover:bg-blue-100 hover:text-blue-800' : 'text-slate-400 border-slate-200 bg-white hover:text-slate-600 hover:bg-slate-50'"
                       :title="isLibraryVisible(col.name) ? 'Hide Associated Library' : 'Show Associated Library'"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M0 8.899l2.247-2.966 8.405-3.416V.045l7.37 5.393L2.966 8.36v8.224L0 15.73zm24-4.45v14.652L18.247 24l-9.303-3.056V24l-5.978-7.416 15.057 1.798V5.438z" />
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="4" y="5" width="2" height="14" rx="0.5" />
+                        <rect x="11" y="5" width="2" height="14" rx="0.5" />
+                        <rect x="18" y="5" width="2" height="14" rx="0.5" transform="rotate(-15 19 12)" />
                       </svg>
                     </button>
                   </div>

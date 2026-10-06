@@ -6,6 +6,7 @@ export const useUiStateStore = defineStore('uiState', {
     fetchingVaults: {} as Record<string, boolean>,
     loadingCells: {} as Record<string, Record<string, boolean>>,
     currentTab: 'select' as 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops',
+    contextMenu: { show: false, x: 0, y: 0, colId: '' },
   }),
   actions: {
     setGlobalLoading(val: boolean) {
@@ -13,6 +14,12 @@ export const useUiStateStore = defineStore('uiState', {
     },
     setCurrentTab(tab: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops') {
       this.currentTab = tab;
+    },
+    showContextMenu(x: number, y: number, colId: string) {
+      this.contextMenu = { show: true, x, y, colId };
+    },
+    hideContextMenu() {
+      this.contextMenu.show = false;
     },
     setVaultFetching(uri: string, isFetching: boolean) {
       this.fetchingVaults = { ...this.fetchingVaults, [uri]: isFetching };

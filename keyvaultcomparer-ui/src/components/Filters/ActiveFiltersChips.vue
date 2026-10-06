@@ -101,7 +101,7 @@ const clearAllFilters = () => {
 </script>
 
 <template>
-  <div v-if="activeFilters.length > 0" class="flex flex-wrap items-center justify-center gap-2 px-1 my-[4px]">
+  <div v-if="activeFilters.length > 0" class="flex flex-wrap items-center justify-start gap-2 px-1">
     <span class="text-xs font-medium text-slate-400">Filters:</span>
     <div 
       v-for="filter in activeFilters" 
@@ -128,5 +128,4 @@ const clearAllFilters = () => {
       Clear All
     </button>
   </div>
-  <div v-else class="h-[20px]"></div>
 </template>

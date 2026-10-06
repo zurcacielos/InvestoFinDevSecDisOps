@@ -7,12 +7,13 @@ import VaultSelector from './components/VaultManagement/VaultSelector.vue';
 import FilterSection from './components/Filters/FilterSection.vue';
 import InspectionsToolSection from './components/Filters/InspectionsToolSection.vue';
 import GridTable from './components/ComparisonGrid/GridTable.vue';
-import ActiveFiltersChips from './components/Filters/ActiveFiltersChips.vue';
+import StatusBar from './components/UI/StatusBar.vue';
 import AuthErrorModal from './components/Modals/AuthErrorModal.vue';
 import RegexHelpModal from './components/Modals/RegexHelpModal.vue';
 import QueryModal from './components/Modals/QueryModal.vue';
 import HelpModal from './components/Modals/HelpModal.vue';
 import GrantAccessModal from './components/Modals/GrantAccessModal.vue';
+import InfoTooltip from './components/UI/InfoTooltip.vue';
 import { useAuthStore } from './stores/authStore';
 import { useDataStore } from './stores/dataStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -40,6 +41,16 @@ const { allSortedNames } = storeToRefs(filterStore);
 
 const stagedStore = useStagedStore();
 const { stagedChanges } = storeToRefs(stagedStore);
+
+const visibleStagedSecrets = ref(new Set<string>());
+const toggleStagedSecretVisibility = (vaultUri: string, secretName: string) => {
+  const key = `${vaultUri}-${secretName}`;
+  if (visibleStagedSecrets.value.has(key)) {
+    visibleStagedSecrets.value.delete(key);
+  } else {
+    visibleStagedSecrets.value.add(key);
+  }
+};
 
 const usageStore = useUsageStore();
 const devopsDataStore = useDevopsDataStore();
@@ -632,15 +643,29 @@ onMounted(async () => {
               {{ devopsDataStore.error }}
             </div>
             
-            <label class="flex items-center gap-1.5 ml-auto text-sm font-medium text-slate-700 cursor-pointer select-none border border-slate-200 bg-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
+            <label class="flex items-center gap-1.5 ml-auto text-sm font-medium text-slate-700 cursor-pointer select-none transition-colors hover:text-slate-900">
               <input type="checkbox" v-model="settingsStore.uiSettings.groupDevOpsColumns" @change="settingsStore.saveUiSettings()" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
               Group Library &amp; Vault Columns
             </label>
           </div>
           
-          <div class="mt-3 flex gap-4 items-start" v-if="devopsDataStore.variableGroups.length > 0">
+          <div class="mt-3 flex gap-4 items-center" v-if="devopsDataStore.variableGroups.length > 0">
             <div class="flex flex-col gap-1 w-72 shrink-0 relative">
-              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Search Libraries:</span>
+              <div class="flex items-center gap-1">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Search Libraries</span>
+                <InfoTooltip>
+                  <span class="leading-relaxed">
+                    Search and select a library to add it as a column, or click the
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 inline-block align-baseline mx-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="4" y="5" width="2" height="14" rx="0.5" />
+                      <rect x="11" y="5" width="2" height="14" rx="0.5" />
+                      <rect x="18" y="5" width="2" height="14" rx="0.5" transform="rotate(-15 19 12)" />
+                    </svg>
+                    icon on the vault headers which have an associated library, to show it.
+                  </span>
+                </InfoTooltip>
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">:</span>
+              </div>
               <div class="relative w-full">
                 <input 
                   type="text"
@@ -680,7 +705,6 @@ onMounted(async () => {
             </div>
 
             <div class="flex-1 flex flex-col">
-              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Selected Libraries (Columns):</span>
               <div class="flex flex-wrap gap-2">
                 <div 
                   v-for="group in devopsDataStore.selectedGroups" 
@@ -701,9 +725,6 @@ onMounted(async () => {
                     </svg>
                   </button>
                 </div>
-                <div v-if="devopsDataStore.selectedGroups.length === 0" class="text-xs text-slate-400 py-1 italic">
-                  Search and select a library to add it as a column.
-                </div>
               </div>
             </div>
           </div>
@@ -716,8 +737,8 @@ onMounted(async () => {
 
     <main class="flex-1 flex flex-col min-h-0 overflow-hidden px-2 pb-2 pt-0">
 
-      <!-- Active Filters Chips -->
-      <ActiveFiltersChips />
+      <!-- Status Bar (Filters & Inspections) -->
+      <StatusBar />
 
       <div v-show="['select', 'analyze', 'usage', 'code', 'devops'].includes(currentTab) || (currentTab === 'inspections-tool' && !inspectionStore.showInspectionReport)" class="w-full h-full flex flex-col gap-2 min-h-0">
         <GridTable 
@@ -738,19 +759,36 @@ onMounted(async () => {
         </div>
         <div v-else class="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div class="flex-1 overflow-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full text-left border-collapse table-fixed">
               <thead>
                 <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider sticky top-0 shadow-sm z-10">
-                  <th class="px-3 py-1.5 text-xs font-semibold bg-slate-50">Vault</th>
-                  <th class="px-3 py-1.5 text-xs font-semibold bg-slate-50">Secret Name</th>
-                  <th class="px-3 py-1.5 text-xs font-semibold bg-slate-50">Action</th>
+                  <th class="w-10 px-1 py-1.5 text-center font-semibold bg-slate-50 border-r border-slate-100"></th>
+                  <th class="w-[15%] px-3 py-1.5 text-xs font-semibold bg-slate-50">Vault</th>
+                  <th class="w-[25%] px-3 py-1.5 text-xs font-semibold bg-slate-50">Secret Name</th>
+                  <th class="w-24 px-3 py-1.5 text-xs font-semibold bg-slate-50">Action</th>
                   <th class="px-3 py-1.5 text-xs font-semibold bg-slate-50">Original Value</th>
                   <th class="px-3 py-1.5 text-xs font-semibold bg-slate-50">New Value</th>
-                  <th class="px-3 py-1.5 text-xs font-semibold bg-slate-50 text-right"></th>
+                  <th class="w-16 px-3 py-1.5 text-xs font-semibold bg-slate-50 text-right"></th>
                 </tr>
               </thead>
               <tbody class="text-sm divide-y divide-slate-100">
                 <tr v-for="(change, idx) in stagedChanges" :key="idx" class="hover:bg-slate-50 transition-colors">
+                  <td class="w-10 min-w-[30px] max-w-[30px] px-1 py-1.5 text-center border-r border-slate-100 bg-white group-hover:bg-slate-50 shadow-[1px_0_0_0_#f1f5f9]">
+                    <button 
+                      @click="toggleStagedSecretVisibility(change.vaultUri, change.secretName)"
+                      class="text-slate-400 hover:text-slate-700 focus:outline-none transition-colors"
+                      title="Show/hide secret"
+                    >
+                      <svg v-if="visibleStagedSecrets.has(`${change.vaultUri}-${change.secretName}`)" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mx-auto" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                        <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                      </svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mx-auto opacity-50" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clip-rule="evenodd" />
+                        <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                      </svg>
+                    </button>
+                  </td>
                   <td class="px-3 py-1 text-xs font-medium text-slate-700">{{ getVaultName(change.vaultUri) }}</td>
                   <td class="px-3 py-1 text-xs font-medium text-slate-900 transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}">{{ change.secretName }}</td>
                   <td class="px-3 py-1 text-xs">
@@ -761,11 +799,11 @@ onMounted(async () => {
                       {{ change.type }}
                     </span>
                   </td>
-                  <td class="px-3 py-1 text-xs text-slate-500 font-mono text-xs max-w-xs truncate transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}" :title="change.originalValue || ''">
-                    {{ change.originalValue || '(Missing)' }}
+                  <td class="px-3 py-1 text-xs text-slate-500 font-mono text-xs truncate transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}" :title="visibleStagedSecrets.has(`${change.vaultUri}-${change.secretName}`) ? (change.originalValue || '') : '********'">
+                    {{ visibleStagedSecrets.has(`${change.vaultUri}-${change.secretName}`) ? (change.originalValue || '(Missing)') : '********' }}
                   </td>
-                  <td class="px-3 py-1 text-xs font-mono text-xs max-w-xs truncate text-amber-600 transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}" :title="change.newValue">
-                    {{ change.newValue }}
+                  <td class="px-3 py-1 text-xs font-mono text-xs truncate text-amber-600 transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}" :title="visibleStagedSecrets.has(`${change.vaultUri}-${change.secretName}`) ? change.newValue : '********'">
+                    {{ visibleStagedSecrets.has(`${change.vaultUri}-${change.secretName}`) ? change.newValue : '********' }}
                   </td>
                   <td class="px-3 py-1 text-xs text-right">
                     <button 
