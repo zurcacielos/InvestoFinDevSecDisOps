@@ -116,13 +116,17 @@ const openAzureVault = (group: import('./stores/devopsDataStore').AdoVariableGro
   const vaultName = group?.providerData?.vault;
   if (!vaultName) return;
   
-  const sub = authStore.subscriptions?.find(s => s.name === authStore.profile?.subscriptionName) || authStore.subscriptions?.[0];
-  const tenantId = sub?.tenantId || authStore.profile?.email?.split('@')[1] || '';
+  // Buscar en la metadata si tenemos el ID completo (resourceGroup, etc.) para este vault
+  const vaultMeta = Object.values(dataStore.vaultMetadata || {}).find(m => m.name === vaultName);
   
-  // Como no es posible obtener el Resource Group desde la API de ADO de forma genérica,
-  // dirigimos al listado general de Key Vaults filtrado por el tenant activo.
-  const baseUrl = tenantId ? `https://portal.azure.com/#@${tenantId}` : `https://portal.azure.com`;
-  const url = `${baseUrl}/view/HubsExtension/BrowseResourceBlade/resourceType/Microsoft.KeyVault%2Fvaults`;
+  let url = '';
+  if (vaultMeta?.id) {
+    // Si tenemos el ID (ej: /subscriptions/.../resourceGroups/.../providers/Microsoft.KeyVault/vaults/...)
+    url = `https://portal.azure.com/#resource${vaultMeta.id}/overview`;
+  } else {
+    // Fallback: Si no tenemos la data en el estado, enviamos al listado general de Key Vaults sin inyectar un tenant erroneo
+    url = `https://portal.azure.com/#view/HubsExtension/BrowseResourceBlade/resourceType/Microsoft.KeyVault%2Fvaults`;
+  }
   
   window.open(url, '_blank');
   hideDevopsContextMenu();

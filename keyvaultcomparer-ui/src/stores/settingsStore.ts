@@ -139,12 +139,11 @@ export const useSettingsStore = defineStore('settings', {
     },
     syncUrl(vaultUris: string[], nameFilter: string) {
       try {
-        const payload = { u: this.uiSettings, v: vaultUris, f: nameFilter };
-        const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
         const newUrl = new URL(window.location.href);
-        newUrl.searchParams.set('s', encoded);
-        window.history.replaceState({}, '', newUrl);
-      } catch (e) { console.warn('Failed to sync URL', e); }
+        if (newUrl.search) {
+          window.history.replaceState({}, '', newUrl.pathname);
+        }
+      } catch (e) { console.warn('Failed to clear URL', e); }
     }
   }
 });

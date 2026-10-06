@@ -34,11 +34,17 @@ export const useDataStore = defineStore('data', {
       initialLastFetched = JSON.parse(localStorage.getItem('lastFetched') || '{}');
     } catch (e) {}
 
+    let initialVaultMetadata = {};
+    try {
+      initialVaultMetadata = JSON.parse(localStorage.getItem('vaultMetadata') || '{}');
+    } catch (e) {}
+
     return {
       vaultUris: initialUris,
       knownSecretNames: initialKnownSecretNames as Record<string, { secrets: SecretMetadata[], errorMessage?: string }>,
       vaultData: initialVaultData as Record<string, Record<string, any>>,
       lastFetched: initialLastFetched as Record<string, number>,
+      vaultMetadata: initialVaultMetadata as Record<string, { id?: string, name?: string, resourceGroup?: string, subscriptionId?: string }>,
     };
   },
   actions: {
@@ -63,14 +69,25 @@ export const useDataStore = defineStore('data', {
         console.warn('Failed to save vaultData to localStorage', e);
       }
     },
+    _saveVaultMetadata() {
+      try {
+        localStorage.setItem('vaultMetadata', JSON.stringify(this.vaultMetadata));
+      } catch (e) {
+        console.warn('Failed to save vaultMetadata to localStorage', e);
+      }
+    },
     setVaultUris(uris: string[]) {
       this.vaultUris = uris;
       this._saveVaultUris();
     },
-    addVaultUri(uri: string) {
+    addVaultUri(uri: string, metadata?: { id?: string, name?: string, resourceGroup?: string, subscriptionId?: string }) {
       if (!this.vaultUris.includes(uri)) {
         this.vaultUris.push(uri);
         this._saveVaultUris();
+      }
+      if (metadata) {
+        this.vaultMetadata[uri] = { ...this.vaultMetadata[uri], ...metadata };
+        this._saveVaultMetadata();
       }
     },
     removeVault(index: number) {

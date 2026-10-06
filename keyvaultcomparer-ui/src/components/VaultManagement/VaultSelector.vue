@@ -101,9 +101,14 @@ const searchVaults = async () => {
   }, 350);
 };
 
-const selectVault = (vault: { name: string; uri: string }) => {
+const selectVault = (vault: { name: string; uri: string; id?: string; resourceGroup?: string; }) => {
   if (!vaultUris.value.includes(vault.uri)) {
-    dataStore.addVaultUri(vault.uri);
+    dataStore.addVaultUri(vault.uri, {
+      id: vault.id,
+      name: vault.name,
+      resourceGroup: vault.resourceGroup,
+      subscriptionId: selectedSubscriptionId.value || undefined
+    });
     dataStore.fetchVaultKeys([vault.uri]);
   }
   // Do not clear search query or hide dropdown, so the user can continue selecting
