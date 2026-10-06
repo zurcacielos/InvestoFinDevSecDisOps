@@ -85,6 +85,46 @@ const hideDevopsDropdown = () => {
   setTimeout(() => { devopsShowDropdown.value = false; }, 200);
 };
 
+const devopsContextMenu = ref<{ show: boolean, x: number, y: number, group: import('./stores/devopsDataStore').AdoVariableGroup | null }>({ show: false, x: 0, y: 0, group: null });
+
+const hideDevopsContextMenu = () => {
+  devopsContextMenu.value.show = false;
+  window.removeEventListener('click', hideDevopsContextMenu);
+  window.removeEventListener('keydown', handleDevopsContextMenuEsc);
+};
+
+const handleDevopsContextMenuEsc = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') hideDevopsContextMenu();
+};
+
+const showDevopsContextMenu = (e: MouseEvent, group: import('./stores/devopsDataStore').AdoVariableGroup) => {
+  devopsContextMenu.value = { show: true, x: e.clientX, y: e.clientY, group };
+  setTimeout(() => {
+    window.addEventListener('click', hideDevopsContextMenu);
+    window.addEventListener('keydown', handleDevopsContextMenuEsc);
+  }, 0);
+};
+
+const openAdoLibrary = (group: import('./stores/devopsDataStore').AdoVariableGroup | null) => {
+  if (!group || !devopsDataStore.organization || !devopsDataStore.project) return;
+  const url = `https://dev.azure.com/${devopsDataStore.organization}/${devopsDataStore.project}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId=${group.id}`;
+  window.open(url, '_blank');
+  hideDevopsContextMenu();
+};
+
+const openAzureVault = (group: import('./stores/devopsDataStore').AdoVariableGroup | null) => {
+  const vaultName = group?.providerData?.vault;
+  if (!vaultName) return;
+  
+  // Direct deep linking to a specific resource requires Subscription ID and Resource Group.
+  // Since this data is not provided by the ADO API, we link to the Key Vaults list view
+  // and pass the vault name to the clipboard or rely on the user to click it.
+  const url = `https://portal.azure.com/#view/HubsExtension/BrowseResourceBlade/resourceType/Microsoft.KeyVault%2Fvaults`;
+  
+  window.open(url, '_blank');
+  hideDevopsContextMenu();
+};
+
 const uiStateStore = useUiStateStore();
 const { currentTab } = storeToRefs(uiStateStore);
 const showHelpDialog = ref(false);
@@ -704,19 +744,20 @@ onMounted(async () => {
               </div>
             </div>
 
-            <div class="flex-1 flex flex-col">
+            <div class="flex-1 flex flex-col relative" @click="hideDevopsContextMenu">
               <div class="flex flex-wrap gap-2">
                 <div 
                   v-for="group in devopsDataStore.selectedGroups" 
                   :key="group.id"
-                  class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium bg-blue-50 border border-blue-200 text-blue-800 shadow-sm"
+                  class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium bg-blue-50 border border-blue-200 text-blue-800 shadow-sm cursor-context-menu"
+                  @contextmenu.prevent.stop="showDevopsContextMenu($event, group)"
                 >
                   <div class="flex flex-col max-w-[200px]">
                     <span class="truncate" :title="group.name">{{ group.name }}</span>
                     <span v-if="group.providerData?.vault" class="text-[10px] text-blue-500 font-mono truncate" :title="group.providerData.vault">Vault: {{ group.providerData.vault }}</span>
                   </div>
                   <button 
-                    @click="devopsDataStore.toggleGroupSelection(group.id)" 
+                    @click.stop="devopsDataStore.toggleGroupSelection(group.id)" 
                     class="ml-1 text-blue-400 hover:text-rose-500 focus:outline-none transition-colors p-0.5"
                     title="Remove column"
                   >
@@ -726,6 +767,22 @@ onMounted(async () => {
                   </button>
                 </div>
               </div>
+
+              <!-- DevOps Context Menu -->
+              <div v-if="devopsContextMenu.show" 
+                   :style="{ top: `${devopsContextMenu.y}px`, left: `${devopsContextMenu.x}px` }"
+                   class="fixed z-50 bg-white border border-slate-200 shadow-xl rounded-md py-1 w-48 text-sm"
+                   @click.stop>
+                <button @click="openAdoLibrary(devopsContextMenu.group)" class="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                  Go to ADO Library
+                </button>
+                <button v-if="devopsContextMenu.group?.providerData?.vault" @click="openAzureVault(devopsContextMenu.group)" class="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                  Go to Azure Vault
+                </button>
+              </div>
+
             </div>
           </div>
           <div v-else-if="!devopsDataStore.isLoading" class="text-xs text-slate-400 mt-2">
