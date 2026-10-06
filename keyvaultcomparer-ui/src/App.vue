@@ -116,18 +116,19 @@ const openAzureVault = (group: import('./stores/devopsDataStore').AdoVariableGro
   const vaultName = group?.providerData?.vault;
   if (!vaultName) return;
   
-  // Buscar en la metadata si tenemos el ID completo (resourceGroup, etc.) para este vault
+  // Look up metadata to see if we have the full ID (resourceGroup, etc.) for this vault
   const vaultMeta = Object.values(dataStore.vaultMetadata || {}).find(m => m.name === vaultName);
   
   let url = '';
   if (vaultMeta?.id) {
-    // Si tenemos el ID (ej: /subscriptions/.../resourceGroups/.../providers/Microsoft.KeyVault/vaults/...)
+    // If we have the ID (e.g. /subscriptions/.../resourceGroups/.../providers/Microsoft.KeyVault/vaults/...)
     url = `https://portal.azure.com/#resource${vaultMeta.id}/overview`;
   } else {
-    // Fallback: Si no tenemos la data en el estado, enviamos al listado general de Key Vaults sin inyectar un tenant erroneo
+    // Fallback: If we don't have the data in state, redirect to general Key Vaults list without injecting a wrong tenant
     url = `https://portal.azure.com/#view/HubsExtension/BrowseResourceBlade/resourceType/Microsoft.KeyVault%2Fvaults`;
   }
   
+  console.log('Generated Azure Vault URL:', url);
   window.open(url, '_blank');
   hideDevopsContextMenu();
 };
