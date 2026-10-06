@@ -410,16 +410,14 @@ onUnmounted(() => {
                 <!-- Vault Header -->
                 <div v-else class="flex items-center justify-between">
                   <div class="flex items-center gap-1">
-                    <div class="flex flex-col items-center">
-                      <span :class="knownSecretNames[col.id]?.errorMessage ? 'text-rose-600' : 'text-slate-900'">{{ col.name }}</span>
-                      <button 
-                        v-if="knownSecretNames[col.id]?.errorMessage" 
-                        @click.stop="emit('grant-access')" 
-                        class="text-[10px] text-blue-600 underline hover:text-blue-800 text-center mt-0.5"
-                      >
-                        Grant Access
-                      </button>
-                    </div>
+                    <span :class="knownSecretNames[col.id]?.errorMessage ? 'text-rose-600' : 'text-slate-900'">{{ col.name }}</span>
+                    <button 
+                      v-if="knownSecretNames[col.id]?.errorMessage" 
+                      @click.stop="emit('grant-access')" 
+                      class="text-[10px] text-blue-600 underline hover:text-blue-800 ml-1 mt-0.5"
+                    >
+                      Grant Access
+                    </button>
                     <!-- Toggle Associated Library Button -->
                     <button 
                       v-if="currentTab === 'devops' && hasAssociatedLibrary(col.name)"

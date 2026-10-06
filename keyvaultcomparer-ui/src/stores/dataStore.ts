@@ -227,15 +227,21 @@ export const useDataStore = defineStore('data', {
           // If so, propagate this error to the vault header so the user sees a single clear message
           const forbiddenError = Object.values(data).find((v: any) => v.status === 'Forbidden' && v.errorMessage);
           if (forbiddenError) {
-             this.knownSecretNames[uri] = {
-               ...this.knownSecretNames[uri],
-               errorMessage: (forbiddenError as any).errorMessage
+             this.knownSecretNames = {
+               ...this.knownSecretNames,
+               [uri]: {
+                 ...this.knownSecretNames[uri],
+                 errorMessage: (forbiddenError as any).errorMessage
+               }
              };
              this._saveKnownSecretNames();
           } else if (this.knownSecretNames[uri]?.errorMessage) {
              const updated = { ...this.knownSecretNames[uri] };
              delete updated.errorMessage;
-             this.knownSecretNames[uri] = updated;
+             this.knownSecretNames = {
+               ...this.knownSecretNames,
+               [uri]: updated
+             };
              this._saveKnownSecretNames();
           }
         } else {
