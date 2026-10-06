@@ -222,6 +222,17 @@ export const useDataStore = defineStore('data', {
         if (response.ok) {
           const data = await response.json();
           this.mergeVaultData(uri, data);
+          
+          // Check if any fetched secret returned a global access policy error
+          // If so, propagate this error to the vault header so the user sees a single clear message
+          const forbiddenError = Object.values(data).find((v: any) => v.status === 'Forbidden' && v.errorMessage);
+          if (forbiddenError) {
+             this.knownSecretNames[uri] = {
+               ...this.knownSecretNames[uri],
+               errorMessage: (forbiddenError as any).errorMessage
+             };
+             this._saveKnownSecretNames();
+          }
         } else {
           console.error('Failed to fetch values for vault', uri);
         }
