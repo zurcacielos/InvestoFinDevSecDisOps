@@ -24,7 +24,7 @@ const isFetchingAnyVault = computed(() => Object.values(fetchingVaults.value).so
 const selectedSubscriptionId = ref(localStorage.getItem('selectedSub') || '');
 const searchQuery = ref('');
 const showDropdown = ref(false);
-const availableVaults = ref<{ name: string; uri: string }[]>([]);
+const availableVaults = ref<{ id: string; name: string; uri: string }[]>([]);
 const loadingVaults = ref(false);
 const totalVaultsCount = ref<number | null>(null);
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
