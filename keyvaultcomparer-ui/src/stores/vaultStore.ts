@@ -309,29 +309,30 @@ export const useVaultStore = defineStore('data', {
       }
 
       // Find metadata by name or URI
-      let vaultMeta = Object.values(this.vaultMetadata || {}).find(m => m.name === vaultNameOrUri);
-      if (!vaultMeta && this.vaultMetadata[vaultNameOrUri]) {
-         vaultMeta = this.vaultMetadata[vaultNameOrUri];
+      const targetName = vaultNameOrUri.toLowerCase();
+      let vaultMeta = Object.values(this.vaultMetadata || {}).find(m => m.name?.toLowerCase() === targetName);
+      if (!vaultMeta) {
+         // Try lookup by exact key just in case
+         const directKey = Object.keys(this.vaultMetadata || {}).find(k => k.toLowerCase() === targetName);
+         if (directKey) vaultMeta = this.vaultMetadata[directKey];
       }
       
       if (!vaultMeta) {
          // Try extracting name from URI
          const nameMatch = vaultNameOrUri.match(/https?:\/\/([^.]+)\.vault\.azure\.net/i);
          if (nameMatch) {
-             vaultMeta = Object.values(this.vaultMetadata || {}).find(m => m.name === nameMatch[1]);
+             const extractedName = nameMatch[1].toLowerCase();
+             vaultMeta = Object.values(this.vaultMetadata || {}).find(m => m.name?.toLowerCase() === extractedName);
          }
       }
 
       if (vaultMeta?.id) {
          return `https://portal.azure.com/#${tenantPrefix}resource${vaultMeta.id}/overview`;
       }
-
-      // Fallback
-      let cleanName = vaultNameOrUri;
-      const nmMatch = vaultNameOrUri.match(/https?:\/\/([^.]+)\.vault\.azure\.net/i);
-      if (nmMatch) cleanName = nmMatch[1];
       
-      return `https://portal.azure.com/#${tenantPrefix}blade/HubsExtension/SearchResourceBlade/searchQuery/%22${encodeURIComponent(cleanName)}%22`;
+      // If we don't have the exact ID in vault metadata, we'll try to construct it based on what we do know.
+      // But we shouldn't get here if the vault was properly loaded from the step 1.
+      return '';
     }
   }
 });
