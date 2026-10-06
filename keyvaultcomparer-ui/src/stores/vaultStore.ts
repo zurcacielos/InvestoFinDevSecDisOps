@@ -7,7 +7,7 @@ import { useUiStateStore } from './uiStateStore';
 import { useStagedStore } from './stagedStore';
 import type { SecretMetadata } from '../inspections';
 
-export const useDataStore = defineStore('data', {
+export const useVaultStore = defineStore('data', {
   state: () => {
     const urlConfig = loadSharableConfig();
     let initialUris: string[] = [];
@@ -294,6 +294,44 @@ export const useDataStore = defineStore('data', {
       } finally {
         uiStateStore.setGlobalLoading(false);
       }
+    },
+
+    getAzureVaultUrl(vaultNameOrUri: string): string {
+      const authStore = useAuthStore();
+      let tenantPrefix = '';
+      if (authStore.profile?.email) {
+        const email = authStore.profile.email;
+        if (email.endsWith('@gmail.com') || email.endsWith('@hotmail.com') || email.endsWith('@outlook.com')) {
+           tenantPrefix = `@${email.replace('@', '')}.onmicrosoft.com/`;
+        } else {
+           tenantPrefix = `@${email.split('@')[1]}/`;
+        }
+      }
+
+      // Find metadata by name or URI
+      let vaultMeta = Object.values(this.vaultMetadata || {}).find(m => m.name === vaultNameOrUri);
+      if (!vaultMeta && this.vaultMetadata[vaultNameOrUri]) {
+         vaultMeta = this.vaultMetadata[vaultNameOrUri];
+      }
+      
+      if (!vaultMeta) {
+         // Try extracting name from URI
+         const nameMatch = vaultNameOrUri.match(/https?:\/\/([^.]+)\.vault\.azure\.net/i);
+         if (nameMatch) {
+             vaultMeta = Object.values(this.vaultMetadata || {}).find(m => m.name === nameMatch[1]);
+         }
+      }
+
+      if (vaultMeta?.id) {
+         return `https://portal.azure.com/#${tenantPrefix}resource${vaultMeta.id}/overview`;
+      }
+
+      // Fallback
+      let cleanName = vaultNameOrUri;
+      const nmMatch = vaultNameOrUri.match(/https?:\/\/([^.]+)\.vault\.azure\.net/i);
+      if (nmMatch) cleanName = nmMatch[1];
+      
+      return `https://portal.azure.com/#${tenantPrefix}blade/HubsExtension/SearchResourceBlade/searchQuery/%22${encodeURIComponent(cleanName)}%22`;
     }
   }
 });

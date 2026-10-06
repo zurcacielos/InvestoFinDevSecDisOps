@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '../../stores/authStore';
-import { useDataStore } from '../../stores/dataStore';
+import { useVaultStore } from '../../stores/vaultStore';
 import { useUiStateStore } from '../../stores/uiStateStore';
 import { apiFetch } from '../../services/apiClient';
 
@@ -13,8 +13,8 @@ const emit = defineEmits<{
 const authStore = useAuthStore();
 const { subscriptions } = storeToRefs(authStore);
 
-const dataStore = useDataStore();
-const { vaultUris, knownSecretNames, lastFetched } = storeToRefs(dataStore);
+const vaultStore = useVaultStore();
+const { vaultUris, knownSecretNames, lastFetched } = storeToRefs(vaultStore);
 
 const uiStateStore = useUiStateStore();
 const { fetchingVaults } = storeToRefs(uiStateStore);
@@ -103,13 +103,13 @@ const searchVaults = async () => {
 
 const selectVault = (vault: { name: string; uri: string; id?: string; resourceGroup?: string; }) => {
   if (!vaultUris.value.includes(vault.uri)) {
-    dataStore.addVaultUri(vault.uri, {
+    vaultStore.addVaultUri(vault.uri, {
       id: vault.id,
       name: vault.name,
       resourceGroup: vault.resourceGroup,
       subscriptionId: selectedSubscriptionId.value || undefined
     });
-    dataStore.fetchVaultKeys([vault.uri]);
+    vaultStore.fetchVaultKeys([vault.uri]);
   }
   // Do not clear search query or hide dropdown, so the user can continue selecting
 };
@@ -120,12 +120,12 @@ const hideDropdown = () => {
 
 const handleRefetchNames = async () => {
   loadingNames.value = true;
-  await dataStore.refetchNames();
+  await vaultStore.refetchNames();
   loadingNames.value = false;
 };
 
 const forgetAllNames = () => {
-  dataStore.clearAll();
+  vaultStore.clearAll();
 };
 </script>
 
@@ -213,7 +213,7 @@ const forgetAllNames = () => {
           </div>
           <div class="flex items-center gap-1 shrink-0">
             <button 
-              @click="dataStore.fetchVaultKeys([uri])" 
+              @click="vaultStore.fetchVaultKeys([uri])" 
               :disabled="fetchingVaults[uri]"
               class="text-blue-400 hover:text-blue-700 focus:outline-none transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Refetch secret names"
@@ -224,7 +224,7 @@ const forgetAllNames = () => {
               </svg>
             </button>
             <button 
-              @click="dataStore.removeVault(index)" 
+              @click="vaultStore.removeVault(index)" 
               class="text-blue-400 hover:text-rose-500 focus:outline-none transition-colors p-1"
               title="Remove"
             >

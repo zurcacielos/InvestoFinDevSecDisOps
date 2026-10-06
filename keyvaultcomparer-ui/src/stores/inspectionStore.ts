@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { useDataStore } from './dataStore';
+import { useVaultStore } from './vaultStore';
 import { useFilterStore } from './filterStore';
 import { analyzeSecret, analyzeMetadata, type InspectionResult } from '../inspections';
 import type { SecretComparisonRow } from '../composables/useSecurityAnalysis';
@@ -14,13 +14,13 @@ export const useInspectionStore = defineStore('inspection', () => {
     Low: true
   });
 
-  const dataStore = useDataStore();
+  const vaultStore = useVaultStore();
   const filterStore = useFilterStore();
 
   const hasInspectionsRun = computed(() => {
-    for (const uri in dataStore.vaultData) {
-      for (const secret in dataStore.vaultData[uri]) {
-        if (dataStore.vaultData[uri][secret].inspections?.length > 0) {
+    for (const uri in vaultStore.vaultData) {
+      for (const secret in vaultStore.vaultData[uri]) {
+        if (vaultStore.vaultData[uri][secret].inspections?.length > 0) {
           return true;
         }
       }
@@ -29,10 +29,10 @@ export const useInspectionStore = defineStore('inspection', () => {
   });
 
   const runInspectionsOnVisible = (results: SecretComparisonRow[], vulnerableValuesMap: Map<string, string[]>) => {
-    if (dataStore.vaultUris.length === 0 || results.length === 0) return;
+    if (vaultStore.vaultUris.length === 0 || results.length === 0) return;
 
     results.forEach(row => {
-      dataStore.vaultUris.forEach(uri => {
+      vaultStore.vaultUris.forEach(uri => {
         const currentVal = row.vaultValues[uri];
         if (currentVal && currentVal.status === 'Present' && currentVal.value) {
           
@@ -43,7 +43,7 @@ export const useInspectionStore = defineStore('inspection', () => {
           );
 
           // Metadata analysis
-          const metaList = dataStore.knownSecretNames[uri]?.secrets;
+          const metaList = vaultStore.knownSecretNames[uri]?.secrets;
           const secretMeta = metaList?.find(m => m.name === row.secretName);
           const metadataInspections = secretMeta ? analyzeMetadata(secretMeta) : [];
 
@@ -72,7 +72,7 @@ export const useInspectionStore = defineStore('inspection', () => {
             }
           }
 
-          const d = dataStore.vaultData[uri]?.[row.secretName];
+          const d = vaultStore.vaultData[uri]?.[row.secretName];
           if (d) {
             d.inspections = allInspections;
             d.highestSeverity = highestSeverity;
@@ -83,9 +83,9 @@ export const useInspectionStore = defineStore('inspection', () => {
   };
 
   const clearInspections = () => {
-    Object.keys(dataStore.vaultData).forEach(uri => {
-      Object.keys(dataStore.vaultData[uri]).forEach(secret => {
-        const d = dataStore.vaultData[uri][secret];
+    Object.keys(vaultStore.vaultData).forEach(uri => {
+      Object.keys(vaultStore.vaultData[uri]).forEach(secret => {
+        const d = vaultStore.vaultData[uri][secret];
         if (d) {
           d.inspections = undefined;
           d.highestSeverity = undefined;

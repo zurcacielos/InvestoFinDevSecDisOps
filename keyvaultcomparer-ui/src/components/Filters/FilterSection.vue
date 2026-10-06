@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useFilterStore } from '../../stores/filterStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useDataStore } from '../../stores/dataStore';
+import { useVaultStore } from '../../stores/vaultStore';
 import { useUiStateStore } from '../../stores/uiStateStore';
 
 const props = defineProps<{
@@ -25,8 +25,8 @@ const hoveredFilter = ref<string | null>(null);
 const settingsStore = useSettingsStore();
 const { uiSettings } = storeToRefs(settingsStore);
 
-const dataStore = useDataStore();
-const { vaultUris } = storeToRefs(dataStore);
+const vaultStore = useVaultStore();
+const { vaultUris } = storeToRefs(vaultStore);
 
 const uiStateStore = useUiStateStore();
 const { globalLoadingValues: loadingValues } = storeToRefs(uiStateStore);

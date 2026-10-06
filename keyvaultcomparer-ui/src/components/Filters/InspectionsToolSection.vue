@@ -2,7 +2,7 @@
 import { storeToRefs } from 'pinia';
 
 import { useFilterStore } from '../../stores/filterStore';
-import { useDataStore } from '../../stores/dataStore';
+import { useVaultStore } from '../../stores/vaultStore';
 import { useUiStateStore } from '../../stores/uiStateStore';
 
 const props = defineProps<{
@@ -23,8 +23,8 @@ const filterStore = useFilterStore();
 const { inspectionFilter } = storeToRefs(filterStore);
 
 
-const dataStore = useDataStore();
-const { vaultUris } = storeToRefs(dataStore);
+const vaultStore = useVaultStore();
+const { vaultUris } = storeToRefs(vaultStore);
 
 const uiStateStore = useUiStateStore();
 const { globalLoadingValues: loadingValues } = storeToRefs(uiStateStore);

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { useDataStore } from './dataStore';
+import { useVaultStore } from './vaultStore';
 import { useFilterStore } from './filterStore';
 
 export interface SecuritySettings {
@@ -136,9 +136,9 @@ export const useSettingsStore = defineStore('settings', {
     },
     saveUiSettings() {
       localStorage.setItem('uiSettings', JSON.stringify(this.uiSettings));
-      const dataStore = useDataStore();
+      const vaultStore = useVaultStore();
       const filterStore = useFilterStore();
-      this.syncUrl(dataStore.vaultUris, filterStore.nameFilter);
+      this.syncUrl(vaultStore.vaultUris, filterStore.nameFilter);
     },
     syncUrl(vaultUris: string[], nameFilter: string) {
       try {

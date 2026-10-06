@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useDataStore } from '../../stores/dataStore';
+import { useVaultStore } from '../../stores/vaultStore';
 import { useUiStateStore } from '../../stores/uiStateStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useStagedStore } from '../../stores/stagedStore';
 import { useClipboardStore } from '../../stores/clipboardStore';
 import { useUsageStore } from '../../stores/usageStore';
-import { useDevopsDataStore } from '../../stores/devopsDataStore';
+import { useDevopsvaultStore } from '../../stores/devopsvaultStore';
 import type { SecretComparisonRow, SecretValueStatus } from '../../composables/useSecurityAnalysis';
-import type { AdoVariableGroup } from '../../stores/devopsDataStore';
+import type { AdoVariableGroup } from '../../stores/devopsvaultStore';
 
 const props = defineProps<{
   filteredResults: SecretComparisonRow[];
@@ -21,8 +21,8 @@ const emit = defineEmits<{
   (e: 'grant-access'): void;
 }>();
 
-const dataStore = useDataStore();
-const { vaultUris, knownSecretNames } = storeToRefs(dataStore);
+const vaultStore = useVaultStore();
+const { vaultUris, knownSecretNames } = storeToRefs(vaultStore);
 
 const uiStateStore = useUiStateStore();
 const { loadingCells, currentTab } = storeToRefs(uiStateStore);
@@ -37,7 +37,7 @@ const { copiedCell, internalClipboard } = storeToRefs(clipboardStore);
 
 const usageStore = useUsageStore();
 
-const devopsDataStore = useDevopsDataStore();
+const devopsvaultStore = useDevopsvaultStore();
 
 const secretNameColumnWidth = ref(250);
 const isResizing = ref(false);
@@ -223,7 +223,7 @@ type ColumnDef =
 const allColumns = computed(() => {
   const cols: ColumnDef[] = [];
   const vaults = vaultUris.value.map(uri => ({ type: 'vault' as const, id: uri, name: getVaultName(uri) }));
-  const groups = devopsDataStore.selectedGroups.map(g => ({ type: 'group' as const, id: g.id, name: g.name, associatedVaultName: g.providerData?.vault, group: g }));
+  const groups = devopsvaultStore.selectedGroups.map(g => ({ type: 'group' as const, id: g.id, name: g.name, associatedVaultName: g.providerData?.vault, group: g }));
   
   if (uiSettings.value.groupDevOpsColumns) {
     const associatedGroups = groups.filter(g => g.associatedVaultName);
@@ -290,17 +290,17 @@ const showAllHiddenColumns = () => {
 };
 
 const isLibraryVisible = (vaultName: string) => {
-  const group = devopsDataStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
+  const group = devopsvaultStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
   if (!group) return false;
-  return devopsDataStore.selectedGroupIds.includes(group.id) && !uiSettings.value.hiddenColumns.includes(group.id.toString());
+  return devopsvaultStore.selectedGroupIds.includes(group.id) && !uiSettings.value.hiddenColumns.includes(group.id.toString());
 };
 
 const hasAssociatedLibrary = (vaultName: string) => {
-  return devopsDataStore.variableGroups.some(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
+  return devopsvaultStore.variableGroups.some(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
 };
 
 const toggleAssociatedLibrary = (vaultName: string) => {
-  const group = devopsDataStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
+  const group = devopsvaultStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
   if (!group) return;
   
   const isCurrentlyVisible = isLibraryVisible(vaultName);
@@ -314,8 +314,8 @@ const toggleAssociatedLibrary = (vaultName: string) => {
     }
   } else {
     // Show it
-    if (!devopsDataStore.selectedGroupIds.includes(group.id)) {
-      devopsDataStore.toggleGroupSelection(group.id);
+    if (!devopsvaultStore.selectedGroupIds.includes(group.id)) {
+      devopsvaultStore.toggleGroupSelection(group.id);
     }
     const strId = group.id.toString();
     if (uiSettings.value.hiddenColumns.includes(strId)) {
@@ -434,7 +434,7 @@ onUnmounted(() => {
                     </button>
                   </div>
                   <button 
-                    @click="dataStore.fetchValuesForVault(col.id)" 
+                    @click="vaultStore.fetchValuesForVault(col.id)" 
                     class="text-slate-400 hover:text-blue-600 transition-colors bg-white rounded-full p-1 shadow-sm border border-slate-200 ml-2"
                     title="Fetch values for this vault"
                   >
@@ -483,7 +483,7 @@ onUnmounted(() => {
               <div class="flex items-center justify-between w-full h-full">
                 <span class="pr-2 line-clamp-2 break-all whitespace-normal transition-all" :class="{'blur-[3px] opacity-60 select-none': uiSettings.demoMode}" :title="row.secretName">{{ row.secretName }}</span>
                 <button 
-                  @click="dataStore.fetchValuesForRow(row.secretName)"
+                  @click="vaultStore.fetchValuesForRow(row.secretName)"
                   class="fetch-btn text-slate-400 hover:text-blue-600 transition-colors bg-white rounded-full p-1.5 shadow-sm border border-slate-200 flex-shrink-0"
                   title="Fetch values for this row"
                 >
@@ -544,7 +544,7 @@ onUnmounted(() => {
                 <div class="flex items-center justify-center gap-2">
                   <button 
                     v-if="row.vaultValues[col.id]?.status === 'Not Retrieved'" 
-                    @click.stop="dataStore.fetchValuesForVaultAndNames(col.id, [row.secretName])" 
+                    @click.stop="vaultStore.fetchValuesForVaultAndNames(col.id, [row.secretName])" 
                     class="text-slate-300 hover:text-blue-600 transition-colors hover:bg-slate-50 rounded-full p-1.5 border border-transparent hover:border-slate-200 mx-auto"
                     :disabled="loadingCells[col.id]?.[row.secretName]"
                     :class="{'opacity-50 cursor-not-allowed': loadingCells[col.id]?.[row.secretName]}"

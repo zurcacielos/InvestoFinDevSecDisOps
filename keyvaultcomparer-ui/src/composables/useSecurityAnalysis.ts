@@ -1,5 +1,5 @@
 import { computed } from 'vue';
-import { useDataStore } from '../stores/dataStore';
+import { useVaultStore } from '../stores/vaultStore';
 import { useSettingsStore, hashString, identiconEmojis } from '../stores/settingsStore';
 import { useFilterStore } from '../stores/filterStore';
 import { calculateEntropy, type InspectionResult } from '../inspections';
@@ -24,21 +24,21 @@ export interface SecretComparisonRow {
 }
 
 import { useStagedStore } from '../stores/stagedStore';
-import { useDevopsDataStore } from '../stores/devopsDataStore';
+import { useDevopsvaultStore } from '../stores/devopsvaultStore';
 
 export function useSecurityAnalysis() {
-  const dataStore = useDataStore();
+  const vaultStore = useVaultStore();
   const settingsStore = useSettingsStore();
   const filterStore = useFilterStore();
   const stagedStore = useStagedStore();
-  const devopsDataStore = useDevopsDataStore();
+  const devopsvaultStore = useDevopsvaultStore();
 
   const vulnerableValuesMap = computed(() => {
     const valueMap = new Map<string, Set<string>>(); // value -> Set of secretNames
     
     // Build value map
-    for (const uri of Object.keys(dataStore.vaultData)) {
-      for (const [name, status] of Object.entries(dataStore.vaultData[uri])) {
+    for (const uri of Object.keys(vaultStore.vaultData)) {
+      for (const [name, status] of Object.entries(vaultStore.vaultData[uri])) {
         if (status.status === 'Present' && status.value) {
           const valLower = status.value.toLowerCase();
           if (!valueMap.has(valLower)) valueMap.set(valLower, new Set());
@@ -73,8 +73,8 @@ export function useSecurityAnalysis() {
 
   const globalUsageCount = computed(() => {
     const counts = new Map<string, number>();
-    for (const uri of Object.keys(dataStore.vaultData)) {
-      for (const status of Object.values(dataStore.vaultData[uri])) {
+    for (const uri of Object.keys(vaultStore.vaultData)) {
+      for (const status of Object.values(vaultStore.vaultData[uri])) {
         if ((status.status === 'Present' || status.status === 'Loading') && status.value) {
           const val = status.value.toLowerCase();
           counts.set(val, (counts.get(val) || 0) + 1);
@@ -86,8 +86,8 @@ export function useSecurityAnalysis() {
 
   const rowUsageCount = computed(() => {
     const counts = new Map<string, number>();
-    for (const uri of Object.keys(dataStore.vaultData)) {
-      for (const [name, status] of Object.entries(dataStore.vaultData[uri])) {
+    for (const uri of Object.keys(vaultStore.vaultData)) {
+      for (const [name, status] of Object.entries(vaultStore.vaultData[uri])) {
         if ((status.status === 'Present' || status.status === 'Loading') && status.value) {
           const key = name + status.value.toLowerCase();
           counts.set(key, (counts.get(key) || 0) + 1);
@@ -99,8 +99,8 @@ export function useSecurityAnalysis() {
 
   const colUsageCount = computed(() => {
     const counts = new Map<string, number>();
-    for (const uri of Object.keys(dataStore.vaultData)) {
-      for (const status of Object.values(dataStore.vaultData[uri])) {
+    for (const uri of Object.keys(vaultStore.vaultData)) {
+      for (const status of Object.values(vaultStore.vaultData[uri])) {
         if ((status.status === 'Present' || status.status === 'Loading') && status.value) {
           const key = uri + status.value.toLowerCase();
           counts.set(key, (counts.get(key) || 0) + 1);
@@ -112,7 +112,7 @@ export function useSecurityAnalysis() {
 
   const results = computed<SecretComparisonRow[]>(() => {
     const filtered = filterStore.filteredNames;
-    const selectedGroups = devopsDataStore.selectedGroups; // Force reactivity tracking
+    const selectedGroups = devopsvaultStore.selectedGroups; // Force reactivity tracking
     
     // Pre-compute case-insensitive maps for each selected group
     const groupVariableMaps = selectedGroups.map(group => {
@@ -139,12 +139,12 @@ export function useSecurityAnalysis() {
         row.libraryValues![groupMap.id] = variable || null;
       });
       
-      dataStore.vaultUris.forEach(uri => {
-        const knownNamesForVault = dataStore.knownSecretNames[uri]?.secrets || [];
+      vaultStore.vaultUris.forEach(uri => {
+        const knownNamesForVault = vaultStore.knownSecretNames[uri]?.secrets || [];
         const vaultMetaForName = knownNamesForVault.find(k => k.name === name);
         let baseStatus: SecretValueStatus;
         
-        const d = dataStore.vaultData[uri]?.[name];
+        const d = vaultStore.vaultData[uri]?.[name];
         if (d && d.status !== 'Missing' && d.status !== 'Not Retrieved') {
           baseStatus = { ...d, colorIndex: 0 };
         } else if (!vaultMetaForName) {

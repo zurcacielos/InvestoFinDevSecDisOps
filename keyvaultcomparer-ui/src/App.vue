@@ -15,13 +15,13 @@ import HelpModal from './components/Modals/HelpModal.vue';
 import GrantAccessModal from './components/Modals/GrantAccessModal.vue';
 import InfoTooltip from './components/UI/InfoTooltip.vue';
 import { useAuthStore } from './stores/authStore';
-import { useDataStore } from './stores/dataStore';
+import { useVaultStore } from './stores/vaultStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useFilterStore } from './stores/filterStore';
 import { useStagedStore } from './stores/stagedStore';
 import { useUiStateStore } from './stores/uiStateStore';
 import { useUsageStore } from './stores/usageStore';
-import { useDevopsDataStore } from './stores/devopsDataStore';
+import { useDevopsvaultStore } from './stores/devopsvaultStore';
 import { useInspectionStore } from './stores/inspectionStore';
 import { useSecurityAnalysis } from './composables/useSecurityAnalysis';
 
@@ -30,8 +30,8 @@ import { analyzeSecret, analyzeMetadata, type InspectionResult } from './inspect
 const authStore = useAuthStore();
 const { showAuthError } = storeToRefs(authStore);
 
-const dataStore = useDataStore();
-const { vaultUris, vaultData } = storeToRefs(dataStore);
+const vaultStore = useVaultStore();
+const { vaultUris, vaultData } = storeToRefs(vaultStore);
 
 const settingsStore = useSettingsStore();
 const { uiSettings } = storeToRefs(settingsStore);
@@ -53,7 +53,7 @@ const toggleStagedSecretVisibility = (vaultUri: string, secretName: string) => {
 };
 
 const usageStore = useUsageStore();
-const devopsDataStore = useDevopsDataStore();
+const devopsvaultStore = useDevopsvaultStore();
 const inspectionStore = useInspectionStore();
 
 const { results, rowUsageCount, colUsageCount, vulnerableValuesMap } = useSecurityAnalysis();
@@ -64,7 +64,7 @@ const devopsShowDropdown = ref(false);
 
 const filteredVariableGroups = computed(() => {
   const query = devopsSearchQuery.value.trim().toLowerCase();
-  let groups = devopsDataStore.variableGroups;
+  let groups = devopsvaultStore.variableGroups;
   if (query) {
     groups = groups.filter(g => {
       const gName = g.name.toLowerCase();
@@ -72,12 +72,12 @@ const filteredVariableGroups = computed(() => {
       return gName.includes(query) || vName.includes(query);
     });
   }
-  return groups.filter(g => !devopsDataStore.selectedGroupIds.includes(g.id));
+  return groups.filter(g => !devopsvaultStore.selectedGroupIds.includes(g.id));
 });
 
 const selectVariableGroup = (groupId: number) => {
-  if (!devopsDataStore.selectedGroupIds.includes(groupId)) {
-    devopsDataStore.toggleGroupSelection(groupId);
+  if (!devopsvaultStore.selectedGroupIds.includes(groupId)) {
+    devopsvaultStore.toggleGroupSelection(groupId);
   }
 };
 
@@ -85,7 +85,7 @@ const hideDevopsDropdown = () => {
   setTimeout(() => { devopsShowDropdown.value = false; }, 200);
 };
 
-const devopsContextMenu = ref<{ show: boolean, x: number, y: number, group: import('./stores/devopsDataStore').AdoVariableGroup | null }>({ show: false, x: 0, y: 0, group: null });
+const devopsContextMenu = ref<{ show: boolean, x: number, y: number, group: import('./stores/devopsvaultStore').AdoVariableGroup | null }>({ show: false, x: 0, y: 0, group: null });
 
 const hideDevopsContextMenu = () => {
   devopsContextMenu.value.show = false;
@@ -97,7 +97,7 @@ const handleDevopsContextMenuEsc = (e: KeyboardEvent) => {
   if (e.key === 'Escape') hideDevopsContextMenu();
 };
 
-const showDevopsContextMenu = (e: MouseEvent, group: import('./stores/devopsDataStore').AdoVariableGroup) => {
+const showDevopsContextMenu = (e: MouseEvent, group: import('./stores/devopsvaultStore').AdoVariableGroup) => {
   devopsContextMenu.value = { show: true, x: e.clientX, y: e.clientY, group };
   setTimeout(() => {
     window.addEventListener('click', hideDevopsContextMenu);
@@ -105,9 +105,9 @@ const showDevopsContextMenu = (e: MouseEvent, group: import('./stores/devopsData
   }, 0);
 };
 
-const openAdoLibrary = (group: import('./stores/devopsDataStore').AdoVariableGroup | null) => {
-  if (!group || !devopsDataStore.organization || !devopsDataStore.project) return;
-  const url = `https://dev.azure.com/${devopsDataStore.organization}/${devopsDataStore.project}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId=${group.id}`;
+const openAdoLibrary = (group: import('./stores/devopsvaultStore').AdoVariableGroup | null) => {
+  if (!group || !devopsvaultStore.organization || !devopsvaultStore.project) return;
+  const url = `https://dev.azure.com/${devopsvaultStore.organization}/${devopsvaultStore.project}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId=${group.id}`;
   window.open(url, '_blank');
   hideDevopsContextMenu();
 };
@@ -116,17 +116,7 @@ const openAzureVault = (group: import('./stores/devopsDataStore').AdoVariableGro
   const vaultName = group?.providerData?.vault;
   if (!vaultName) return;
   
-  // Look up metadata to see if we have the full ID (resourceGroup, etc.) for this vault
-  const vaultMeta = Object.values(dataStore.vaultMetadata || {}).find(m => m.name === vaultName);
-  
-  let url = '';
-  if (vaultMeta?.id) {
-    // If we have the ID (e.g. /subscriptions/.../resourceGroups/.../providers/Microsoft.KeyVault/vaults/...)
-    url = `https://portal.azure.com/#resource${vaultMeta.id}/overview`;
-  } else {
-    // Fallback: If we don't have the data in state (e.g., ADO-only vault), use global search to find the specific vault
-    url = `https://portal.azure.com/#blade/HubsExtension/SearchResourceBlade/searchQuery/%22${encodeURIComponent(vaultName)}%22`;
-  }
+  const url = vaultStore.getAzureVaultUrl(vaultName);
   
   console.log('Generated Azure Vault URL:', url);
   window.open(url, '_blank');
@@ -367,7 +357,7 @@ const downloadGrantScript = () => {
   scriptContent += 'if ([string]::IsNullOrWhiteSpace($userObjectId)) { Write-Host "Failed to retrieve your Object ID. Ensure you are logged in with az login."; exit }\n\n';
   
   vaultUris.value.forEach(uri => {
-    if (dataStore.knownSecretNames[uri]?.errorMessage) {
+    if (vaultStore.knownSecretNames[uri]?.errorMessage) {
       let vaultName = uri;
       try { vaultName = new URL(uri).hostname.split('.')[0]; } catch {}
       scriptContent += `Write-Host "Checking authorization model for ${vaultName}..."\n`;
@@ -480,7 +470,7 @@ onMounted(async () => {
             :allSortedNamesLength="allSortedNames.length"
             :hasInspectionsRun="inspectionStore.hasInspectionsRun"
             :inspectionCounts="inspectionCounts"
-            @fetch-comparison="dataStore.fetchComparison()"
+            @fetch-comparison="vaultStore.fetchComparison()"
             @clear-filters="clearFilters"
             @show-regex-help="showRegexHelpDialog = true"
           />
@@ -652,7 +642,7 @@ onMounted(async () => {
               Download script (PS1)
             </button>
             <button 
-              @click="stagedStore.applyStagedChanges(dataStore.fetchComparison)" 
+              @click="stagedStore.applyStagedChanges(vaultStore.fetchComparison)" 
               class="px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="stagedChanges.length === 0"
             >
@@ -696,26 +686,26 @@ onMounted(async () => {
           <div class="flex items-center gap-4 pt-1 flex-wrap">
             <div class="flex items-center gap-2">
               <span class="text-sm font-medium text-slate-600">Org:</span>
-              <input v-model="devopsDataStore.organization" @keyup.enter="devopsDataStore.fetchVariableGroups" type="text" placeholder="e.g. contoso" class="w-48 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
+              <input v-model="devopsvaultStore.organization" @keyup.enter="devopsvaultStore.fetchVariableGroups" type="text" placeholder="e.g. contoso" class="w-48 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm font-medium text-slate-600">Project:</span>
-              <input v-model="devopsDataStore.project" @keyup.enter="devopsDataStore.fetchVariableGroups" type="text" placeholder="e.g. MyProject" class="w-64 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
+              <input v-model="devopsvaultStore.project" @keyup.enter="devopsvaultStore.fetchVariableGroups" type="text" placeholder="e.g. MyProject" class="w-64 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
             </div>
             <button 
-              @click="devopsDataStore.fetchVariableGroups" 
+              @click="devopsvaultStore.fetchVariableGroups" 
               class="px-4 py-1.5 font-medium text-sm rounded-lg transition-colors shadow-sm flex items-center gap-2"
-              :class="devopsDataStore.isLoading ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
-              :disabled="devopsDataStore.isLoading || !devopsDataStore.organization || !devopsDataStore.project"
+              :class="devopsvaultStore.isLoading ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
+              :disabled="devopsvaultStore.isLoading || !devopsvaultStore.organization || !devopsvaultStore.project"
             >
-              <svg v-if="devopsDataStore.isLoading" class="animate-spin -ml-1 mr-1 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24">
+              <svg v-if="devopsvaultStore.isLoading" class="animate-spin -ml-1 mr-1 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              {{ devopsDataStore.isLoading ? 'Fetching...' : 'Fetch Libraries' }}
+              {{ devopsvaultStore.isLoading ? 'Fetching...' : 'Fetch Libraries' }}
             </button>
-            <div v-if="devopsDataStore.error" class="text-rose-500 text-xs font-semibold ml-2">
-              {{ devopsDataStore.error }}
+            <div v-if="devopsvaultStore.error" class="text-rose-500 text-xs font-semibold ml-2">
+              {{ devopsvaultStore.error }}
             </div>
             
             <label class="flex items-center gap-1.5 ml-auto text-sm font-medium text-slate-700 cursor-pointer select-none transition-colors hover:text-slate-900">
@@ -724,7 +714,7 @@ onMounted(async () => {
             </label>
           </div>
           
-          <div class="mt-3 flex gap-4 items-center" v-if="devopsDataStore.variableGroups.length > 0">
+          <div class="mt-3 flex gap-4 items-center" v-if="devopsvaultStore.variableGroups.length > 0">
             <div class="flex flex-col gap-1 w-72 shrink-0 relative">
               <div class="flex items-center gap-1">
                 <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Search Libraries</span>
@@ -782,7 +772,7 @@ onMounted(async () => {
             <div class="flex-1 flex flex-col relative" @click="hideDevopsContextMenu">
               <div class="flex flex-wrap gap-2">
                 <div 
-                  v-for="group in devopsDataStore.selectedGroups" 
+                  v-for="group in devopsvaultStore.selectedGroups" 
                   :key="group.id"
                   class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium bg-blue-50 border border-blue-200 text-blue-800 shadow-sm cursor-context-menu"
                   @contextmenu.prevent.stop="showDevopsContextMenu($event, group)"
@@ -792,7 +782,7 @@ onMounted(async () => {
                     <span v-if="group.providerData?.vault" class="text-[10px] text-blue-500 font-mono truncate" :title="group.providerData.vault">Vault: {{ group.providerData.vault }}</span>
                   </div>
                   <button 
-                    @click.stop="devopsDataStore.toggleGroupSelection(group.id)" 
+                    @click.stop="devopsvaultStore.toggleGroupSelection(group.id)" 
                     class="ml-1 text-blue-400 hover:text-rose-500 focus:outline-none transition-colors p-0.5"
                     title="Remove column"
                   >
@@ -820,7 +810,7 @@ onMounted(async () => {
 
             </div>
           </div>
-          <div v-else-if="!devopsDataStore.isLoading" class="text-xs text-slate-400 mt-2">
+          <div v-else-if="!devopsvaultStore.isLoading" class="text-xs text-slate-400 mt-2">
             No libraries fetched yet.
           </div>
         </div>

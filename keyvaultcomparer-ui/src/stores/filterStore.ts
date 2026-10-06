@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { useDataStore } from './dataStore';
+import { useVaultStore } from './vaultStore';
 import { useSettingsStore, loadSharableConfig } from './settingsStore';
 
 const loadRecentFilters = (): string[] => {
@@ -41,10 +41,10 @@ export const useFilterStore = defineStore('filter', {
       return state.recentFilters.filter(x => x !== state.nameFilter);
     },
     allSortedNames: () => {
-      const dataStore = useDataStore();
+      const vaultStore = useVaultStore();
       const set = new Set<string>();
-      dataStore.vaultUris.forEach(uri => {
-        const meta = dataStore.knownSecretNames[uri];
+      vaultStore.vaultUris.forEach(uri => {
+        const meta = vaultStore.knownSecretNames[uri];
         if (meta && meta.secrets) {
           meta.secrets.forEach(n => set.add(n.name));
         }
@@ -95,9 +95,9 @@ export const useFilterStore = defineStore('filter', {
         this.recentFilters = newHistory;
         localStorage.setItem('recentFilters', JSON.stringify(newHistory));
       }
-      const dataStore = useDataStore();
+      const vaultStore = useVaultStore();
       const settingsStore = useSettingsStore();
-      settingsStore.syncUrl(dataStore.vaultUris, this.nameFilter);
+      settingsStore.syncUrl(vaultStore.vaultUris, this.nameFilter);
     },
     forgetRecentFilter(filterText: string) {
       this.recentFilters = this.recentFilters.filter(x => x !== filterText);
