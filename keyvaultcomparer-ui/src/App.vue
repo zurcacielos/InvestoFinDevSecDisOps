@@ -362,7 +362,27 @@ const getVaultName = (uri: string) => {
 };
 
 const downloadGrantScript = () => {
-  // Logic to download ps1 script
+  let scriptContent = '# Grant Access to Vaults\n\n';
+  scriptContent += '$userEmail = az account show --query user.name -o tsv\n';
+  scriptContent += 'if ([string]::IsNullOrWhiteSpace($userEmail)) { Write-Host "You must be logged in with az login"; exit }\n\n';
+  
+  vaultUris.value.forEach(uri => {
+    if (knownSecretNames.value[uri]?.errorMessage) {
+      let vaultName = uri;
+      try { vaultName = new URL(uri).hostname.split('.')[0]; } catch {}
+      scriptContent += `Write-Host "Granting permissions on ${vaultName}..."\n`;
+      scriptContent += `az keyvault set-policy --name "${vaultName}" --upn $userEmail --secret-permissions get list set\n`;
+    }
+  });
+
+  const blob = new Blob([scriptContent], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'grant-vault-permissions.ps1';
+  a.click();
+  URL.revokeObjectURL(url);
+
   showGrantAccessModal.value = false;
 };
 
