@@ -24,14 +24,14 @@ export interface SecretComparisonRow {
 }
 
 import { useStagedStore } from '../stores/stagedStore';
-import { useDevopsvaultStore } from '../stores/devopsvaultStore';
+import { useDevopsDataStore } from '../stores/devopsDataStore';
 
 export function useSecurityAnalysis() {
   const vaultStore = useVaultStore();
   const settingsStore = useSettingsStore();
   const filterStore = useFilterStore();
   const stagedStore = useStagedStore();
-  const devopsvaultStore = useDevopsvaultStore();
+  const devopsDataStore = useDevopsDataStore();
 
   const vulnerableValuesMap = computed(() => {
     const valueMap = new Map<string, Set<string>>(); // value -> Set of secretNames
@@ -112,7 +112,7 @@ export function useSecurityAnalysis() {
 
   const results = computed<SecretComparisonRow[]>(() => {
     const filtered = filterStore.filteredNames;
-    const selectedGroups = devopsvaultStore.selectedGroups; // Force reactivity tracking
+    const selectedGroups = devopsDataStore.selectedGroups; // Force reactivity tracking
     
     // Pre-compute case-insensitive maps for each selected group
     const groupVariableMaps = selectedGroups.map(group => {

@@ -140,7 +140,7 @@ export const useSettingsStore = defineStore('settings', {
       const filterStore = useFilterStore();
       this.syncUrl(vaultStore.vaultUris, filterStore.nameFilter);
     },
-    syncUrl(vaultUris: string[], nameFilter: string) {
+    syncUrl(_vaultUris: string[], _nameFilter: string) {
       try {
         const newUrl = new URL(window.location.href);
         if (newUrl.search) {

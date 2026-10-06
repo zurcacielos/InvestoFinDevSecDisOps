@@ -7,9 +7,9 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useStagedStore } from '../../stores/stagedStore';
 import { useClipboardStore } from '../../stores/clipboardStore';
 import { useUsageStore } from '../../stores/usageStore';
-import { useDevopsvaultStore } from '../../stores/devopsvaultStore';
+import { useDevopsDataStore } from '../../stores/devopsDataStore';
 import type { SecretComparisonRow, SecretValueStatus } from '../../composables/useSecurityAnalysis';
-import type { AdoVariableGroup } from '../../stores/devopsvaultStore';
+import type { AdoVariableGroup } from '../../stores/devopsDataStore';
 
 const props = defineProps<{
   filteredResults: SecretComparisonRow[];
@@ -37,7 +37,7 @@ const { copiedCell, internalClipboard } = storeToRefs(clipboardStore);
 
 const usageStore = useUsageStore();
 
-const devopsvaultStore = useDevopsvaultStore();
+const devopsDataStore = useDevopsDataStore();
 
 const secretNameColumnWidth = ref(250);
 const isResizing = ref(false);
@@ -223,7 +223,7 @@ type ColumnDef =
 const allColumns = computed(() => {
   const cols: ColumnDef[] = [];
   const vaults = vaultUris.value.map(uri => ({ type: 'vault' as const, id: uri, name: getVaultName(uri) }));
-  const groups = devopsvaultStore.selectedGroups.map(g => ({ type: 'group' as const, id: g.id, name: g.name, associatedVaultName: g.providerData?.vault, group: g }));
+  const groups = devopsDataStore.selectedGroups.map(g => ({ type: 'group' as const, id: g.id, name: g.name, associatedVaultName: g.providerData?.vault, group: g }));
   
   if (uiSettings.value.groupDevOpsColumns) {
     const associatedGroups = groups.filter(g => g.associatedVaultName);
@@ -290,17 +290,17 @@ const showAllHiddenColumns = () => {
 };
 
 const isLibraryVisible = (vaultName: string) => {
-  const group = devopsvaultStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
+  const group = devopsDataStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
   if (!group) return false;
-  return devopsvaultStore.selectedGroupIds.includes(group.id) && !uiSettings.value.hiddenColumns.includes(group.id.toString());
+  return devopsDataStore.selectedGroupIds.includes(group.id) && !uiSettings.value.hiddenColumns.includes(group.id.toString());
 };
 
 const hasAssociatedLibrary = (vaultName: string) => {
-  return devopsvaultStore.variableGroups.some(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
+  return devopsDataStore.variableGroups.some(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
 };
 
 const toggleAssociatedLibrary = (vaultName: string) => {
-  const group = devopsvaultStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
+  const group = devopsDataStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
   if (!group) return;
   
   const isCurrentlyVisible = isLibraryVisible(vaultName);
@@ -314,8 +314,8 @@ const toggleAssociatedLibrary = (vaultName: string) => {
     }
   } else {
     // Show it
-    if (!devopsvaultStore.selectedGroupIds.includes(group.id)) {
-      devopsvaultStore.toggleGroupSelection(group.id);
+    if (!devopsDataStore.selectedGroupIds.includes(group.id)) {
+      devopsDataStore.toggleGroupSelection(group.id);
     }
     const strId = group.id.toString();
     if (uiSettings.value.hiddenColumns.includes(strId)) {
