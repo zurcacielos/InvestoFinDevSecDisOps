@@ -21,9 +21,12 @@ const emit = defineEmits<{
         <p class="text-slate-600 mb-6">
           No connection to Azure (Your session has expired or was not found). To continue, open the terminal where the server is running and execute:
         </p>
-        <div class="bg-slate-100 rounded-lg p-3 flex items-center justify-between mb-6 border border-slate-200">
+        <div class="bg-slate-100 rounded-lg p-3 flex items-center justify-between mb-4 border border-slate-200">
           <code class="text-slate-800 font-mono text-sm font-semibold">az login</code>
         </div>
+        <p class="text-slate-500 text-xs mb-6 border-l-2 border-blue-300 pl-2">
+          <span class="font-semibold text-slate-600">Hint:</span> If you encounter proxy/SSL errors, run <code class="font-mono bg-slate-100 px-1 rounded">$env:REQUESTS_CA_BUNDLE="$HOME\combined_corp.pem"</code> first.
+        </p>
         <p class="text-slate-500 text-sm mb-6">
           Alternatively, you can shut down the backend and frontend servers, and restart everything using the <code class="font-mono text-slate-700 bg-slate-100 px-1 rounded">start-all.ps1</code> script. Once connected, press Retry.
         </p>
