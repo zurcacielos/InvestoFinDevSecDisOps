@@ -302,7 +302,7 @@ export const useVaultStore = defineStore('data', {
       if (authStore.profile?.email) {
         const email = authStore.profile.email;
         if (email.endsWith('@gmail.com') || email.endsWith('@hotmail.com') || email.endsWith('@outlook.com')) {
-           tenantPrefix = `@${email.replace('@', '')}.onmicrosoft.com/`;
+           tenantPrefix = `@${email.replace('@', '').replace(/\.[a-zA-Z]+$/, '')}.onmicrosoft.com/`;
         } else {
            tenantPrefix = `@${email.split('@')[1]}/`;
         }
