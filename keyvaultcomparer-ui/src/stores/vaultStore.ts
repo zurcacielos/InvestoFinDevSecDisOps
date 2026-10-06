@@ -5,6 +5,7 @@ import { useSettingsStore, loadSharableConfig } from './settingsStore';
 import { useAuthStore } from './authStore';
 import { useUiStateStore } from './uiStateStore';
 import { useStagedStore } from './stagedStore';
+import { openUrlInNewTab } from '../utils/urlOpener';
 import type { SecretMetadata } from '../inspections';
 
 export const useVaultStore = defineStore('data', {
@@ -48,6 +49,16 @@ export const useVaultStore = defineStore('data', {
     };
   },
   actions: {
+    openAzureVaultGlobal(vaultNameOrUri: string) {
+      if (!vaultNameOrUri) return;
+      const url = this.getAzureVaultUrl(vaultNameOrUri);
+      if (url) {
+        openUrlInNewTab(url);
+      } else {
+        console.warn('Could not generate Azure URL for vault:', vaultNameOrUri);
+      }
+    },
+    
     _saveVaultUris() {
       localStorage.setItem('savedVaultUris', JSON.stringify(this.vaultUris));
       const settingsStore = useSettingsStore();

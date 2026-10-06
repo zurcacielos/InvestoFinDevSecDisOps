@@ -117,10 +117,7 @@ const openAzureVault = (group: import('./stores/devopsDataStore').AdoVariableGro
   const vaultName = group?.providerData?.vault;
   if (!vaultName) return;
   
-  const url = vaultStore.getAzureVaultUrl(vaultName);
-  
-  console.log('Generated Azure Vault URL:', url);
-  openUrlInNewTab(url);
+  vaultStore.openAzureVaultGlobal(vaultName);
   hideDevopsContextMenu();
 };
 

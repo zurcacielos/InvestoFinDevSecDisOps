@@ -1,6 +1,6 @@
 import { apiFetch } from '../services/apiClient';
 
-export const openUrlInNewTab = async (url: string): Promise<void> => {
+export const openUrlInNewTab = (url: string): void => {
   if (!url) return;
 
   // Fire and forget logging

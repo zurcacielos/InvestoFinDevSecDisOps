@@ -5,7 +5,6 @@ import { useAuthStore } from '../../stores/authStore';
 import { useVaultStore } from '../../stores/vaultStore';
 import { useUiStateStore } from '../../stores/uiStateStore';
 import { apiFetch } from '../../services/apiClient';
-import { openUrlInNewTab } from '../../utils/urlOpener';
 
 const emit = defineEmits<{
   (e: 'grant-access'): void;
@@ -150,10 +149,7 @@ const hideContextMenu = () => {
 };
 
 const openVaultInAzure = (uri: string) => {
-  const url = vaultStore.getAzureVaultUrl(uri);
-  if (url) {
-    openUrlInNewTab(url);
-  }
+  vaultStore.openAzureVaultGlobal(uri);
   hideContextMenu();
 };
 </script>
