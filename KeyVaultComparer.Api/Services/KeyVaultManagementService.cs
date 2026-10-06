@@ -50,7 +50,7 @@ namespace KeyVaultComparer.Api.Services
                     queryBuilder.AppendLine($"| where name contains '{safeQuery}'");
                 }
                 
-                queryBuilder.AppendLine("| project name, properties.vaultUri");
+                queryBuilder.AppendLine("| project id, name, properties.vaultUri");
                 queryBuilder.AppendLine("| take 100");
 
                 var queryContent = new ResourceQueryContent(queryBuilder.ToString());
@@ -72,6 +72,7 @@ namespace KeyVaultComparer.Api.Services
                     using var doc = System.Text.Json.JsonDocument.Parse(response.Value.Data);
                     foreach (var item in doc.RootElement.EnumerateArray())
                     {
+                        var id = item.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
                         var name = item.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : null;
                         var vaultUri = item.TryGetProperty("properties_vaultUri", out var uriProp) ? uriProp.GetString() : null;
 
@@ -79,6 +80,7 @@ namespace KeyVaultComparer.Api.Services
                         {
                             vaults.Add(new DiscoveredVault
                             {
+                                Id = id ?? string.Empty,
                                 Name = name,
                                 Uri = vaultUri
                             });

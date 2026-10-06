@@ -162,7 +162,6 @@ app.MapGet("/api/devops/variablegroups", async ([FromQuery] string organization,
 })
 .WithName("GetAdoVariableGroups");
 
-public record LogUrlRequest(string Url);
 
 app.MapPost("/api/logs/url", async ([FromBody] LogUrlRequest request) =>
 {
@@ -185,3 +184,5 @@ app.MapPost("/api/logs/url", async ([FromBody] LogUrlRequest request) =>
 .WithName("LogUrlOpened");
 
 app.Run();
+
+public record LogUrlRequest(string Url);

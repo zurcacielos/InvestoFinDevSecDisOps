@@ -40,6 +40,7 @@ namespace KeyVaultComparer.Api.Models
 
     public class DiscoveredVault
     {
+        public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Uri { get; set; } = string.Empty;
     }

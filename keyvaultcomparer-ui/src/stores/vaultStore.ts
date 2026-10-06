@@ -56,6 +56,7 @@ export const useVaultStore = defineStore('data', {
         openUrlInNewTab(url);
       } else {
         console.warn('Could not generate Azure URL for vault:', vaultNameOrUri);
+        alert(`Could not generate Azure URL for vault: ${vaultNameOrUri}\n\nThe full ARM ID is missing from your local metadata. Please remove this vault from the grid and re-add it using the Select Vaults dropdown to refresh its metadata.`);
       }
     },
     
