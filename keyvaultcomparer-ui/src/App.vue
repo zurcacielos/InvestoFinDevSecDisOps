@@ -370,8 +370,15 @@ const downloadGrantScript = () => {
     if (dataStore.knownSecretNames[uri]?.errorMessage) {
       let vaultName = uri;
       try { vaultName = new URL(uri).hostname.split('.')[0]; } catch {}
-      scriptContent += `Write-Host "Granting permissions on ${vaultName}..."\n`;
-      scriptContent += `az keyvault set-policy --name "${vaultName}" --object-id $userObjectId --secret-permissions get list set\n`;
+      scriptContent += `Write-Host "Checking authorization model for ${vaultName}..."\n`;
+      scriptContent += `$vault = az keyvault show --name "${vaultName}" | ConvertFrom-Json\n`;
+      scriptContent += `if ($vault.properties.enableRbacAuthorization) {\n`;
+      scriptContent += `    Write-Host "Vault uses RBAC. Assigning Key Vault Secrets Officer role..."\n`;
+      scriptContent += `    az role assignment create --role "Key Vault Secrets Officer" --assignee-object-id $userObjectId --assignee-principal-type User --scope $vault.id\n`;
+      scriptContent += `} else {\n`;
+      scriptContent += `    Write-Host "Vault uses Access Policies. Granting get, list, set permissions..."\n`;
+      scriptContent += `    az keyvault set-policy --name "${vaultName}" --object-id $userObjectId --secret-permissions get list set\n`;
+      scriptContent += `}\n\n`;
     }
   });
 
