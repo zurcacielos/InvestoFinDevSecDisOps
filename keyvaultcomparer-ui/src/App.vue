@@ -116,10 +116,13 @@ const openAzureVault = (group: import('./stores/devopsDataStore').AdoVariableGro
   const vaultName = group?.providerData?.vault;
   if (!vaultName) return;
   
-  // Direct deep linking to a specific resource requires Subscription ID and Resource Group.
-  // Since this data is not provided by the ADO API, we link to the Key Vaults list view
-  // and pass the vault name to the clipboard or rely on the user to click it.
-  const url = `https://portal.azure.com/#view/HubsExtension/BrowseResourceBlade/resourceType/Microsoft.KeyVault%2Fvaults`;
+  const sub = authStore.subscriptions?.find(s => s.name === authStore.profile?.subscriptionName) || authStore.subscriptions?.[0];
+  const tenantId = sub?.tenantId || authStore.profile?.email?.split('@')[1] || '';
+  
+  // Como no es posible obtener el Resource Group desde la API de ADO de forma genérica,
+  // dirigimos al listado general de Key Vaults filtrado por el tenant activo.
+  const baseUrl = tenantId ? `https://portal.azure.com/#@${tenantId}` : `https://portal.azure.com`;
+  const url = `${baseUrl}/view/HubsExtension/BrowseResourceBlade/resourceType/Microsoft.KeyVault%2Fvaults`;
   
   window.open(url, '_blank');
   hideDevopsContextMenu();
