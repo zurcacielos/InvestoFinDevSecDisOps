@@ -810,6 +810,7 @@ onMounted(async () => {
           :filteredResults="filteredResultsForGrid"
           :allSortedNamesLength="allSortedNames.length"
           @clear-filters="clearFilters"
+          @grant-access="showGrantAccessModal = true"
         />
       </div>      
 
