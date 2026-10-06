@@ -49,14 +49,43 @@ export const useVaultStore = defineStore('data', {
     };
   },
   actions: {
-    openAzureVaultGlobal(vaultNameOrUri: string) {
+    async openAzureVaultGlobal(vaultNameOrUri: string) {
       if (!vaultNameOrUri) return;
-      const url = this.getAzureVaultUrl(vaultNameOrUri);
+      let url = this.getAzureVaultUrl(vaultNameOrUri);
+      
       if (url) {
         openUrlInNewTab(url);
       } else {
-        console.warn('Could not generate Azure URL for vault:', vaultNameOrUri);
-        alert(`Could not generate Azure URL for vault: ${vaultNameOrUri}\n\nThe full ARM ID is missing from your local metadata. Please remove this vault from the grid and re-add it using the Select Vaults dropdown to refresh its metadata.`);
+        // ID is missing. To prevent popup blockers, open a blank tab immediately.
+        const newTab = openUrlInNewTab('');
+        
+        try {
+          const targetName = vaultNameOrUri.replace(/https?:\/\//i, '').replace(/\.vault\.azure\.net\/?/i, '').toLowerCase();
+          
+          const response = await apiFetch(`/api/vaults?query=${encodeURIComponent(targetName)}`);
+          if (response.ok) {
+            const vaults = await response.json();
+            const match = vaults.find((v: any) => v.name.toLowerCase() === targetName);
+            if (match && match.id) {
+               // We got the ID! Save it and navigate
+               this.vaultMetadata[match.uri] = { id: match.id, name: match.name };
+               this._saveVaultMetadata();
+               url = this.getAzureVaultUrl(match.uri);
+               if (url) {
+                  openUrlInNewTab(url, newTab);
+                  return;
+               }
+            }
+          }
+          
+          if (newTab) newTab.close();
+          console.warn('Could not generate Azure URL for vault:', vaultNameOrUri);
+          alert(`Could not generate Azure URL for vault: ${vaultNameOrUri}\n\nThe full ARM ID could not be resolved from Azure.`);
+        } catch (e) {
+          if (newTab) newTab.close();
+          console.error(e);
+          alert(`Could not generate Azure URL for vault: ${vaultNameOrUri}\n\nFailed to reach backend to resolve ARM ID.`);
+        }
       }
     },
     
