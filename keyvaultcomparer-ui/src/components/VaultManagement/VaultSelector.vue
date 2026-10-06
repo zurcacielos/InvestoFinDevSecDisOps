@@ -127,6 +127,34 @@ const handleRefetchNames = async () => {
 const forgetAllNames = () => {
   vaultStore.clearAll();
 };
+
+const contextMenu = ref({ show: false, x: 0, y: 0, uri: '' });
+
+const handleContextMenuEsc = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') hideContextMenu();
+};
+
+const showContextMenu = (e: MouseEvent, uri: string) => {
+  contextMenu.value = { show: true, x: e.clientX, y: e.clientY, uri };
+  setTimeout(() => {
+    window.addEventListener('click', hideContextMenu);
+    window.addEventListener('keydown', handleContextMenuEsc);
+  }, 0);
+};
+
+const hideContextMenu = () => { 
+  contextMenu.value.show = false;
+  window.removeEventListener('click', hideContextMenu);
+  window.removeEventListener('keydown', handleContextMenuEsc);
+};
+
+const openVaultInAzure = (uri: string) => {
+  const url = vaultStore.getAzureVaultUrl(uri);
+  if (url) {
+    window.open(url, '_blank');
+  }
+  hideContextMenu();
+};
 </script>
 
 <template>
@@ -199,6 +227,7 @@ const forgetAllNames = () => {
           v-for="(uri, index) in vaultUris" 
           :key="uri" 
           class="flex items-center justify-between px-2 py-1 bg-blue-50 text-blue-800 rounded-lg text-sm border border-blue-200 shadow-sm w-full md:w-auto min-w-[200px]"
+          @contextmenu.prevent="showContextMenu($event, uri)"
         >
           <div class="flex flex-col min-w-0 pr-2">
             <span class="font-medium truncate">{{ getVaultName(uri) }}</span>
@@ -235,6 +264,19 @@ const forgetAllNames = () => {
           </div>
         </div>
       </div>
+    </div>
+    
+    <!-- Context Menu -->
+    <div v-if="contextMenu.show" 
+         :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
+         class="fixed z-50 bg-white border border-slate-200 shadow-xl rounded-md py-1 w-48 text-sm"
+         @click.stop>
+      <button @click="openVaultInAzure(contextMenu.uri)" class="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+        Go to Vault
+      </button>
     </div>
 
     <!-- Actions -->
