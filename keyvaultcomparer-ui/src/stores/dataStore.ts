@@ -232,6 +232,11 @@ export const useDataStore = defineStore('data', {
                errorMessage: (forbiddenError as any).errorMessage
              };
              this._saveKnownSecretNames();
+          } else if (this.knownSecretNames[uri]?.errorMessage) {
+             const updated = { ...this.knownSecretNames[uri] };
+             delete updated.errorMessage;
+             this.knownSecretNames[uri] = updated;
+             this._saveKnownSecretNames();
           }
         } else {
           console.error('Failed to fetch values for vault', uri);

@@ -410,12 +410,12 @@ onUnmounted(() => {
                 <!-- Vault Header -->
                 <div v-else class="flex items-center justify-between">
                   <div class="flex items-center gap-1">
-                    <div class="flex flex-col">
+                    <div class="flex flex-col items-center">
                       <span :class="knownSecretNames[col.id]?.errorMessage ? 'text-rose-600' : 'text-slate-900'">{{ col.name }}</span>
                       <button 
                         v-if="knownSecretNames[col.id]?.errorMessage" 
                         @click.stop="emit('grant-access')" 
-                        class="text-[10px] text-blue-600 underline hover:text-blue-800 text-left mt-0.5"
+                        class="text-[10px] text-blue-600 underline hover:text-blue-800 text-center mt-0.5"
                       >
                         Grant Access
                       </button>
