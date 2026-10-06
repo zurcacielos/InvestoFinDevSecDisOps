@@ -367,7 +367,7 @@ const downloadGrantScript = () => {
   scriptContent += 'if ([string]::IsNullOrWhiteSpace($userEmail)) { Write-Host "You must be logged in with az login"; exit }\n\n';
   
   vaultUris.value.forEach(uri => {
-    if (knownSecretNames.value[uri]?.errorMessage) {
+    if (dataStore.knownSecretNames[uri]?.errorMessage) {
       let vaultName = uri;
       try { vaultName = new URL(uri).hostname.split('.')[0]; } catch {}
       scriptContent += `Write-Host "Granting permissions on ${vaultName}..."\n`;
