@@ -87,7 +87,10 @@ export const loadSharableConfig = () => {
     const params = new URLSearchParams(window.location.search);
     const s = params.get('s');
     if (s) {
-      return JSON.parse(decodeURIComponent(atob(s)));
+      const parsed = JSON.parse(decodeURIComponent(atob(s)));
+      // Clear the URL immediately after reading so the user doesn't see it
+      window.history.replaceState({}, '', window.location.pathname);
+      return parsed;
     }
   } catch (e) {
     console.warn('Failed to parse URL config', e);
