@@ -8,6 +8,7 @@ import { useStagedStore } from '../../stores/stagedStore';
 import { useClipboardStore } from '../../stores/clipboardStore';
 import { useUsageStore } from '../../stores/usageStore';
 import { useDevopsDataStore } from '../../stores/devopsDataStore';
+import { openUrlInNewTab } from '../../utils/urlOpener';
 import type { SecretComparisonRow, SecretValueStatus } from '../../composables/useSecurityAnalysis';
 import type { AdoVariableGroup } from '../../stores/devopsDataStore';
 
@@ -125,7 +126,7 @@ const openGithubSearch = (key: string, columnId: string) => {
   const encodedQuery = encodeURIComponent(query).replace(/%20/g, '+');
   const baseUrl = uiSettings.value.githubBaseUrl || 'https://github.com';
   const finalUrl = `${baseUrl.replace(/\/$/, '')}/search?q=${encodedQuery}&type=code`;
-  window.open(finalUrl, '_blank');
+  openUrlInNewTab(finalUrl);
 };
 
 const getCellClasses = (statusObj: SecretValueStatus | undefined) => {

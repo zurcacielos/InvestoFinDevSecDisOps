@@ -484,3 +484,5 @@ $RECYCLE.BIN/
 
 # Antigravity agents custom rules
 .agents/
+
+logs/

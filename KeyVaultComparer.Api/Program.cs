@@ -162,4 +162,26 @@ app.MapGet("/api/devops/variablegroups", async ([FromQuery] string organization,
 })
 .WithName("GetAdoVariableGroups");
 
+public record LogUrlRequest(string Url);
+
+app.MapPost("/api/logs/url", async ([FromBody] LogUrlRequest request) =>
+{
+    try
+    {
+        var logsDir = Path.Combine(Directory.GetCurrentDirectory(), "logs");
+        if (!Directory.Exists(logsDir))
+        {
+            Directory.CreateDirectory(logsDir);
+        }
+        var logFile = Path.Combine(logsDir, $"{DateTime.UtcNow:yyyy-MM-dd}.log");
+        await File.AppendAllTextAsync(logFile, $"[{DateTime.UtcNow:O}] Opened URL: {request.Url}{Environment.NewLine}");
+        return Results.Ok();
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.WithName("LogUrlOpened");
+
 app.Run();

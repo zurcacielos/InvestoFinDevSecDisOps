@@ -18,6 +18,7 @@ import { useAuthStore } from './stores/authStore';
 import { useVaultStore } from './stores/vaultStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useFilterStore } from './stores/filterStore';
+import { openUrlInNewTab } from './utils/urlOpener';
 import { useStagedStore } from './stores/stagedStore';
 import { useUiStateStore } from './stores/uiStateStore';
 import { useUsageStore } from './stores/usageStore';
@@ -108,7 +109,7 @@ const showDevopsContextMenu = (e: MouseEvent, group: import('./stores/devopsData
 const openAdoLibrary = (group: import('./stores/devopsDataStore').AdoVariableGroup | null) => {
   if (!group || !devopsDataStore.organization || !devopsDataStore.project) return;
   const url = `https://dev.azure.com/${devopsDataStore.organization}/${devopsDataStore.project}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId=${group.id}`;
-  window.open(url, '_blank');
+  openUrlInNewTab(url);
   hideDevopsContextMenu();
 };
 
@@ -119,7 +120,7 @@ const openAzureVault = (group: import('./stores/devopsDataStore').AdoVariableGro
   const url = vaultStore.getAzureVaultUrl(vaultName);
   
   console.log('Generated Azure Vault URL:', url);
-  window.open(url, '_blank');
+  openUrlInNewTab(url);
   hideDevopsContextMenu();
 };
 
