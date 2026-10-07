@@ -794,15 +794,23 @@ onMounted(async () => {
               <!-- DevOps Context Menu -->
               <div v-if="devopsContextMenu.show" 
                    :style="{ top: `${devopsContextMenu.y}px`, left: `${devopsContextMenu.x}px` }"
-                   class="fixed z-50 bg-white border border-slate-200 shadow-xl rounded-md py-1 w-48 text-sm"
+                   class="fixed z-50 bg-white border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.1),_0_0_1px_rgba(0,0,0,0.2)] rounded py-1 min-w-[160px] text-[13px] text-slate-800"
                    @click.stop>
-                <button @click="openAdoLibrary(devopsContextMenu.group)" class="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                  Go to ADO Library
+                <button @click="openAdoLibrary(devopsContextMenu.group)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+                  <span>Go to ADO Library</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                  </svg>
                 </button>
-                <button v-if="devopsContextMenu.group?.providerData?.vault" @click="openAzureVault(devopsContextMenu.group)" class="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-                  Go to Azure Vault
+                <button v-if="devopsContextMenu.group?.providerData?.vault" @click="openAzureVault(devopsContextMenu.group)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+                  <span>Go to Azure Vault</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                  </svg>
                 </button>
               </div>
 

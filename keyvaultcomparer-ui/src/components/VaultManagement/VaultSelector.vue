@@ -266,13 +266,15 @@ const openVaultInAzure = (uri: string) => {
     <!-- Context Menu -->
     <div v-if="contextMenu.show" 
          :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
-         class="fixed z-50 bg-white border border-slate-200 shadow-xl rounded-md py-1 w-48 text-sm"
+         class="fixed z-50 bg-white border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.1),_0_0_1px_rgba(0,0,0,0.2)] rounded py-1 min-w-[160px] text-[13px] text-slate-800"
          @click.stop>
-      <button @click="openVaultInAzure(contextMenu.uri)" class="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+      <button @click="openVaultInAzure(contextMenu.uri)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+        <span>Go to Vault</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
         </svg>
-        Go to Vault
       </button>
     </div>
 

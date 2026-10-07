@@ -358,17 +358,17 @@ onUnmounted(() => {
     <!-- Context Menu -->
     <div v-if="contextMenu.show" 
          :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
-         class="fixed z-50 bg-white border border-slate-200 shadow-xl rounded-md py-1 w-48 text-sm"
+         class="fixed z-50 bg-white border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.1),_0_0_1px_rgba(0,0,0,0.2)] rounded py-1 min-w-[160px] text-[13px] text-slate-800"
          @click.stop>
-      <button @click="hideColumn(contextMenu.colId)" class="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700">
-        Hide this column
+      <button @click="hideColumn(contextMenu.colId)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+        <span>Hide this column</span>
       </button>
-      <button @click="hideAllButThis(contextMenu.colId)" class="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700">
-        Hide Others
+      <button @click="hideAllButThis(contextMenu.colId)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+        <span>Hide Others</span>
       </button>
       <div v-if="uiSettings.hiddenColumns.length > 0" class="h-px bg-slate-200 my-1"></div>
-      <button v-if="uiSettings.hiddenColumns.length > 0" @click="showAllHiddenColumns" class="w-full text-left px-4 py-2 hover:bg-slate-100 text-blue-600 font-medium">
-        Show hidden columns
+      <button v-if="uiSettings.hiddenColumns.length > 0" @click="showAllHiddenColumns" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-blue-600 font-medium flex items-center justify-between group">
+        <span>Show hidden columns</span>
       </button>
     </div>
 
