@@ -421,7 +421,7 @@ onUnmounted(() => {
                     </button>
                     <!-- Toggle Associated Library Button -->
                     <button 
-                      v-if="currentTab === 'devops' && hasAssociatedLibrary(col.name)"
+                      v-if="hasAssociatedLibrary(col.name)"
                       @click="toggleAssociatedLibrary(col.name)"
                       class="transition-colors p-0.5 ml-1 flex items-center justify-center rounded shadow-sm border"
                       :class="!isLibraryVisible(col.name) ? 'text-blue-600 border-blue-300 bg-blue-50 hover:bg-blue-100 hover:text-blue-800' : 'text-slate-400 border-slate-200 bg-white hover:text-slate-600 hover:bg-slate-50'"
