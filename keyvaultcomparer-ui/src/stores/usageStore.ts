@@ -11,7 +11,7 @@ export const useUsageStore = defineStore('usage', () => {
   const isFetchingUsage = ref(false);
   const insightCount = ref<number | null>(null);
 
-  const queryLimitValue = ref<number>(60);
+  const queryLimitValue = ref<number>(35);
   const queryLimitUnit = ref<UsageFilterUnit>('days');
 
   const filterMode = ref<UsageFilterMode>('None');
