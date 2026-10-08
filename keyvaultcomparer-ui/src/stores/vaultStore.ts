@@ -56,7 +56,10 @@ export const useVaultStore = defineStore('data', {
       if (url) {
         openUrlInNewTab(url);
       } else {
-        console.warn('Could not generate Azure URL for vault:', vaultNameOrUri);
+        console.warn('Could not generate Azure URL for vault:', vaultNameOrUri, {
+          vaultMetadataKeys: Object.keys(this.vaultMetadata || {}),
+          reason: 'Vault not found in metadata or missing Azure ID. Ensure subscriptions are loaded properly.'
+        });
       }
     },
     
