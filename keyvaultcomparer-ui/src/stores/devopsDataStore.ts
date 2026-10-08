@@ -60,6 +60,27 @@ export const useDevopsDataStore = defineStore('devopsData', {
       if (!this.organization || !this.project) return;
       const url = `https://dev.azure.com/${this.organization}/${this.project}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId=${groupId}`;
       openUrlInNewTab(url);
+    },
+    async addVariableToGroup(groupId: number, secretName: string) {
+      if (!this.organization || !this.project) return;
+      try {
+        const url = `/api/devops/variablegroups/${groupId}/variables?organization=${encodeURIComponent(this.organization)}&project=${encodeURIComponent(this.project)}`;
+        const response = await apiFetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secretName })
+        });
+        
+        if (!response.ok) {
+          const result = await response.json();
+          alert(`Azure DevOps Error:\n${result.error}\n${result.details || ''}`);
+        } else {
+          // Re-fetch to get updated state
+          await this.fetchVariableGroups();
+        }
+      } catch (err: any) {
+        alert(`Failed to add variable to library:\n${err.message || err}`);
+      }
     }
   },
   getters: {

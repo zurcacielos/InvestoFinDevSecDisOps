@@ -251,7 +251,7 @@ const visibleColumns = computed(() => {
 });
 
 const contextMenu = ref({ show: false, x: 0, y: 0, colId: '' });
-const cellContextMenu = ref({ show: false, x: 0, y: 0, uri: '', secretName: '', cellStatus: undefined as SecretValueStatus | undefined });
+const cellContextMenu = ref({ show: false, x: 0, y: 0, uri: '', secretName: '', cellStatus: undefined as SecretValueStatus | undefined, isLibraryGroup: false });
 
 const contextMenuCol = computed(() => {
   if (!contextMenu.value.show) return null;
@@ -290,8 +290,8 @@ const handleCellContextMenuEsc = (e: KeyboardEvent) => {
   if (e.key === 'Escape') hideCellContextMenu();
 };
 
-const showCellContextMenu = (e: MouseEvent, uri: string, secretName: string, cellStatus: SecretValueStatus | undefined) => {
-  cellContextMenu.value = { show: true, x: e.clientX, y: e.clientY, uri, secretName, cellStatus };
+const showCellContextMenu = (e: MouseEvent, uri: string | number, secretName: string, cellStatus: SecretValueStatus | undefined, isLibraryGroup = false) => {
+  cellContextMenu.value = { show: true, x: e.clientX, y: e.clientY, uri: uri.toString(), secretName, cellStatus, isLibraryGroup };
   setTimeout(() => {
     window.addEventListener('click', hideCellContextMenu);
     window.addEventListener('keydown', handleCellContextMenuEsc);
@@ -430,22 +430,32 @@ onUnmounted(() => {
          :style="{ top: `${cellContextMenu.y}px`, left: `${cellContextMenu.x}px` }"
          class="fixed z-50 bg-white border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.1),_0_0_1px_rgba(0,0,0,0.2)] rounded py-1 min-w-[160px] text-[13px] text-slate-800"
          @click.stop>
-      <button 
-        @click="handleCopy(cellContextMenu.uri, cellContextMenu.secretName, cellContextMenu.cellStatus?.value); hideCellContextMenu()" 
-        class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-        :disabled="!cellContextMenu.cellStatus?.value"
-      >
-        <span>Copy</span>
-        <span class="text-[10px] text-slate-400">Ctrl+C</span>
-      </button>
-      <button 
-        @click="handlePaste(cellContextMenu.uri, cellContextMenu.secretName, cellContextMenu.cellStatus); hideCellContextMenu()" 
-        class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group"
-        :class="cellContextMenu.cellStatus?.value ? 'text-rose-600 hover:bg-rose-50' : ''"
-      >
-        <span>{{ cellContextMenu.cellStatus?.value ? 'Paste (Overwrite)' : 'Paste' }}</span>
-        <span class="text-[10px]" :class="cellContextMenu.cellStatus?.value ? 'text-rose-400' : 'text-slate-400'">Ctrl+V</span>
-      </button>
+      <template v-if="!cellContextMenu.isLibraryGroup">
+        <button 
+          @click="handleCopy(cellContextMenu.uri, cellContextMenu.secretName, cellContextMenu.cellStatus?.value); hideCellContextMenu()" 
+          class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          :disabled="!cellContextMenu.cellStatus?.value"
+        >
+          <span>Copy</span>
+          <span class="text-[10px] text-slate-400">Ctrl+C</span>
+        </button>
+        <button 
+          @click="handlePaste(cellContextMenu.uri, cellContextMenu.secretName, cellContextMenu.cellStatus); hideCellContextMenu()" 
+          class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group"
+          :class="cellContextMenu.cellStatus?.value ? 'text-rose-600 hover:bg-rose-50' : ''"
+        >
+          <span>{{ cellContextMenu.cellStatus?.value ? 'Paste (Overwrite)' : 'Paste' }}</span>
+          <span class="text-[10px]" :class="cellContextMenu.cellStatus?.value ? 'text-rose-400' : 'text-slate-400'">Ctrl+V</span>
+        </button>
+      </template>
+      <template v-else>
+        <button 
+          @click="devopsDataStore.addVariableToGroup(parseInt(cellContextMenu.uri), cellContextMenu.secretName); hideCellContextMenu()" 
+          class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group text-blue-600 font-medium"
+        >
+          <span>Include it in Library</span>
+        </button>
+      </template>
     </div>
 
     <div class="overflow-auto flex-1">
@@ -588,7 +598,7 @@ onUnmounted(() => {
                       </svg>
                     </span>
                   </div>
-                  <div v-else-if="isMissingInGroupButInVault(row, col.group)" class="text-rose-500 font-bold text-lg cursor-help" title="Missing in Library, but present in Vault">
+                  <div v-else-if="isMissingInGroupButInVault(row, col.group)" class="text-rose-500 font-bold text-lg cursor-context-menu" title="Missing in Library, but present in Vault" @contextmenu.prevent="showCellContextMenu($event, col.id, row.secretName, undefined, true)">
                     -
                   </div>
                   <div v-else class="text-slate-300 font-bold text-lg">

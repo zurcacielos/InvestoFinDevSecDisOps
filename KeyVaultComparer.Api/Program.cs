@@ -136,7 +136,7 @@ app.MapGet("/api/devops/variablegroups", async ([FromQuery] string organization,
         using var client = new HttpClient();
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
         
-        var url = $"https://dev.azure.com/{organization}/{project}/_apis/distributedtask/variablegroups?api-version=7.1-preview.2";
+        var url = $"https://dev.azure.com/{organization}/{project}/_apis/distributedtask/variablegroups?api-version=7.1";
         var response = await client.GetAsync(url);
         
         if (response.IsSuccessStatusCode)
@@ -161,6 +161,65 @@ app.MapGet("/api/devops/variablegroups", async ([FromQuery] string organization,
     }
 })
 .WithName("GetAdoVariableGroups");
+
+app.MapPut("/api/devops/variablegroups/{groupId}/variables", async (
+    int groupId, 
+    [FromQuery] string organization, 
+    [FromQuery] string project, 
+    [FromBody] AddVariableRequest req,
+    TokenCredential credential) =>
+{
+    try
+    {
+        var tokenContext = new TokenRequestContext(new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" });
+        var token = await credential.GetTokenAsync(tokenContext, default);
+
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
+        
+        // 1. Get the current variable group
+        var getUrl = $"https://dev.azure.com/{organization}/{project}/_apis/distributedtask/variablegroups/{groupId}?api-version=7.1";
+        var getResp = await client.GetAsync(getUrl);
+        
+        if (!getResp.IsSuccessStatusCode)
+        {
+            var err = await getResp.Content.ReadAsStringAsync();
+            return Results.BadRequest(new { error = $"ADO API Error getting group ({getResp.StatusCode})", details = err });
+        }
+
+        var groupJson = await getResp.Content.ReadAsStringAsync();
+        var groupObj = System.Text.Json.Nodes.JsonNode.Parse(groupJson)?.AsObject();
+        
+        if (groupObj == null || !groupObj.ContainsKey("variables"))
+            return Results.BadRequest(new { error = "Invalid variable group format from ADO" });
+
+        var variables = groupObj["variables"]?.AsObject();
+        if (variables == null) return Results.BadRequest(new { error = "Variables object is null" });
+
+        // Add the new variable (for Key Vault linked groups, we only need enabled = true)
+        var newVar = new System.Text.Json.Nodes.JsonObject();
+        newVar["enabled"] = true;
+        variables[req.SecretName] = newVar;
+
+        // 2. PUT the updated group
+        var putUrl = $"https://dev.azure.com/{organization}/{project}/_apis/distributedtask/variablegroups/{groupId}?api-version=7.1";
+        var content = new StringContent(groupObj.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+        var putResp = await client.PutAsync(putUrl, content);
+
+        if (!putResp.IsSuccessStatusCode)
+        {
+            var err = await putResp.Content.ReadAsStringAsync();
+            return Results.BadRequest(new { error = $"ADO API Error updating group ({putResp.StatusCode})", details = err });
+        }
+
+        return Results.Ok();
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.WithName("AddVariableToAdoGroup");
 
 
 app.MapPost("/api/logs/url", async ([FromBody] LogUrlRequest request) =>

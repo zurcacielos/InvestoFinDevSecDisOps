@@ -3,6 +3,11 @@ using System.Linq;
 
 namespace KeyVaultComparer.Api.Models
 {
+    public class AddVariableRequest
+    {
+        public string SecretName { get; set; } = string.Empty;
+    }
+
     public class VaultComparisonRequest
     {
         public List<string>? VaultUris { get; set; }
