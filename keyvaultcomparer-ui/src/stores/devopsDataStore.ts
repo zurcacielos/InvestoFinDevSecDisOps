@@ -72,11 +72,22 @@ export const useDevopsDataStore = defineStore('devopsData', {
         });
         
         if (!response.ok) {
-          const result = await response.json();
-          alert(`Azure DevOps Error:\n${result.error}\n${result.details || ''}`);
+          const text = await response.text();
+          let errorMessage = text;
+          try {
+            const parsed = JSON.parse(text);
+            errorMessage = `${parsed.error || 'Unknown Error'}\n${parsed.details || ''}`;
+          } catch (e) {}
+          alert(`Azure DevOps Error:\n${errorMessage}`);
         } else {
-          // Re-fetch to get updated state
-          await this.fetchVariableGroups();
+          // Mutate local state to avoid UI flicker from a full refetch
+          const group = this.variableGroups.find(g => g.id === groupId);
+          if (group) {
+            if (!group.variables) {
+              group.variables = {};
+            }
+            group.variables[secretName] = { enabled: true };
+          }
         }
       } catch (err: any) {
         alert(`Failed to add variable to library:\n${err.message || err}`);
