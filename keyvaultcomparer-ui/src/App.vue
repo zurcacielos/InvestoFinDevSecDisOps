@@ -689,7 +689,7 @@ onMounted(async () => {
       <template #devops>
         <div class="flex flex-col w-full h-full min-h-[84px] px-2 py-1 relative">
           <div class="flex items-center gap-1.5 mb-1.5">
-            <div class="font-bold text-slate-800 text-sm">Fetch libraries' var groups from Azure DevOps (ADO) that use your selected vaults</div>
+            <div class="font-bold text-slate-800 text-sm">Fetch Library variable groups from Azure DevOps (ADO) that use your selected vaults</div>
           </div>
           <div class="flex items-center gap-4 pt-1 flex-wrap">
             <div class="flex items-center gap-2">
