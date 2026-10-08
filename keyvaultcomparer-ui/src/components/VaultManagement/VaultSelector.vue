@@ -179,7 +179,7 @@ const openVaultInAzure = (uri: string) => {
           @focus="showDropdown = true"
           @blur="hideDropdown"
           @keydown.esc="showDropdown = false"
-          placeholder="Search vaults..."
+          placeholder="Type to Search vaults..."
           class="w-full border border-slate-300 rounded-lg px-2 py-1 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <div class="absolute right-3 inset-y-0 flex items-center pointer-events-none text-slate-400">
