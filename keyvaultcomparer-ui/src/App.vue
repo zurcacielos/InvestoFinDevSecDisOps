@@ -781,7 +781,7 @@ onMounted(async () => {
                    class="fixed z-50 bg-white border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.1),_0_0_1px_rgba(0,0,0,0.2)] rounded py-1 min-w-[160px] text-[13px] text-slate-800"
                    @click.stop>
                 <button @click="devopsDataStore.openAdoLibrary(devopsContextMenu.group!.id); hideDevopsContextMenu()" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
-                  <span>Go to ADO Library</span>
+                  <span>Go to ADO lib var group</span>
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                     <polyline points="15 3 21 3 21 9"></polyline>

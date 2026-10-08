@@ -251,6 +251,7 @@ const visibleColumns = computed(() => {
 });
 
 const contextMenu = ref({ show: false, x: 0, y: 0, colId: '' });
+const cellContextMenu = ref({ show: false, x: 0, y: 0, uri: '', secretName: '', cellStatus: undefined as SecretValueStatus | undefined });
 
 const contextMenuCol = computed(() => {
   if (!contextMenu.value.show) return null;
@@ -283,6 +284,24 @@ const hideContextMenu = () => {
   contextMenu.value.show = false;
   window.removeEventListener('click', hideContextMenu);
   window.removeEventListener('keydown', handleContextMenuEsc);
+};
+
+const handleCellContextMenuEsc = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') hideCellContextMenu();
+};
+
+const showCellContextMenu = (e: MouseEvent, uri: string, secretName: string, cellStatus: SecretValueStatus | undefined) => {
+  cellContextMenu.value = { show: true, x: e.clientX, y: e.clientY, uri, secretName, cellStatus };
+  setTimeout(() => {
+    window.addEventListener('click', hideCellContextMenu);
+    window.addEventListener('keydown', handleCellContextMenuEsc);
+  }, 0);
+};
+
+const hideCellContextMenu = () => {
+  cellContextMenu.value.show = false;
+  window.removeEventListener('click', hideCellContextMenu);
+  window.removeEventListener('keydown', handleCellContextMenuEsc);
 };
 
 const hideColumn = (colId: string) => {
@@ -382,12 +401,12 @@ onUnmounted(() => {
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
           </button>
           <button v-if="hasAssociatedLibrary(contextMenuCol.name)" @click="toggleAssociatedLibrary(contextMenuCol.name); hideContextMenu()" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
-            <span>{{ isLibraryVisible(contextMenuCol.name) ? 'Hide associated ADO lib var group' : 'Show associated ADO lib var group' }}</span>
+            <span>{{ isLibraryVisible(contextMenuCol.name) ? 'Hide linked ADO lib var group' : 'Show linked ADO lib var group' }}</span>
           </button>
         </template>
         <template v-else-if="contextMenuCol.type === 'group'">
           <button @click="handleGoToAdoLibrary(contextMenuCol.id)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
-            <span>Go to ADO Library</span>
+            <span>Go to ADO lib var group</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
           </button>
         </template>
@@ -403,6 +422,29 @@ onUnmounted(() => {
       <div v-if="uiSettings.hiddenColumns.length > 0" class="h-px bg-slate-200 my-1"></div>
       <button v-if="uiSettings.hiddenColumns.length > 0" @click="showAllHiddenColumns" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-blue-600 font-medium flex items-center justify-between group">
         <span>Show hidden columns</span>
+      </button>
+    </div>
+
+    <!-- Cell Context Menu -->
+    <div v-if="cellContextMenu.show" 
+         :style="{ top: `${cellContextMenu.y}px`, left: `${cellContextMenu.x}px` }"
+         class="fixed z-50 bg-white border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.1),_0_0_1px_rgba(0,0,0,0.2)] rounded py-1 min-w-[160px] text-[13px] text-slate-800"
+         @click.stop>
+      <button 
+        @click="handleCopy(cellContextMenu.uri, cellContextMenu.secretName, cellContextMenu.cellStatus?.value); hideCellContextMenu()" 
+        class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+        :disabled="!cellContextMenu.cellStatus?.value"
+      >
+        <span>Copy</span>
+        <span class="text-[10px] text-slate-400">Ctrl+C</span>
+      </button>
+      <button 
+        @click="handlePaste(cellContextMenu.uri, cellContextMenu.secretName, cellContextMenu.cellStatus); hideCellContextMenu()" 
+        class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group"
+        :class="cellContextMenu.cellStatus?.value ? 'text-rose-600 hover:bg-rose-50' : ''"
+      >
+        <span>{{ cellContextMenu.cellStatus?.value ? 'Paste (Overwrite)' : 'Paste' }}</span>
+        <span class="text-[10px]" :class="cellContextMenu.cellStatus?.value ? 'text-rose-400' : 'text-slate-400'">Ctrl+V</span>
       </button>
     </div>
 
@@ -559,6 +601,7 @@ onUnmounted(() => {
                   v-else 
                   class="px-2 py-1 text-xs border-r border-slate-100 bg-white group-hover:bg-slate-50 transition-colors relative focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400 group/cell cursor-cell"
                   tabindex="0"
+                  @contextmenu.prevent="showCellContextMenu($event, col.id, row.secretName, row.vaultValues[col.id])"
                   @dblclick="row.vaultValues[col.id]?.value && toggleHighlight(row.vaultValues[col.id]?.value)"
                   @keydown.ctrl.c.prevent="handleCopy(col.id, row.secretName, row.vaultValues[col.id]?.value)"
                   @keydown.meta.c.prevent="handleCopy(col.id, row.secretName, row.vaultValues[col.id]?.value)"
