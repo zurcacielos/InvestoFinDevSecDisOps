@@ -26,6 +26,12 @@ Before starting the application, ensure you are logged into Azure:
 az login
 ```
 
+**Hint:** If you encounter proxy/SSL errors in corporate environments, you may need to specify your CA bundle before running `az login`. For example:
+```powershell
+$env:REQUESTS_CA_BUNDLE="$HOME\combined_corp.pem"
+az login
+```
+
 ## Security
 **Important:** For security reasons, the backend API is strictly restricted to the machine where it runs (bound to `127.0.0.1` via `appsettings.json`). It cannot be accessed externally over the local network.
 
