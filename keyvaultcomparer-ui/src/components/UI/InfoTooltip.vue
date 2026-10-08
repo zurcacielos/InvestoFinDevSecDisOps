@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
+const props = withDefaults(defineProps<{
+  align?: 'left' | 'center' | 'right'
+}>(), {
+  align: 'center'
+});
+
 const showTooltip = ref(false);
 </script>
 
@@ -12,11 +18,23 @@ const showTooltip = ref(false);
     
     <div 
       v-if="showTooltip" 
-      class="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-slate-800 text-white text-xs rounded-lg shadow-xl p-3 z-50 normal-case tracking-normal font-normal pointer-events-none transition-opacity duration-200"
+      class="absolute top-full mt-2 w-64 bg-slate-800 text-white text-xs rounded-lg shadow-xl p-3 z-[100] normal-case tracking-normal font-normal pointer-events-none transition-opacity duration-200"
+      :class="{
+        'left-1/2 -translate-x-1/2': props.align === 'center',
+        'left-0 -translate-x-2': props.align === 'left',
+        'right-0 translate-x-2': props.align === 'right'
+      }"
     >
       <slot></slot>
       <!-- Arrow pointing up -->
-      <div class="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-800"></div>
+      <div 
+        class="absolute bottom-full border-4 border-transparent border-b-slate-800"
+        :class="{
+          'left-1/2 -translate-x-1/2': props.align === 'center',
+          'left-3': props.align === 'left',
+          'right-3': props.align === 'right'
+        }"
+      ></div>
     </div>
   </div>
 </template>
