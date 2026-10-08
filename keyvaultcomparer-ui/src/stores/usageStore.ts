@@ -20,21 +20,31 @@ export const useUsageStore = defineStore('usage', () => {
   const filterStartDate = ref<string>('');
   const filterEndDate = ref<string>('');
 
-  const fetchUsageStats = async (vaultUris: string[]) => {
-    isFetchingUsage.value = true;
-    insightCount.value = null;
-
+  const fetchUsageStats = async (vaultUris: string[], filteredSecretNames: string[], totalSecretsCount: number) => {
     let daysToFetch = queryLimitValue.value;
     if (queryLimitUnit.value === 'months') daysToFetch = queryLimitValue.value * 30;
     else if (queryLimitUnit.value === 'years') daysToFetch = queryLimitValue.value * 365;
 
+    const isFiltered = filteredSecretNames.length > 0 && filteredSecretNames.length < totalSecretsCount;
+    const namesToSend = isFiltered ? filteredSecretNames : [];
+    const countToCheck = isFiltered ? namesToSend.length : totalSecretsCount;
+
+    if (countToCheck > 100 && daysToFetch > 31) {
+      if (!confirm(`This operation will process ${countToCheck} secrets over ${daysToFetch} days and may take a long time.\nDo you want to proceed?`)) {
+        return;
+      }
+    }
+
+    isFetchingUsage.value = true;
+    insightCount.value = null;
+
     try {
-      const response = await fetch(`http://localhost:5065/api/vaults/usage?days=${daysToFetch}`, {
+      const response = await fetch(`/api/vaults/usage?days=${daysToFetch}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(vaultUris)
+        body: JSON.stringify({ vaultUris, secretNames: namesToSend })
       });
 
       if (!response.ok) {

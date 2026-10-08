@@ -132,7 +132,7 @@ namespace KeyVaultComparer.Api.Services
             return subs;
         }
 
-        public async Task<UsageStatsResponse> GetVaultUsageStatsAsync(List<string> vaultUris, int days = 90)
+        public async Task<UsageStatsResponse> GetVaultUsageStatsAsync(List<string> vaultUris, List<string>? secretNames, int days = 90)
         {
             var response = new UsageStatsResponse();
             if (vaultUris == null || !vaultUris.Any()) return response;
@@ -173,8 +173,17 @@ AzureDiagnostics
 | where ResourceProvider == 'MICROSOFT.KEYVAULT'
 | where OperationName == 'SecretGet'
 | where clientInfo_s !contains 'KeyVaultComparerApp'
-| summarize LastUsed = max(TimeGenerated) by id_s
 ";
+
+            if (secretNames != null && secretNames.Any())
+            {
+                var namesList = string.Join(", ", secretNames.Select(n => $"'{n.ToLowerInvariant()}'"));
+                kql += $@"| extend SecretName = tolower(extract(@""https://[^/]+/secrets/([^/]+)"", 1, id_s))
+| where SecretName in ({namesList})
+";
+            }
+
+            kql += "| summarize LastUsed = max(TimeGenerated) by id_s";
 
             var tasks = vaultInfos.Select(async vault =>
             {

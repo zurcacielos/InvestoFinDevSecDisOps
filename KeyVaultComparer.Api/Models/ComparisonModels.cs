@@ -8,6 +8,12 @@ namespace KeyVaultComparer.Api.Models
         public string SecretName { get; set; } = string.Empty;
     }
 
+    public class UsageStatsRequest
+    {
+        public List<string> VaultUris { get; set; } = new();
+        public List<string>? SecretNames { get; set; }
+    }
+
     public class VaultComparisonRequest
     {
         public List<string>? VaultUris { get; set; }
