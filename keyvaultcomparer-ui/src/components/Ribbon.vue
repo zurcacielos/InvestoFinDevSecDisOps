@@ -49,6 +49,13 @@ const filterStore = useFilterStore()
             <span v-if="filterStore.nameFilter.trim()" class="flex h-1.5 w-1.5 rounded-full bg-blue-500" title="Active Filter"></span>
           </button>
           <button 
+            @click="setTab('devops')"
+            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
+            :class="modelValue === 'devops' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
+          >
+            DevOps
+          </button>
+          <button 
             @click="setTab('inspections-tool')"
             class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
             :class="modelValue === 'inspections-tool' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
@@ -66,13 +73,6 @@ const filterStore = useFilterStore()
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
             </svg>
             Code
-          </button>
-          <button 
-            @click="setTab('devops')"
-            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
-            :class="modelValue === 'devops' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
-          >
-            DevOps
           </button>
           <button 
             @click="setTab('staged')"
