@@ -668,10 +668,16 @@ onMounted(async () => {
           <div class="flex items-center gap-4 pt-1 flex-wrap">
             <div class="flex items-center gap-2">
               <span class="text-sm font-medium text-slate-600">Org:</span>
-              <input v-model="devopsDataStore.organization" @keyup.enter="devopsDataStore.fetchVariableGroups" type="text" placeholder="e.g. contoso" class="w-48 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
+              <InfoTooltip>
+                <span>Enter your Azure DevOps organization name.</span>
+              </InfoTooltip>
+              <input v-model="devopsDataStore.organization" @keyup.enter="devopsDataStore.fetchVariableGroups" type="text" placeholder="e.g. MyFintechBank" class="w-48 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm font-medium text-slate-600">Project:</span>
+              <InfoTooltip>
+                <span>Enter your Azure DevOps project name.</span>
+              </InfoTooltip>
               <input v-model="devopsDataStore.project" @keyup.enter="devopsDataStore.fetchVariableGroups" type="text" placeholder="e.g. MyProject" class="w-64 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
             </div>
             <button 
