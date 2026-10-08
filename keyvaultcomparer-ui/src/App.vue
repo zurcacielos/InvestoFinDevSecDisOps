@@ -499,7 +499,7 @@ onMounted(async () => {
             <!-- Row 1, Col 2: Fetch Button & Notifications -->
             <div class="flex items-center gap-4 relative">
               <button 
-                @click="usageStore.fetchUsageStats(vaultUris, filterStore.filteredNames, vaultStore.knownSecretNames.length)" 
+                @click="usageStore.fetchUsageStats(vaultUris, filterStore.filteredNames, filterStore.allSortedNames.length)" 
                 class="px-5 py-2 font-medium text-sm rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
                 :class="usageStore.isFetchingUsage ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
                 :disabled="usageStore.isFetchingUsage || vaultUris.length === 0"
