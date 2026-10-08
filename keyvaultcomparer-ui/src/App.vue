@@ -18,7 +18,6 @@ import { useAuthStore } from './stores/authStore';
 import { useVaultStore } from './stores/vaultStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useFilterStore } from './stores/filterStore';
-import { openUrlInNewTab } from './utils/urlOpener';
 import { useStagedStore } from './stores/stagedStore';
 import { useUiStateStore } from './stores/uiStateStore';
 import { useUsageStore } from './stores/usageStore';
@@ -104,21 +103,6 @@ const showDevopsContextMenu = (e: MouseEvent, group: import('./stores/devopsData
     window.addEventListener('click', hideDevopsContextMenu);
     window.addEventListener('keydown', handleDevopsContextMenuEsc);
   }, 0);
-};
-
-const openAdoLibrary = (group: import('./stores/devopsDataStore').AdoVariableGroup | null) => {
-  if (!group || !devopsDataStore.organization || !devopsDataStore.project) return;
-  const url = `https://dev.azure.com/${devopsDataStore.organization}/${devopsDataStore.project}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId=${group.id}`;
-  openUrlInNewTab(url);
-  hideDevopsContextMenu();
-};
-
-const openAzureVault = (group: import('./stores/devopsDataStore').AdoVariableGroup | null) => {
-  const vaultName = group?.providerData?.vault;
-  if (!vaultName) return;
-  
-  vaultStore.openAzureVaultGlobal(vaultName);
-  hideDevopsContextMenu();
 };
 
 const uiStateStore = useUiStateStore();
@@ -796,7 +780,7 @@ onMounted(async () => {
                    :style="{ top: `${devopsContextMenu.y}px`, left: `${devopsContextMenu.x}px` }"
                    class="fixed z-50 bg-white border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.1),_0_0_1px_rgba(0,0,0,0.2)] rounded py-1 min-w-[160px] text-[13px] text-slate-800"
                    @click.stop>
-                <button @click="openAdoLibrary(devopsContextMenu.group)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+                <button @click="devopsDataStore.openAdoLibrary(devopsContextMenu.group!.id); hideDevopsContextMenu()" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
                   <span>Go to ADO Library</span>
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -804,7 +788,7 @@ onMounted(async () => {
                     <line x1="10" y1="14" x2="21" y2="3"></line>
                   </svg>
                 </button>
-                <button v-if="devopsContextMenu.group?.providerData?.vault" @click="openAzureVault(devopsContextMenu.group)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+                <button v-if="devopsContextMenu.group?.providerData?.vault" @click="vaultStore.openAzureVaultGlobal(devopsContextMenu.group!.providerData!.vault!); hideDevopsContextMenu()" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
                   <span>Go to Azure Vault</span>
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { apiFetch } from '../services/apiClient';
+import { openUrlInNewTab } from '../utils/urlOpener';
 
 export interface AdoVariableGroup {
   id: number;
@@ -54,6 +55,11 @@ export const useDevopsDataStore = defineStore('devopsData', {
       } else {
         this.selectedGroupIds.push(groupId);
       }
+    },
+    openAdoLibrary(groupId: number) {
+      if (!this.organization || !this.project) return;
+      const url = `https://dev.azure.com/${this.organization}/${this.project}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId=${groupId}`;
+      openUrlInNewTab(url);
     }
   },
   getters: {

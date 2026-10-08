@@ -252,6 +252,21 @@ const visibleColumns = computed(() => {
 
 const contextMenu = ref({ show: false, x: 0, y: 0, colId: '' });
 
+const contextMenuCol = computed(() => {
+  if (!contextMenu.value.show) return null;
+  return allColumns.value.find((c: ColumnDef) => c.id.toString() === contextMenu.value.colId);
+});
+
+const handleGoToAdoLibrary = (groupId: number) => {
+  devopsDataStore.openAdoLibrary(groupId);
+  hideContextMenu();
+};
+
+const handleGoToVault = (vaultUriOrName: string) => {
+  vaultStore.openAzureVaultGlobal(getVaultName(vaultUriOrName));
+  hideContextMenu();
+};
+
 const handleContextMenuEsc = (e: KeyboardEvent) => {
   if (e.key === 'Escape') hideContextMenu();
 };
@@ -298,6 +313,10 @@ const isLibraryVisible = (vaultName: string) => {
 
 const hasAssociatedLibrary = (vaultName: string) => {
   return devopsDataStore.variableGroups.some(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
+};
+
+const getGroupIdForVault = (vaultName: string) => {
+  return devopsDataStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase())?.id;
 };
 
 const toggleAssociatedLibrary = (vaultName: string) => {
@@ -360,6 +379,26 @@ onUnmounted(() => {
          :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
          class="fixed z-50 bg-white border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.1),_0_0_1px_rgba(0,0,0,0.2)] rounded py-1 min-w-[160px] text-[13px] text-slate-800"
          @click.stop>
+      <template v-if="contextMenuCol">
+        <template v-if="contextMenuCol.type === 'vault'">
+          <button v-if="hasAssociatedLibrary(contextMenuCol.name)" @click="handleGoToAdoLibrary(getGroupIdForVault(contextMenuCol.name)!)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+            <span>Go to ADO Library</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </button>
+          <button @click="handleGoToVault(contextMenuCol.id)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+            <span>Go to Vault</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </button>
+        </template>
+        <template v-else-if="contextMenuCol.type === 'group'">
+          <button @click="handleGoToAdoLibrary(contextMenuCol.id)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+            <span>Go to ADO Library</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </button>
+        </template>
+        <div class="h-px bg-slate-200 my-1"></div>
+      </template>
+
       <button @click="hideColumn(contextMenu.colId)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
         <span>Hide this column</span>
       </button>

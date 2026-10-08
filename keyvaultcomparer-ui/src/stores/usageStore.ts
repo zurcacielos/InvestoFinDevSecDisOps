@@ -11,7 +11,7 @@ export const useUsageStore = defineStore('usage', () => {
   const isFetchingUsage = ref(false);
   const insightCount = ref<number | null>(null);
 
-  const queryLimitValue = ref<number>(90);
+  const queryLimitValue = ref<number>(60);
   const queryLimitUnit = ref<UsageFilterUnit>('days');
 
   const filterMode = ref<UsageFilterMode>('None');
@@ -23,11 +23,11 @@ export const useUsageStore = defineStore('usage', () => {
   const fetchUsageStats = async (vaultUris: string[]) => {
     isFetchingUsage.value = true;
     insightCount.value = null;
-    
+
     let daysToFetch = queryLimitValue.value;
     if (queryLimitUnit.value === 'months') daysToFetch = queryLimitValue.value * 30;
     else if (queryLimitUnit.value === 'years') daysToFetch = queryLimitValue.value * 365;
-    
+
     try {
       const response = await fetch(`http://localhost:5065/api/vaults/usage?days=${daysToFetch}`, {
         method: 'POST',
@@ -45,7 +45,7 @@ export const useUsageStore = defineStore('usage', () => {
       usageData.value = data.usageData || {};
       isAuditingEnabled.value = data.isAuditingEnabled;
       auditMissingVaults.value = data.auditMissingVaults || [];
-      
+
       insightCount.value = Object.keys(usageData.value).length;
     } catch (error) {
       console.error('Error fetching usage stats:', error);
