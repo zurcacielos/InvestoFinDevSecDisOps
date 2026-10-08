@@ -339,7 +339,7 @@ export const useVaultStore = defineStore('data', {
       }
 
       if (vaultMeta?.id) {
-         return `https://portal.azure.com/#${tenantPrefix}resource${vaultMeta.id}/overview`;
+         return `https://portal.azure.com/#${tenantPrefix}resource${vaultMeta.id}/secrets`;
       }
       
       // If we don't have the exact ID in vault metadata, we'll try to construct it based on what we do know.
