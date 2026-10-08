@@ -432,6 +432,29 @@ const downloadInspectionsCSV = () => {
   URL.revokeObjectURL(url);
 };
 
+const linkedVariableGroups = computed(() => {
+  if (!devopsDataStore.variableGroups.length || !vaultStore.vaultUris.length) return [];
+  const visibleVaultNames = vaultStore.vaultUris.map(uri => getVaultName(uri).toLowerCase());
+  return devopsDataStore.variableGroups.filter(g => {
+    return g.providerData?.vault && visibleVaultNames.includes(g.providerData.vault.toLowerCase());
+  });
+});
+
+const hasLinkedGroups = computed(() => linkedVariableGroups.value.length > 0);
+
+const areLinkedGroupsShown = computed(() => {
+  if (!hasLinkedGroups.value) return false;
+  return devopsDataStore.selectedGroupIds.length > 0;
+});
+
+const toggleLinkedGroups = () => {
+  if (areLinkedGroupsShown.value) {
+    devopsDataStore.selectedGroupIds = [];
+  } else {
+    devopsDataStore.selectedGroupIds = linkedVariableGroups.value.map(g => g.id);
+  }
+};
+
 onMounted(async () => {
   await authStore.connectToAzure(); 
 });
@@ -691,6 +714,14 @@ onMounted(async () => {
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
               {{ devopsDataStore.isLoading ? 'Fetching...' : 'Fetch Libraries' }}
+            </button>
+            <button 
+              v-if="hasLinkedGroups && !devopsDataStore.isLoading"
+              @click="toggleLinkedGroups" 
+              class="px-4 py-1.5 font-medium text-sm rounded-lg transition-colors shadow-sm border"
+              :class="areLinkedGroupsShown ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'"
+            >
+              {{ areLinkedGroupsShown ? 'Hide all lib var groups' : 'Show all linked lib var groups' }}
             </button>
             <div v-if="devopsDataStore.error" class="text-rose-500 text-xs font-semibold ml-2">
               {{ devopsDataStore.error }}
