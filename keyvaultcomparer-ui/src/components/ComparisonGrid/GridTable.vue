@@ -315,10 +315,6 @@ const hasAssociatedLibrary = (vaultName: string) => {
   return devopsDataStore.variableGroups.some(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
 };
 
-const getGroupIdForVault = (vaultName: string) => {
-  return devopsDataStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase())?.id;
-};
-
 const toggleAssociatedLibrary = (vaultName: string) => {
   const group = devopsDataStore.variableGroups.find(g => g.providerData?.vault?.toLowerCase() === vaultName.toLowerCase());
   if (!group) return;
@@ -381,13 +377,12 @@ onUnmounted(() => {
          @click.stop>
       <template v-if="contextMenuCol">
         <template v-if="contextMenuCol.type === 'vault'">
-          <button v-if="hasAssociatedLibrary(contextMenuCol.name)" @click="handleGoToAdoLibrary(getGroupIdForVault(contextMenuCol.name)!)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
-            <span>Go to ADO Library</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-          </button>
           <button @click="handleGoToVault(contextMenuCol.id)" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
             <span>Go to Vault</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </button>
+          <button v-if="hasAssociatedLibrary(contextMenuCol.name)" @click="toggleAssociatedLibrary(contextMenuCol.name); hideContextMenu()" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group">
+            <span>{{ isLibraryVisible(contextMenuCol.name) ? 'Hide associated ADO lib var group' : 'Show associated ADO lib var group' }}</span>
           </button>
         </template>
         <template v-else-if="contextMenuCol.type === 'group'">
