@@ -742,13 +742,13 @@ onMounted(async () => {
                 <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Search Libraries</span>
                 <InfoTooltip>
                   <span class="leading-relaxed">
-                    Search and select a library to add it as a column, or click the
+                    Search and select a library var group to add it as a column, or click the
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 inline-block align-baseline mx-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="4" y="5" width="2" height="14" rx="0.5" />
                       <rect x="11" y="5" width="2" height="14" rx="0.5" />
                       <rect x="18" y="5" width="2" height="14" rx="0.5" transform="rotate(-15 19 12)" />
                     </svg>
-                    icon on the vault headers which have an associated library, to show it.
+                    icon on the vault headers which have a linked var group, to show it.
                   </span>
                 </InfoTooltip>
                 <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">:</span>

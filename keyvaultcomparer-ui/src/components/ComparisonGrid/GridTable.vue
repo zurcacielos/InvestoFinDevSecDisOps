@@ -453,7 +453,7 @@ onUnmounted(() => {
           @click="devopsDataStore.addVariableToGroup(parseInt(cellContextMenu.uri), cellContextMenu.secretName); hideCellContextMenu()" 
           class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group text-blue-600 font-medium"
         >
-          <span>Include it in Library</span>
+          <span>Include it in variable group</span>
         </button>
       </template>
     </div>
@@ -511,7 +511,7 @@ onUnmounted(() => {
                       @click="toggleAssociatedLibrary(col.name)"
                       class="transition-colors p-0.5 ml-1 flex items-center justify-center rounded shadow-sm border"
                       :class="!isLibraryVisible(col.name) ? 'text-blue-600 border-blue-300 bg-blue-50 hover:bg-blue-100 hover:text-blue-800' : 'text-slate-400 border-slate-200 bg-white hover:text-slate-600 hover:bg-slate-50'"
-                      :title="isLibraryVisible(col.name) ? 'Hide Associated Library' : 'Show Associated Library'"
+                      :title="isLibraryVisible(col.name) ? 'Hide linked var group' : 'Show linked var group'"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="4" y="5" width="2" height="14" rx="0.5" />
