@@ -110,7 +110,7 @@ const formatTimeAgo = (iso?: string) => {
       <div class="flex items-center gap-2">
         <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold text-[11px]">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          Modo Expandido (DAG Topological Order)
+          Expanded Stages (DAG Topological Order)
         </span>
         <span class="text-slate-400">&bull;</span>
         <span class="text-slate-600 font-medium">

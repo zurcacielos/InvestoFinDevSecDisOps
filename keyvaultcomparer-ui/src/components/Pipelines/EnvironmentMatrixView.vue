@@ -128,11 +128,11 @@ const getLagStatus = (row: PipelineMatrixRow, envIndex: number) => {
       <div class="flex items-center gap-2">
         <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold text-[11px]">
           <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-          Modo Ambientes (Release Matrix)
+          Environment Matrix
         </span>
         <span class="text-slate-400">&bull;</span>
         <span class="text-slate-600 font-medium">
-          {{ rows.length }} Pipelines &times; {{ environments.length }} Ambientes
+          {{ rows.length }} Pipelines &times; {{ environments.length }} Environments
         </span>
         <span class="text-slate-400">|</span>
         <span class="text-[11px] text-slate-500">

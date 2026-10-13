@@ -169,7 +169,7 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
       
       <!-- View Mode Tabs -->
       <div class="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-lg">
-        <!-- Modo Ambientes Tab -->
+        <!-- Environment Matrix Tab -->
         <button 
           @click="devopsStore.setViewMode('environments')"
           class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
@@ -180,7 +180,7 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="devopsStore.viewMode === 'environments' ? 'text-blue-600' : 'text-slate-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
-          <span>Modo Ambientes (Release Matrix)</span>
+          <span>Environment Matrix</span>
           <span 
             v-if="devopsStore.releaseMatrix?.environments.length"
             class="px-1.5 py-0.2 rounded text-[10px] font-mono"
@@ -190,7 +190,7 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
           </span>
         </button>
 
-        <!-- Modo Expandido Tab -->
+        <!-- Expanded Stages DAG Tab -->
         <button 
           @click="devopsStore.setViewMode('stages')"
           class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
@@ -201,7 +201,7 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="devopsStore.viewMode === 'stages' ? 'text-emerald-600' : 'text-slate-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          <span>Modo Expandido (Stages DAG)</span>
+          <span>Expanded Stages (DAG)</span>
           <span 
             v-if="devopsStore.releaseMatrix?.topoSortedStages?.length"
             class="px-1.5 py-0.2 rounded text-[10px] font-mono"
@@ -302,14 +302,14 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
 
     <!-- Dynamic Dual Mode Tables (Separate Files) -->
     <template v-else>
-      <!-- Modo Ambientes (Release Matrix) -->
+      <!-- Environment Matrix -->
       <EnvironmentMatrixView 
         v-if="devopsStore.viewMode === 'environments'"
         @open-context-menu="openContextMenu"
         @open-all-yamls="openAllGithubYamls"
       />
 
-      <!-- Modo Expandido (Stages DAG) -->
+      <!-- Expanded Stages (DAG) -->
       <ExpandedStagesView 
         v-else
         @open-context-menu="openContextMenu"
