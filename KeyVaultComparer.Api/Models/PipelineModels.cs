@@ -78,6 +78,9 @@ namespace KeyVaultComparer.Api.Models
         public string? Branch { get; set; }
         public string? CommitSha { get; set; }
         public string? Author { get; set; }
+        public string? AuthorImageUrl { get; set; }
+        public string? TriggerReason { get; set; }
+        public bool IsAutomated { get; set; }
         public DateTime? DeployedAt { get; set; }
         public string? BuildUrl { get; set; }
         public string? PrNumber { get; set; }
@@ -92,6 +95,9 @@ namespace KeyVaultComparer.Api.Models
         public string? Branch { get; set; }
         public string? CommitSha { get; set; }
         public string? Author { get; set; }
+        public string? AuthorImageUrl { get; set; }
+        public string? TriggerReason { get; set; }
+        public bool IsAutomated { get; set; }
         public DateTime? DeployedAt { get; set; }
         public string? BuildUrl { get; set; }
         public string? PrNumber { get; set; }

@@ -36,6 +36,9 @@ export interface StageDeploymentInfo {
   branch?: string;
   commitSha?: string;
   author?: string;
+  authorImageUrl?: string;
+  triggerReason?: string;
+  isAutomated?: boolean;
   deployedAt?: string;
   buildUrl?: string;
   prNumber?: string;
@@ -64,6 +67,9 @@ export interface EnvironmentDeploymentInfo {
   branch?: string;
   commitSha?: string;
   author?: string;
+  authorImageUrl?: string;
+  triggerReason?: string;
+  isAutomated?: boolean;
   deployedAt?: string;
   buildUrl?: string;
   prNumber?: string;

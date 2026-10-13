@@ -553,6 +553,26 @@ namespace KeyVaultComparer.Api.Services
                             }
                             var sourceVersion = build["sourceVersion"]?.ToString();
                             var author = build["requestedFor"]?["displayName"]?.ToString();
+                            var authorImageUrl = build["requestedFor"]?["imageUrl"]?.ToString()
+                                ?? build["requestedFor"]?["_links"]?["avatar"]?["href"]?.ToString();
+                            var triggerReason = build["reason"]?.ToString();
+
+                            bool isAutomated = false;
+                            if (string.Equals(triggerReason, "schedule", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(triggerReason, "individualCI", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(triggerReason, "batchedCI", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(triggerReason, "buildCompletion", StringComparison.OrdinalIgnoreCase))
+                            {
+                                isAutomated = true;
+                            }
+                            if (!string.IsNullOrEmpty(author) &&
+                                (author.Contains("Microsoft.VisualStudio.Services.TFS", StringComparison.OrdinalIgnoreCase) ||
+                                 author.Contains("Build Service", StringComparison.OrdinalIgnoreCase) ||
+                                 author.Contains("Automation", StringComparison.OrdinalIgnoreCase)))
+                            {
+                                isAutomated = true;
+                            }
+
                             var buildUrl = build["_links"]?["web"]?["href"]?.ToString()
                                 ?? $"https://dev.azure.com/{organization}/{project}/_build/results?buildId={buildId}&view=results";
                             var overallStatus = build["result"]?.ToString() ?? build["status"]?.ToString() ?? "unknown";
@@ -626,6 +646,9 @@ namespace KeyVaultComparer.Api.Services
                                         Branch = sourceBranch,
                                         CommitSha = sourceVersion,
                                         Author = author,
+                                        AuthorImageUrl = authorImageUrl,
+                                        TriggerReason = triggerReason,
+                                        IsAutomated = isAutomated,
                                         DeployedAt = deployedAt,
                                         BuildUrl = buildUrl,
                                         PrNumber = prNumber,
@@ -687,6 +710,9 @@ namespace KeyVaultComparer.Api.Services
                                                 Branch = sourceBranch,
                                                 CommitSha = sourceVersion,
                                                 Author = author,
+                                                AuthorImageUrl = authorImageUrl,
+                                                TriggerReason = triggerReason,
+                                                IsAutomated = isAutomated,
                                                 DeployedAt = stageTime,
                                                 BuildUrl = buildUrl,
                                                 PrNumber = prNumber
@@ -715,6 +741,9 @@ namespace KeyVaultComparer.Api.Services
                                                 Branch = sourceBranch,
                                                 CommitSha = sourceVersion,
                                                 Author = author,
+                                                AuthorImageUrl = authorImageUrl,
+                                                TriggerReason = triggerReason,
+                                                IsAutomated = isAutomated,
                                                 DeployedAt = stageTime,
                                                 BuildUrl = buildUrl,
                                                 PrNumber = prNumber,
@@ -738,6 +767,9 @@ namespace KeyVaultComparer.Api.Services
                                     Branch = sourceBranch,
                                     CommitSha = sourceVersion,
                                     Author = author,
+                                    AuthorImageUrl = authorImageUrl,
+                                    TriggerReason = triggerReason,
+                                    IsAutomated = isAutomated,
                                     DeployedAt = deployedAt,
                                     BuildUrl = buildUrl,
                                     PrNumber = prNumber
