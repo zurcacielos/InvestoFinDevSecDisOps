@@ -245,7 +245,7 @@ app.MapPost("/api/devops/pipelines/matrix", async ([FromQuery] string organizati
         {
             return Results.Ok(new ReleaseMatrixResponse());
         }
-        var matrix = await pipelineService.GetReleaseMatrixAsync(organization, project, request.PipelineIds, ct);
+        var matrix = await pipelineService.GetReleaseMatrixAsync(organization, project, request.PipelineIds, request.ProfileConfig, ct);
         return Results.Ok(matrix);
     }
     catch (Exception ex)

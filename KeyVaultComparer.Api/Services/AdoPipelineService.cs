@@ -393,27 +393,58 @@ namespace KeyVaultComparer.Api.Services
             };
         }
 
-        public async Task<ReleaseMatrixResponse> GetReleaseMatrixAsync(string organization, string project, List<int> pipelineIds, CancellationToken cancellationToken = default)
+        public async Task<ReleaseMatrixResponse> GetReleaseMatrixAsync(
+            string organization, 
+            string project, 
+            List<int> pipelineIds, 
+            PipelineProfileConfig? profileConfig = null, 
+            CancellationToken cancellationToken = default)
         {
+            profileConfig ??= new PipelineProfileConfig();
             var token = await GetAdoTokenAsync(cancellationToken);
-            var tasks = pipelineIds.Select(id => FetchPipelineRowAsync(organization, project, id, token, cancellationToken));
+            var collectedEdges = new System.Collections.Concurrent.ConcurrentBag<(string From, string To)>();
+
+            var tasks = pipelineIds.Select(id => FetchPipelineRowAsync(organization, project, id, token, profileConfig, collectedEdges, cancellationToken));
             var rows = await Task.WhenAll(tasks);
 
+            // 1. Gather all discovered stages for the Expanded Stages DAG view
             var allStages = rows
                 .SelectMany(r => r.Deployments.Keys)
-                .Distinct()
-                .OrderBy(GetEnvironmentRank)
-                .ThenBy(name => name)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+
+            // 2. Perform strict DAG topological sort respecting dependencies first, then environment ranking
+            var topoSortedStages = DagTopologicalSorter.Sort(allStages, collectedEdges, profileConfig.Environments);
+
+            // 3. For Modo Ambientes (Release Matrix), build environment columns
+            var targetEnvs = new List<string>(profileConfig.Environments);
+            foreach (var row in rows)
+            {
+                foreach (var envKey in row.EnvironmentDeployments.Keys)
+                {
+                    if (!targetEnvs.Any(e => string.Equals(e, envKey, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        targetEnvs.Add(envKey);
+                    }
+                }
+            }
 
             return new ReleaseMatrixResponse
             {
-                Environments = allStages,
+                Environments = targetEnvs,
+                TopoSortedStages = topoSortedStages,
                 Rows = rows.OrderBy(r => r.PipelineName).ToList()
             };
         }
 
-        private async Task<PipelineMatrixRow> FetchPipelineRowAsync(string organization, string project, int pipelineId, string token, CancellationToken cancellationToken)
+        private async Task<PipelineMatrixRow> FetchPipelineRowAsync(
+            string organization, 
+            string project, 
+            int pipelineId, 
+            string token, 
+            PipelineProfileConfig profileConfig,
+            System.Collections.Concurrent.ConcurrentBag<(string From, string To)> collectedEdges,
+            CancellationToken cancellationToken)
         {
             using var client = _httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -423,6 +454,12 @@ namespace KeyVaultComparer.Api.Services
                 PipelineId = pipelineId,
                 PipelineName = $"Pipeline {pipelineId}"
             };
+
+            string? repoName = null;
+            string? defaultBranch = null;
+            string? repoType = null;
+            string? connectedServiceId = null;
+            JsonNode? repoNode = null;
 
             // 1. Definition Details
             try
@@ -436,26 +473,64 @@ namespace KeyVaultComparer.Api.Services
                     row.PipelineName = defNode?["name"]?.ToString() ?? row.PipelineName;
                     row.YamlFilename = defNode?["process"]?["yamlFilename"]?.ToString() ?? "azure-pipelines.yml";
 
-                    var repoNode = defNode?["repository"];
+                    repoNode = defNode?["repository"];
                     if (repoNode != null)
                     {
+                        repoName = repoNode["name"]?.ToString();
+                        defaultBranch = repoNode["defaultBranch"]?.ToString() ?? "main";
+                        repoType = repoNode["type"]?.ToString();
+                        connectedServiceId = repoNode["properties"]?["connectedServiceId"]?.ToString();
+
                         row.Repository = new PipelineRepository
                         {
                             Id = repoNode["id"]?.ToString(),
-                            Name = repoNode["name"]?.ToString(),
+                            Name = repoName,
                             Url = repoNode["url"]?.ToString(),
-                            Type = repoNode["type"]?.ToString(),
-                            DefaultBranch = repoNode["defaultBranch"]?.ToString()
+                            Type = repoType,
+                            DefaultBranch = defaultBranch
                         };
                     }
                 }
             }
             catch { }
 
-            // 2. Recent Builds (up to 5 completed or in-progress)
+            // 2. Fetch YAML to parse explicit DAG dependsOn stages
             try
             {
-                var buildsUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={pipelineId}&$top=5&api-version=7.1";
+                if (!string.IsNullOrEmpty(repoName) && !string.IsNullOrEmpty(row.YamlFilename) && !string.IsNullOrEmpty(repoType))
+                {
+                    string? yamlContent = null;
+                    var spUrl = $"https://dev.azure.com/{organization}/{project}/_apis/sourceProviders/{repoType}/filecontents?repository={Uri.EscapeDataString(repoName)}&commitOrBranch={Uri.EscapeDataString(defaultBranch ?? "main")}&path={Uri.EscapeDataString(row.YamlFilename)}&serviceEndpointId={connectedServiceId}&api-version=7.1";
+                    var spResp = await client.GetAsync(spUrl, cancellationToken);
+                    if (spResp.IsSuccessStatusCode)
+                    {
+                        yamlContent = await spResp.Content.ReadAsStringAsync(cancellationToken);
+                    }
+                    else if (string.Equals(repoType, "tfsgit", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var repoId = repoNode?["id"]?.ToString();
+                        var gitUrl = $"https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repoId}/items?path={Uri.EscapeDataString(row.YamlFilename)}&includeContent=true&api-version=7.1";
+                        var gitResp = await client.GetAsync(gitUrl, cancellationToken);
+                        if (gitResp.IsSuccessStatusCode)
+                        {
+                            var gitJson = await gitResp.Content.ReadAsStringAsync(cancellationToken);
+                            var gitNode = JsonNode.Parse(gitJson);
+                            yamlContent = gitNode?["content"]?.ToString();
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(yamlContent))
+                    {
+                        ParseYamlDagEdges(yamlContent, collectedEdges);
+                    }
+                }
+            }
+            catch { }
+
+            // 3. Recent Builds (top 15 to find deployments across environments)
+            try
+            {
+                var buildsUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={pipelineId}&$top=15&api-version=7.1";
                 var buildsResp = await client.GetAsync(buildsUrl, cancellationToken);
                 if (buildsResp.IsSuccessStatusCode)
                 {
@@ -480,6 +555,7 @@ namespace KeyVaultComparer.Api.Services
                             var author = build["requestedFor"]?["displayName"]?.ToString();
                             var buildUrl = build["_links"]?["web"]?["href"]?.ToString()
                                 ?? $"https://dev.azure.com/{organization}/{project}/_build/results?buildId={buildId}&view=results";
+                            var overallStatus = build["result"]?.ToString() ?? build["status"]?.ToString() ?? "unknown";
 
                             DateTime? deployedAt = null;
                             if (DateTime.TryParse(build["finishTime"]?.ToString() ?? build["startTime"]?.ToString(), out var dt))
@@ -494,7 +570,72 @@ namespace KeyVaultComparer.Api.Services
                                 prNumber = triggerInfo["pr.number"]?.ToString();
                             }
 
-                            // 3. Inspect Build Timeline for Stages
+                            // Extract runtime parameters (Environment, Operation, Tag/Version)
+                            string? envParam = null;
+                            string? opParam = null;
+                            string? tagParam = null;
+
+                            var paramsStr = build["parameters"]?.ToString();
+                            if (!string.IsNullOrWhiteSpace(paramsStr))
+                            {
+                                try
+                                {
+                                    var pJson = JsonNode.Parse(paramsStr);
+                                    if (pJson != null)
+                                    {
+                                        envParam = pJson[profileConfig.EnvironmentParameterName]?.ToString()
+                                            ?? pJson["Environment"]?.ToString()
+                                            ?? pJson["env"]?.ToString()
+                                            ?? pJson["targetEnv"]?.ToString();
+                                        opParam = pJson[profileConfig.OperationParameterName]?.ToString()
+                                            ?? pJson["Operation"]?.ToString()
+                                            ?? pJson["operation"]?.ToString();
+                                        tagParam = pJson["Tag"]?.ToString()
+                                            ?? pJson["tag"]?.ToString()
+                                            ?? pJson["Version"]?.ToString()
+                                            ?? pJson["version"]?.ToString();
+                                    }
+                                }
+                                catch { }
+                            }
+
+                            var templateParams = build["templateParameters"];
+                            if (templateParams != null)
+                            {
+                                envParam ??= templateParams[profileConfig.EnvironmentParameterName]?.ToString()
+                                    ?? templateParams["Environment"]?.ToString()
+                                    ?? templateParams["env"]?.ToString();
+                                opParam ??= templateParams[profileConfig.OperationParameterName]?.ToString()
+                                    ?? templateParams["Operation"]?.ToString();
+                                tagParam ??= templateParams["Tag"]?.ToString()
+                                    ?? templateParams["Version"]?.ToString();
+                            }
+
+                            // If environment was specified via parameters, register in EnvironmentDeployments
+                            if (!string.IsNullOrWhiteSpace(envParam))
+                            {
+                                var matchedTarget = profileConfig.Environments.FirstOrDefault(e => string.Equals(e, envParam.Trim(), StringComparison.OrdinalIgnoreCase)) ?? envParam.Trim();
+                                if (!row.EnvironmentDeployments.ContainsKey(matchedTarget))
+                                {
+                                    row.EnvironmentDeployments[matchedTarget] = new EnvironmentDeploymentInfo
+                                    {
+                                        Environment = matchedTarget,
+                                        Status = overallStatus,
+                                        BuildId = buildId,
+                                        BuildNumber = buildNumber,
+                                        Branch = sourceBranch,
+                                        CommitSha = sourceVersion,
+                                        Author = author,
+                                        DeployedAt = deployedAt,
+                                        BuildUrl = buildUrl,
+                                        PrNumber = prNumber,
+                                        Operation = opParam,
+                                        Version = tagParam
+                                    };
+                                }
+                            }
+
+                            // 4. Inspect Build Timeline for Stages
                             var timelineUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline?api-version=7.1";
                             var timelineResp = await client.GetAsync(timelineUrl, cancellationToken);
                             bool foundStage = false;
@@ -507,48 +648,87 @@ namespace KeyVaultComparer.Api.Services
 
                                 if (records != null)
                                 {
-                                    foreach (var rec in records)
+                                    var stageRecords = records
+                                        .Where(r => r?["type"]?.ToString() == "Stage")
+                                        .OrderBy(r => r?["order"]?.GetValue<int>() ?? 0)
+                                        .ToList();
+
+                                    string? previousStageName = null;
+                                    foreach (var rec in stageRecords)
                                     {
-                                        if (rec?["type"]?.ToString() == "Stage")
+                                        var stageName = rec?["name"]?.ToString();
+                                        if (string.IsNullOrWhiteSpace(stageName)) continue;
+
+                                        foundStage = true;
+                                        var status = rec?["result"]?.ToString() ?? rec?["state"]?.ToString() ?? "unknown";
+
+                                        DateTime? stageTime = deployedAt;
+                                        if (DateTime.TryParse(rec?["finishTime"]?.ToString() ?? rec?["startTime"]?.ToString(), out var stageDt))
                                         {
-                                            var stageName = rec["name"]?.ToString();
-                                            if (string.IsNullOrWhiteSpace(stageName)) continue;
+                                            stageTime = stageDt;
+                                        }
 
-                                            foundStage = true;
-                                            var status = rec["result"]?.ToString() ?? rec["state"]?.ToString() ?? "unknown";
+                                        // Fallback sequence edge from timeline order if previous stage exists
+                                        if (previousStageName != null && !string.Equals(previousStageName, stageName, StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            collectedEdges.Add((previousStageName, stageName));
+                                        }
+                                        previousStageName = stageName;
 
-                                            // Only record if we haven't seen this stage yet from a newer build
-                                            if (!row.Deployments.ContainsKey(stageName))
+                                        // Register in Modo Expandido Deployments
+                                        if (!row.Deployments.ContainsKey(stageName))
+                                        {
+                                            row.Deployments[stageName] = new StageDeploymentInfo
                                             {
-                                                DateTime? stageTime = deployedAt;
-                                                if (DateTime.TryParse(rec["finishTime"]?.ToString() ?? rec["startTime"]?.ToString(), out var stageDt))
-                                                {
-                                                    stageTime = stageDt;
-                                                }
+                                                StageName = stageName,
+                                                Status = status,
+                                                BuildId = buildId,
+                                                BuildNumber = buildNumber,
+                                                Branch = sourceBranch,
+                                                CommitSha = sourceVersion,
+                                                Author = author,
+                                                DeployedAt = stageTime,
+                                                BuildUrl = buildUrl,
+                                                PrNumber = prNumber
+                                            };
+                                        }
 
-                                                row.Deployments[stageName] = new StageDeploymentInfo
-                                                {
-                                                    StageName = stageName,
-                                                    Status = status,
-                                                    BuildId = buildId,
-                                                    BuildNumber = buildNumber,
-                                                    Branch = sourceBranch,
-                                                    CommitSha = sourceVersion,
-                                                    Author = author,
-                                                    DeployedAt = stageTime,
-                                                    BuildUrl = buildUrl,
-                                                    PrNumber = prNumber
-                                                };
-                                            }
+                                        // If this stage name corresponds to an environment, register in EnvironmentDeployments
+                                        var matchedEnv = profileConfig.Environments.FirstOrDefault(e =>
+                                            string.Equals(e, stageName, StringComparison.OrdinalIgnoreCase) ||
+                                            stageName.IndexOf($"_{e}_", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                            stageName.EndsWith($"_{e}", StringComparison.OrdinalIgnoreCase) ||
+                                            stageName.EndsWith($"-{e}", StringComparison.OrdinalIgnoreCase) ||
+                                            stageName.EndsWith($" {e}", StringComparison.OrdinalIgnoreCase) ||
+                                            stageName.StartsWith($"{e}_", StringComparison.OrdinalIgnoreCase) ||
+                                            stageName.StartsWith($"{e}-", StringComparison.OrdinalIgnoreCase) ||
+                                            stageName.StartsWith($"{e} ", StringComparison.OrdinalIgnoreCase));
+
+                                        if (!string.IsNullOrEmpty(matchedEnv) && !row.EnvironmentDeployments.ContainsKey(matchedEnv))
+                                        {
+                                            row.EnvironmentDeployments[matchedEnv] = new EnvironmentDeploymentInfo
+                                            {
+                                                Environment = matchedEnv,
+                                                Status = status,
+                                                BuildId = buildId,
+                                                BuildNumber = buildNumber,
+                                                Branch = sourceBranch,
+                                                CommitSha = sourceVersion,
+                                                Author = author,
+                                                DeployedAt = stageTime,
+                                                BuildUrl = buildUrl,
+                                                PrNumber = prNumber,
+                                                Operation = opParam,
+                                                Version = tagParam
+                                            };
                                         }
                                     }
                                 }
                             }
 
-                            // Fallback if pipeline has no "Stage" timeline records (e.g., standard build run)
+                            // Fallback if pipeline has no "Stage" timeline records (e.g. single-job build run)
                             if (!foundStage && !row.Deployments.ContainsKey("Build"))
                             {
-                                var overallStatus = build["result"]?.ToString() ?? build["status"]?.ToString() ?? "unknown";
                                 row.Deployments["Build"] = new StageDeploymentInfo
                                 {
                                     StageName = "Build",
@@ -572,17 +752,100 @@ namespace KeyVaultComparer.Api.Services
             return row;
         }
 
-        private static int GetEnvironmentRank(string name)
+        private static void ParseYamlDagEdges(string yamlContent, System.Collections.Concurrent.ConcurrentBag<(string From, string To)> edges)
         {
-            var lower = name.ToLowerInvariant();
-            if (lower == "dev" || lower.StartsWith("dev-") || lower.StartsWith("dev_")) return 10;
-            if (lower.Contains("dev")) return 15;
-            if (lower == "test" || lower.Contains("test") || lower == "qa" || lower.Contains("qa")) return 20;
-            if (lower.Contains("uat")) return 30;
-            if (lower.Contains("stg") || lower.Contains("staging")) return 40;
-            if (lower.Contains("preprod")) return 50;
-            if (lower == "prd" || lower == "prod" || lower.Contains("prod")) return 60;
-            return 100;
+            try
+            {
+                var lines = yamlContent.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+                string? currentStage = null;
+                string? previousStage = null;
+                bool inDependsOnBlock = false;
+                bool stageHadExplicitDependsOn = false;
+
+                foreach (var line in lines)
+                {
+                    var trimmed = line.Trim();
+
+                    // Detect stage declaration: - stage: StageName
+                    var stageMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"^-\s+stage:\s*['""]?([A-Za-z0-9_\-]+)['""]?");
+                    if (stageMatch.Success)
+                    {
+                        if (currentStage != null && !stageHadExplicitDependsOn && previousStage != null)
+                        {
+                            edges.Add((previousStage, currentStage));
+                        }
+
+                        previousStage = currentStage;
+                        currentStage = stageMatch.Groups[1].Value.Trim();
+                        inDependsOnBlock = false;
+                        stageHadExplicitDependsOn = false;
+                        continue;
+                    }
+
+                    if (currentStage == null) continue;
+
+                    // Detect dependsOn declaration
+                    var inlineDepMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"^dependsOn:\s*['""]?([A-Za-z0-9_\-]+)['""]?");
+                    if (inlineDepMatch.Success)
+                    {
+                        var dep = inlineDepMatch.Groups[1].Value.Trim();
+                        if (!string.Equals(dep, "none", StringComparison.OrdinalIgnoreCase) && !string.Equals(dep, "[]", StringComparison.OrdinalIgnoreCase))
+                        {
+                            edges.Add((dep, currentStage));
+                        }
+                        stageHadExplicitDependsOn = true;
+                        inDependsOnBlock = false;
+                        continue;
+                    }
+
+                    // Array syntax: dependsOn: [StageA, StageB]
+                    var arrayDepMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"^dependsOn:\s*\[(.*?)\]");
+                    if (arrayDepMatch.Success)
+                    {
+                        var items = arrayDepMatch.Groups[1].Value.Split(',');
+                        foreach (var item in items)
+                        {
+                            var clean = item.Trim().Trim('\'', '"');
+                            if (!string.IsNullOrEmpty(clean))
+                            {
+                                edges.Add((clean, currentStage));
+                            }
+                        }
+                        stageHadExplicitDependsOn = true;
+                        inDependsOnBlock = false;
+                        continue;
+                    }
+
+                    if (trimmed.StartsWith("dependsOn:"))
+                    {
+                        inDependsOnBlock = true;
+                        stageHadExplicitDependsOn = true;
+                        continue;
+                    }
+
+                    if (inDependsOnBlock)
+                    {
+                        if (trimmed.StartsWith("-"))
+                        {
+                            var depItemMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"^-\s*['""]?([A-Za-z0-9_\-]+)['""]?");
+                            if (depItemMatch.Success)
+                            {
+                                edges.Add((depItemMatch.Groups[1].Value.Trim(), currentStage));
+                            }
+                        }
+                        else if (!string.IsNullOrWhiteSpace(trimmed))
+                        {
+                            inDependsOnBlock = false;
+                        }
+                    }
+                }
+
+                if (currentStage != null && !stageHadExplicitDependsOn && previousStage != null)
+                {
+                    edges.Add((previousStage, currentStage));
+                }
+            }
+            catch { }
         }
     }
 }

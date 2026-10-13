@@ -56,16 +56,39 @@ export interface PipelineYamlLinksResponse {
   links: PipelineYamlLink[];
 }
 
+export interface EnvironmentDeploymentInfo {
+  environment: string;
+  status: string;
+  buildId: number;
+  buildNumber: string;
+  branch?: string;
+  commitSha?: string;
+  author?: string;
+  deployedAt?: string;
+  buildUrl?: string;
+  prNumber?: string;
+  operation?: string;
+  version?: string;
+}
+
+export interface PipelineProfileConfig {
+  environmentParameterName: string;
+  operationParameterName: string;
+  environments: string[];
+}
+
 export interface PipelineMatrixRow {
   pipelineId: number;
   pipelineName: string;
   yamlFilename?: string;
   repository?: PipelineRepository;
   deployments: Record<string, StageDeploymentInfo>;
+  environmentDeployments: Record<string, EnvironmentDeploymentInfo>;
 }
 
 export interface ReleaseMatrixResponse {
   environments: string[];
+  topoSortedStages: string[];
   rows: PipelineMatrixRow[];
 }
 
@@ -76,6 +99,14 @@ export const useDevopsDataStore = defineStore('devopsData', {
       const stored = localStorage.getItem('adoSelectedPipelineIds');
       if (stored) savedPipelineIds = JSON.parse(stored);
     } catch {}
+
+    let savedEnvs = ['dev', 'uat', 'uat1', 'uat2', 'stg', 'stg1', 'prd', 'prd1'];
+    try {
+      const storedEnvs = localStorage.getItem('adoTargetEnvs');
+      if (storedEnvs) savedEnvs = JSON.parse(storedEnvs);
+    } catch {}
+
+    const savedViewMode = (localStorage.getItem('adoMatrixViewMode') as 'environments' | 'stages') || 'environments';
 
     return {
       organization: localStorage.getItem('adoOrg') || '',
@@ -94,6 +125,18 @@ export const useDevopsDataStore = defineStore('devopsData', {
       pipelinesError: '',
       matrixError: '',
       copyingYamlPipelineId: null as number | null,
+
+      // Dual Display Mode ('environments' = Release Matrix, 'stages' = DAG Expanded)
+      viewMode: savedViewMode as 'environments' | 'stages',
+
+      // Parametrization & Profile Configuration
+      profileConfig: {
+        environmentParameterName: localStorage.getItem('adoEnvParamName') || 'Environment',
+        operationParameterName: localStorage.getItem('adoOpParamName') || 'Operation',
+        environments: savedEnvs,
+      } as PipelineProfileConfig,
+      isProfileModalOpen: false,
+
       yamlModal: {
         show: false,
         pipelineId: 0,
@@ -240,6 +283,23 @@ export const useDevopsDataStore = defineStore('devopsData', {
       localStorage.setItem('adoSelectedPipelineIds', JSON.stringify(this.selectedPipelineIds));
     },
 
+    setViewMode(mode: 'environments' | 'stages') {
+      this.viewMode = mode;
+      localStorage.setItem('adoMatrixViewMode', mode);
+    },
+
+    setProfileModalOpen(open: boolean) {
+      this.isProfileModalOpen = open;
+    },
+
+    async updateProfileConfig(newConfig: PipelineProfileConfig) {
+      this.profileConfig = { ...newConfig };
+      localStorage.setItem('adoEnvParamName', newConfig.environmentParameterName);
+      localStorage.setItem('adoOpParamName', newConfig.operationParameterName);
+      localStorage.setItem('adoTargetEnvs', JSON.stringify(newConfig.environments));
+      await this.fetchReleaseMatrix();
+    },
+
     async fetchReleaseMatrix() {
       if (!this.organization || !this.project) return;
       if (this.selectedPipelineIds.length === 0) {
@@ -255,7 +315,10 @@ export const useDevopsDataStore = defineStore('devopsData', {
         const res = await apiFetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pipelineIds: this.selectedPipelineIds })
+          body: JSON.stringify({ 
+            pipelineIds: this.selectedPipelineIds,
+            profileConfig: this.profileConfig
+          })
         });
 
         if (!res.ok) {

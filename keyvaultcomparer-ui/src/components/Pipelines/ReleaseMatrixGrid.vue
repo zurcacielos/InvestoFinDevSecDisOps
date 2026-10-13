@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useDevopsDataStore } from '../../stores/devopsDataStore';
-import type { PipelineMatrixRow, StageDeploymentInfo } from '../../stores/devopsDataStore';
+import type { PipelineMatrixRow } from '../../stores/devopsDataStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { openUrlInNewTab } from '../../utils/urlOpener';
+
+import EnvironmentMatrixView from './EnvironmentMatrixView.vue';
+import ExpandedStagesView from './ExpandedStagesView.vue';
+import PipelineProfileModal from './PipelineProfileModal.vue';
 
 const devopsStore = useDevopsDataStore();
 const settingsStore = useSettingsStore();
@@ -14,8 +18,8 @@ interface ContextMenuState {
   x: number;
   y: number;
   row: PipelineMatrixRow | null;
-  cell: StageDeploymentInfo | null;
-  environment: string;
+  cell: any | null;
+  targetName: string;
 }
 
 const contextMenu = ref<ContextMenuState>({
@@ -24,7 +28,7 @@ const contextMenu = ref<ContextMenuState>({
   y: 0,
   row: null,
   cell: null,
-  environment: '',
+  targetName: '',
 });
 
 const hideContextMenu = () => {
@@ -37,7 +41,7 @@ const handleContextMenuEsc = (e: KeyboardEvent) => {
   if (e.key === 'Escape') hideContextMenu();
 };
 
-const openContextMenu = (e: MouseEvent, row: PipelineMatrixRow, cell: StageDeploymentInfo | undefined, env: string) => {
+const openContextMenu = (e: MouseEvent, row: PipelineMatrixRow, cell: any, targetName: string) => {
   e.preventDefault();
   contextMenu.value = {
     show: true,
@@ -45,7 +49,7 @@ const openContextMenu = (e: MouseEvent, row: PipelineMatrixRow, cell: StageDeplo
     y: e.clientY,
     row,
     cell: cell || null,
-    environment: env,
+    targetName: targetName || '',
   };
   setTimeout(() => {
     window.addEventListener('click', hideContextMenu);
@@ -54,7 +58,7 @@ const openContextMenu = (e: MouseEvent, row: PipelineMatrixRow, cell: StageDeplo
 };
 
 // URL construction helpers honoring GitHub tab settings
-const getCommitUrl = (row: PipelineMatrixRow, cell: StageDeploymentInfo | null) => {
+const getCommitUrl = (row: PipelineMatrixRow, cell: any) => {
   if (!cell?.commitSha) return null;
   const repo = row.repository;
   if (!repo) return null;
@@ -77,7 +81,7 @@ const getCommitUrl = (row: PipelineMatrixRow, cell: StageDeploymentInfo | null) 
   return null;
 };
 
-const getPrUrl = (row: PipelineMatrixRow, cell: StageDeploymentInfo | null) => {
+const getPrUrl = (row: PipelineMatrixRow, cell: any) => {
   if (!cell?.prNumber) return null;
   const repo = row.repository;
   if (!repo) return null;
@@ -121,29 +125,13 @@ const getPipelineDefinitionUrl = (pipelineId: number) => {
   return `https://dev.azure.com/${org}/${proj}/_build?definitionId=${pipelineId}`;
 };
 
-const formatTimeAgo = (iso?: string) => {
-  if (!iso) return '';
-  const date = new Date(iso);
-  const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (diffSec < 60) return 'just now';
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
-};
-
 const copyToClipboard = async (text?: string) => {
   if (!text) return;
   await navigator.clipboard.writeText(text);
   hideContextMenu();
 };
 
-const isOpeningYamls = ref(false);
-
 const openAllGithubYamls = async (row: PipelineMatrixRow) => {
-  isOpeningYamls.value = true;
   try {
     const baseUrl = settingsStore.uiSettings.githubBaseUrl?.replace(/\/$/, '') || 'https://github.com';
     const org = settingsStore.uiSettings.useGithubOrg ? settingsStore.uiSettings.githubOrg : '';
@@ -151,12 +139,10 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
     const result = await devopsStore.getPipelineGithubYamls(row.pipelineId, baseUrl, org);
 
     if (result && result.links && result.links.length > 0) {
-      // First link is main pipeline YAML, subsequent links are templates in order
       for (const link of result.links) {
         openUrlInNewTab(link.url);
       }
     } else {
-      // Fallback: construct main YAML link directly
       const repo = row.repository;
       if (repo) {
         let repoName = repo.name || '';
@@ -171,14 +157,96 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
     }
   } catch (err) {
     console.error('Error opening GitHub YAMLs:', err);
-  } finally {
-    isOpeningYamls.value = false;
   }
 };
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col min-h-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+  <div class="flex-1 flex flex-col min-h-0 bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden relative">
+    
+    <!-- Top Display Modes & Actions Toolbar -->
+    <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4 shrink-0">
+      
+      <!-- View Mode Tabs -->
+      <div class="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-lg">
+        <!-- Modo Ambientes Tab -->
+        <button 
+          @click="devopsStore.setViewMode('environments')"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+          :class="devopsStore.viewMode === 'environments' 
+            ? 'bg-white text-slate-800 shadow-xs' 
+            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="devopsStore.viewMode === 'environments' ? 'text-blue-600' : 'text-slate-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <span>Modo Ambientes (Release Matrix)</span>
+          <span 
+            v-if="devopsStore.releaseMatrix?.environments.length"
+            class="px-1.5 py-0.2 rounded text-[10px] font-mono"
+            :class="devopsStore.viewMode === 'environments' ? 'bg-blue-50 text-blue-700' : 'bg-slate-300 text-slate-600'"
+          >
+            {{ devopsStore.releaseMatrix.environments.length }}
+          </span>
+        </button>
+
+        <!-- Modo Expandido Tab -->
+        <button 
+          @click="devopsStore.setViewMode('stages')"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+          :class="devopsStore.viewMode === 'stages' 
+            ? 'bg-white text-slate-800 shadow-xs' 
+            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="devopsStore.viewMode === 'stages' ? 'text-emerald-600' : 'text-slate-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <span>Modo Expandido (Stages DAG)</span>
+          <span 
+            v-if="devopsStore.releaseMatrix?.topoSortedStages?.length"
+            class="px-1.5 py-0.2 rounded text-[10px] font-mono"
+            :class="devopsStore.viewMode === 'stages' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-300 text-slate-600'"
+          >
+            {{ devopsStore.releaseMatrix.topoSortedStages.length }}
+          </span>
+        </button>
+      </div>
+
+      <!-- Right Actions: Parametrization & Refresh -->
+      <div class="flex items-center gap-2">
+        <!-- Configure Parametrization Profile -->
+        <button 
+          @click="devopsStore.setProfileModalOpen(true)"
+          class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium shadow-2xs flex items-center gap-1.5 transition-colors"
+          title="Customize parameter names (Environment, Operation) and target environment order"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span>Parametrization</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+        </button>
+
+        <!-- Refresh Matrix -->
+        <button 
+          @click="devopsStore.fetchReleaseMatrix()"
+          class="p-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 shadow-2xs transition-colors"
+          :disabled="devopsStore.isMatrixLoading"
+          title="Reload matrix"
+        >
+          <svg 
+            class="h-4 w-4" 
+            :class="{ 'animate-spin text-blue-600': devopsStore.isMatrixLoading }" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
+    </div>
     
     <!-- Empty State: No Pipelines Selected -->
     <div 
@@ -211,8 +279,8 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
-      <div class="text-sm font-semibold text-slate-700">Querying ADO Pipeline Runs &amp; Stages...</div>
-      <div class="text-xs text-slate-400 mt-1">Aggregating multi-stage timeline records across selected services</div>
+      <div class="text-sm font-semibold text-slate-700">Querying ADO Pipeline Runs, Stages &amp; YAML DAGs...</div>
+      <div class="text-xs text-slate-400 mt-1">Aggregating multi-stage timeline records &amp; topological dependencies</div>
     </div>
 
     <!-- Error State -->
@@ -232,268 +300,27 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
       </div>
     </div>
 
-    <!-- Release Matrix Table -->
-    <div v-else class="flex-1 flex flex-col overflow-hidden">
-      
-      <!-- Table Header Summary Strip -->
-      <div class="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
-        <div class="flex items-center gap-3">
-          <span class="font-semibold text-slate-700">
-            {{ devopsStore.releaseMatrix?.rows.length || 0 }} Pipelines &middot; {{ devopsStore.releaseMatrix?.environments.length || 0 }} Environments Discovered
-          </span>
-          <span class="text-slate-400">|</span>
-          <span class="text-slate-500 text-[11px]">
-            Right-click any cell for Azure DevOps &amp; GitHub deep links
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
-            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Succeeded
-          </span>
-          <span class="inline-flex items-center gap-1 text-[11px] text-rose-700 font-medium">
-            <span class="w-2 h-2 rounded-full bg-rose-500"></span> Failed
-          </span>
-          <span class="inline-flex items-center gap-1 text-[11px] text-blue-700 font-medium">
-            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Running
-          </span>
-        </div>
-      </div>
+    <!-- Dynamic Dual Mode Tables (Separate Files) -->
+    <template v-else>
+      <!-- Modo Ambientes (Release Matrix) -->
+      <EnvironmentMatrixView 
+        v-if="devopsStore.viewMode === 'environments'"
+        @open-context-menu="openContextMenu"
+        @open-all-yamls="openAllGithubYamls"
+      />
 
-      <!-- Scrollable Grid Table -->
-      <div class="flex-1 overflow-auto">
-        <table class="w-full text-left border-collapse table-auto">
-          <thead>
-            <tr class="bg-slate-100/80 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider sticky top-0 shadow-sm z-10">
-              
-              <!-- Service / Pipeline Name Column -->
-              <th class="px-4 py-2.5 font-bold bg-slate-100 border-r border-slate-200 min-w-[240px] max-w-[300px]">
-                Service / Pipeline
-              </th>
+      <!-- Modo Expandido (Stages DAG) -->
+      <ExpandedStagesView 
+        v-else
+        @open-context-menu="openContextMenu"
+        @open-all-yamls="openAllGithubYamls"
+      />
+    </template>
 
-              <!-- Repository Column -->
-              <th class="px-3 py-2.5 font-bold bg-slate-100 border-r border-slate-200 min-w-[160px]">
-                Repository
-              </th>
+    <!-- Parametrization Profile Modal -->
+    <PipelineProfileModal />
 
-              <!-- Environment Columns -->
-              <th 
-                v-for="env in devopsStore.releaseMatrix?.environments" 
-                :key="env"
-                class="px-3 py-2.5 font-bold bg-slate-100 border-r border-slate-200 text-center min-w-[190px]"
-              >
-                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white border border-slate-200 shadow-xs text-slate-800">
-                  <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                  {{ env }}
-                </div>
-              </th>
-            </tr>
-          </thead>
-
-          <tbody class="divide-y divide-slate-100 text-xs">
-            <tr 
-              v-for="row in devopsStore.releaseMatrix?.rows" 
-              :key="row.pipelineId"
-              class="hover:bg-slate-50/80 transition-colors"
-            >
-              <!-- Row Header: Pipeline Info & Action Buttons -->
-              <td 
-                @contextmenu="openContextMenu($event, row, undefined, '')"
-                class="px-4 py-3 border-r border-slate-200 bg-white sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.02)] cursor-context-menu"
-              >
-                <div class="flex items-start justify-between gap-2">
-                  <div class="min-w-0">
-                    <button 
-                      @click="openUrlInNewTab(getPipelineDefinitionUrl(row.pipelineId))"
-                      class="font-bold text-slate-900 hover:text-blue-600 hover:underline text-left text-xs leading-snug truncate block"
-                      title="Open Pipeline Definition in Azure DevOps"
-                    >
-                      {{ row.pipelineName }}
-                    </button>
-                    <span class="text-[10px] text-slate-400 font-mono mt-0.5 block">
-                      ID: {{ row.pipelineId }}
-                    </span>
-                  </div>
-
-                  <!-- Quick Action Buttons -->
-                  <div class="flex items-center gap-1 shrink-0">
-                    <!-- Open all GitHub Yaml Button -->
-                    <button 
-                      @click.stop="openAllGithubYamls(row)"
-                      class="p-1 rounded text-slate-400 hover:text-violet-700 hover:bg-violet-50 transition-colors"
-                      title="Open all GitHub Yaml (Main pipeline &amp; templates in new tabs)"
-                    >
-                      <svg class="h-3.5 w-3.5 text-slate-700" viewBox="0 0 24 24" fill="currentColor">
-                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-                      </svg>
-                    </button>
-
-                    <!-- Copy Full YAML Button -->
-                    <button 
-                      @click.stop="devopsStore.copyPipelineYamlToClipboard(row.pipelineId, row.pipelineName)"
-                      class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                      title="Copy full pipeline YAML (resolved nested templates) to clipboard"
-                      :disabled="devopsStore.copyingYamlPipelineId === row.pipelineId"
-                    >
-                      <svg v-if="devopsStore.copyingYamlPipelineId === row.pipelineId" class="animate-spin h-3.5 w-3.5 text-blue-500" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-
-                    <!-- View YAML Modal Button -->
-                    <button 
-                      @click.stop="devopsStore.openYamlModal(row.pipelineId, row.pipelineName)"
-                      class="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                      title="View resolved pipeline YAML"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </td>
-
-              <!-- Repository Cell -->
-              <td 
-                @contextmenu="openContextMenu($event, row, undefined, '')"
-                class="px-3 py-3 border-r border-slate-200 cursor-context-menu"
-              >
-                <div v-if="row.repository" class="flex flex-col min-w-0">
-                  <div class="flex items-center gap-1.5">
-                    <!-- Git Icon -->
-                    <svg v-if="row.repository.type?.toLowerCase() === 'github'" class="h-3.5 w-3.5 text-slate-700 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                      <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-                    </svg>
-                    <svg v-else class="h-3.5 w-3.5 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-
-                    <button 
-                      v-if="getRepoUrl(row)"
-                      @click="openUrlInNewTab(getRepoUrl(row)!)"
-                      class="text-xs font-medium text-slate-700 hover:text-blue-600 hover:underline truncate"
-                      :title="row.repository.name"
-                    >
-                      {{ row.repository.name }}
-                    </button>
-                    <span v-else class="text-xs text-slate-600 truncate">
-                      {{ row.repository.name }}
-                    </span>
-                  </div>
-                  <span v-if="row.repository.defaultBranch" class="text-[10px] text-slate-400 font-mono mt-0.5">
-                    {{ row.repository.defaultBranch.replace('refs/heads/', '') }}
-                  </span>
-                </div>
-                <span v-else class="text-slate-300">-</span>
-              </td>
-
-              <!-- Environment Deployment Cells -->
-              <td 
-                v-for="env in devopsStore.releaseMatrix?.environments" 
-                :key="env"
-                @contextmenu="openContextMenu($event, row, row.deployments[env], env)"
-                class="px-3 py-2.5 border-r border-slate-200 select-none cursor-context-menu"
-                :class="row.deployments[env] ? 'hover:bg-blue-50/50' : 'bg-slate-50/40'"
-              >
-                <!-- If Deployed -->
-                <div v-if="row.deployments[env]" class="flex flex-col gap-1">
-                  
-                  <!-- Top Row: Status Badge & Build Number -->
-                  <div class="flex items-center justify-between gap-1">
-                    <span 
-                      class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"
-                      :class="{
-                        'bg-emerald-100 text-emerald-800 border border-emerald-200': row.deployments[env].status === 'succeeded',
-                        'bg-rose-100 text-rose-800 border border-rose-200': row.deployments[env].status === 'failed',
-                        'bg-blue-100 text-blue-800 border border-blue-200 animate-pulse': row.deployments[env].status === 'inProgress',
-                        'bg-amber-100 text-amber-800 border border-amber-200': row.deployments[env].status === 'partiallySucceeded',
-                        'bg-slate-100 text-slate-600 border border-slate-200': !['succeeded', 'failed', 'inProgress', 'partiallySucceeded'].includes(row.deployments[env].status)
-                      }"
-                    >
-                      <span class="w-1.5 h-1.5 rounded-full" :class="{
-                        'bg-emerald-600': row.deployments[env].status === 'succeeded',
-                        'bg-rose-600': row.deployments[env].status === 'failed',
-                        'bg-blue-600': row.deployments[env].status === 'inProgress',
-                        'bg-amber-600': row.deployments[env].status === 'partiallySucceeded',
-                        'bg-slate-400': !['succeeded', 'failed', 'inProgress', 'partiallySucceeded'].includes(row.deployments[env].status)
-                      }"></span>
-                      {{ row.deployments[env].status }}
-                    </span>
-
-                    <button 
-                      v-if="row.deployments[env].buildUrl"
-                      @click.stop="openUrlInNewTab(row.deployments[env].buildUrl!)"
-                      class="text-[11px] font-mono text-blue-600 hover:underline hover:text-blue-800 truncate"
-                      title="Open Run in Azure DevOps"
-                    >
-                      #{{ row.deployments[env].buildNumber }}
-                    </button>
-                  </div>
-
-                  <!-- Middle Row: Branch & Commit SHA -->
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <!-- Branch -->
-                    <span 
-                      v-if="row.deployments[env].branch"
-                      class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 max-w-[120px] truncate"
-                      :title="row.deployments[env].branch"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                      </svg>
-                      <span class="truncate">{{ row.deployments[env].branch }}</span>
-                    </span>
-
-                    <!-- Commit SHA -->
-                    <button 
-                      v-if="row.deployments[env].commitSha"
-                      @click.stop="getCommitUrl(row, row.deployments[env]) ? openUrlInNewTab(getCommitUrl(row, row.deployments[env])!) : null"
-                      class="text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors"
-                      :class="getCommitUrl(row, row.deployments[env]) ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:underline' : 'bg-slate-100 text-slate-600'"
-                      :title="`Commit: ${row.deployments[env].commitSha}`"
-                    >
-                      {{ row.deployments[env].commitSha?.substring(0, 7) }}
-                    </button>
-
-                    <!-- PR Badge if present -->
-                    <button 
-                      v-if="row.deployments[env].prNumber"
-                      @click.stop="getPrUrl(row, row.deployments[env]) ? openUrlInNewTab(getPrUrl(row, row.deployments[env])!) : null"
-                      class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 hover:bg-violet-200 transition-colors"
-                      :title="`Pull Request #${row.deployments[env].prNumber}`"
-                    >
-                      PR #{{ row.deployments[env].prNumber }}
-                    </button>
-                  </div>
-
-                  <!-- Bottom Row: Time ago & Author -->
-                  <div class="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
-                    <span :title="row.deployments[env].deployedAt">
-                      {{ formatTimeAgo(row.deployments[env].deployedAt) }}
-                    </span>
-                    <span v-if="row.deployments[env].author" class="truncate max-w-[90px]" :title="row.deployments[env].author">
-                      {{ row.deployments[env].author }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Not Deployed In This Environment -->
-                <div v-else class="h-full flex items-center justify-center py-2 text-slate-300">
-                  <span class="text-xs">&mdash;</span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Right-Click Cell Context Menu -->
+    <!-- Shared Right-Click Cell Context Menu -->
     <div 
       v-if="contextMenu.show"
       :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
@@ -502,7 +329,7 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
       <!-- Target Summary -->
       <div class="px-3 py-1.5 bg-slate-50 text-slate-600 font-semibold flex items-center justify-between">
         <span class="truncate">{{ contextMenu.row?.pipelineName }}</span>
-        <span class="text-[10px] text-blue-600 font-mono">{{ contextMenu.environment }}</span>
+        <span class="text-[10px] text-blue-600 font-mono">{{ contextMenu.targetName }}</span>
       </div>
 
       <!-- Links Group -->
@@ -584,7 +411,7 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
 
       <!-- Actions & Copy Group -->
       <div class="py-1">
-        <!-- Copy Full Pipeline YAML (All Sub-Templates Resolved) -->
+        <!-- Copy Full Pipeline YAML -->
         <button 
           v-if="contextMenu.row"
           @click="devopsStore.copyPipelineYamlToClipboard(contextMenu.row.pipelineId, contextMenu.row.pipelineName); hideContextMenu()"
