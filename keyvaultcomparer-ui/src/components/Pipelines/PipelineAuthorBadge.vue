@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps<{
   author?: string;
@@ -9,6 +9,10 @@ const props = defineProps<{
 }>();
 
 const imgFailed = ref(false);
+
+watch(() => props.authorImageUrl, () => {
+  imgFailed.value = false;
+});
 
 const isBot = computed(() => {
   if (props.isAutomated) return true;
@@ -67,16 +71,16 @@ const initials = computed(() => {
 
 <template>
   <div 
-    class="inline-flex items-center gap-1.5 min-w-0 max-w-[120px]" 
+    class="inline-flex items-center gap-1.5 min-w-0 max-w-[130px]" 
     :title="parsedName.fullName"
   >
     <!-- Robot Head Icon for Automated Runs -->
     <div 
       v-if="isBot"
-      class="w-4 h-4 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center shrink-0 border border-violet-200 shadow-2xs"
+      class="w-5 h-5 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center shrink-0 border border-violet-200 shadow-2xs"
       title="Automated Trigger"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="11" width="18" height="10" rx="2" />
         <circle cx="12" cy="5" r="2" />
         <path d="M12 7v4" />
@@ -90,14 +94,15 @@ const initials = computed(() => {
       v-else-if="authorImageUrl && !imgFailed"
       :src="authorImageUrl"
       @error="imgFailed = true"
-      class="w-4 h-4 rounded-full object-cover shrink-0 border border-slate-200"
+      class="w-5 h-5 rounded-full object-cover shrink-0 border border-slate-200 shadow-2xs"
       :alt="parsedName.fullName"
+      loading="lazy"
     />
 
     <!-- Fallback Initials Badge -->
     <div 
       v-else
-      class="w-4 h-4 rounded-full bg-blue-100 text-blue-700 font-bold text-[8px] flex items-center justify-center shrink-0 border border-blue-200"
+      class="w-5 h-5 rounded-full bg-blue-100 text-blue-700 font-bold text-[9px] flex items-center justify-center shrink-0 border border-blue-200"
     >
       {{ initials }}
     </div>

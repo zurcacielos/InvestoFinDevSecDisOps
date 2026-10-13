@@ -290,6 +290,90 @@ app.MapGet("/api/devops/pipelines/{pipelineId:int}/github-yamls", async (
 })
 .WithName("GetPipelineGithubYamls");
 
+var avatarCache = new System.Collections.Concurrent.ConcurrentDictionary<string, (byte[] Data, string ContentType, DateTime ExpiresAt)>();
+
+app.MapGet("/api/devops/avatar", async (
+    [FromQuery] string url, 
+    TokenCredential credential, 
+    IHttpClientFactory httpClientFactory, 
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(url))
+    {
+        return Results.BadRequest(new { error = "url query parameter is required" });
+    }
+
+    if (!Uri.TryCreate(url, UriKind.Absolute, out var targetUri))
+    {
+        return Results.BadRequest(new { error = "Invalid URL format" });
+    }
+
+    var host = targetUri.Host.ToLowerInvariant();
+    bool isAllowedHost = host.EndsWith("azure.com") || 
+                         host.EndsWith("visualstudio.com") || 
+                         host.EndsWith("microsoft.com") ||
+                         host.EndsWith("live.com") ||
+                         host.EndsWith("office365.com");
+
+    if (!isAllowedHost)
+    {
+        return Results.BadRequest(new { error = "Target host is not an allowed domain for avatar proxying" });
+    }
+
+    if (avatarCache.TryGetValue(url, out var cached) && cached.ExpiresAt > DateTime.UtcNow)
+    {
+        httpContext.Response.Headers.CacheControl = "public, max-age=86400, immutable";
+        return Results.File(cached.Data, cached.ContentType);
+    }
+
+    try
+    {
+        var tokenContext = new TokenRequestContext(new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" });
+        var token = await credential.GetTokenAsync(tokenContext, ct);
+
+        using var client = httpClientFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
+        client.DefaultRequestHeaders.Accept.ParseAdd("image/*, */*");
+
+        var response = await client.GetAsync(targetUri, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            return Results.StatusCode((int)response.StatusCode);
+        }
+
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/png";
+        var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+
+        if (contentType.Contains("json", StringComparison.OrdinalIgnoreCase) || (bytes.Length > 0 && bytes[0] == (byte)'{'))
+        {
+            try
+            {
+                var jsonStr = System.Text.Encoding.UTF8.GetString(bytes);
+                var doc = System.Text.Json.Nodes.JsonNode.Parse(jsonStr);
+                var base64Val = doc?["value"]?.ToString();
+                if (!string.IsNullOrEmpty(base64Val))
+                {
+                    bytes = Convert.FromBase64String(base64Val);
+                    contentType = "image/png";
+                }
+            }
+            catch { }
+        }
+
+        avatarCache[url] = (bytes, contentType, DateTime.UtcNow.AddHours(24));
+        httpContext.Response.Headers.CacheControl = "public, max-age=86400, immutable";
+
+        return Results.File(bytes, contentType);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.WithName("GetDevopsAvatar");
+
+
 
 app.MapPost("/api/logs/url", async ([FromBody] LogUrlRequest request) =>
 {

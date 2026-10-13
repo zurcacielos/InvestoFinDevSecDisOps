@@ -126,6 +126,9 @@ export const useDevopsDataStore = defineStore('devopsData', {
       pipelines: [] as PipelineSummary[],
       selectedPipelineIds: savedPipelineIds,
       releaseMatrix: null as ReleaseMatrixResponse | null,
+      cachedPipelineRows: {} as Record<number, PipelineMatrixRow>,
+      cachedTopoSortedStages: [] as string[],
+      cachedEnvironments: [] as string[],
       isPipelinesLoading: false,
       isMatrixLoading: false,
       pipelinesError: '',
@@ -256,11 +259,80 @@ export const useDevopsDataStore = defineStore('devopsData', {
       }
     },
 
-    selectPipeline(pipelineId: number) {
+    computeReleaseMatrix() {
+      if (this.selectedPipelineIds.length === 0) {
+        this.releaseMatrix = null;
+        return;
+      }
+
+      // Filter cached rows according to currently selected pipeline IDs
+      const activeRows = this.selectedPipelineIds
+        .map(id => this.cachedPipelineRows[id])
+        .filter((row): row is PipelineMatrixRow => !!row);
+
+      if (activeRows.length === 0) {
+        this.releaseMatrix = null;
+        return;
+      }
+
+      // Compute dynamic environments list: start with profileConfig.environments
+      const envs = [...this.profileConfig.environments];
+      for (const row of activeRows) {
+        if (row.environmentDeployments) {
+          for (const envKey of Object.keys(row.environmentDeployments)) {
+            if (!envs.some(e => e.toLowerCase() === envKey.toLowerCase())) {
+              envs.push(envKey);
+            }
+          }
+        }
+      }
+
+      // Compute active stages: stages present in currently selected rows
+      const activeStageSet = new Set<string>();
+      for (const row of activeRows) {
+        if (row.deployments) {
+          for (const stage of Object.keys(row.deployments)) {
+            activeStageSet.add(stage);
+          }
+        }
+      }
+
+      // Preserve topological sort order from cache for active stages
+      const sortedStages: string[] = [];
+      if (this.cachedTopoSortedStages && this.cachedTopoSortedStages.length > 0) {
+        for (const stage of this.cachedTopoSortedStages) {
+          if (activeStageSet.has(stage) && !sortedStages.includes(stage)) {
+            sortedStages.push(stage);
+          }
+        }
+      }
+      // Add any remaining active stages not yet in cachedTopoSortedStages
+      for (const stage of activeStageSet) {
+        if (!sortedStages.includes(stage)) {
+          sortedStages.push(stage);
+        }
+      }
+
+      this.releaseMatrix = {
+        environments: envs,
+        topoSortedStages: sortedStages.length > 0 ? sortedStages : (this.cachedTopoSortedStages || []),
+        rows: [...activeRows].sort((a, b) => a.pipelineName.localeCompare(b.pipelineName))
+      };
+    },
+
+    async selectPipeline(pipelineId: number) {
       if (!this.selectedPipelineIds.includes(pipelineId)) {
         this.selectedPipelineIds.push(pipelineId);
         this.saveSelectedPipelineIds();
-        this.fetchReleaseMatrix();
+
+        // If row is already cached in store, compute locally with zero network latency
+        if (this.cachedPipelineRows[pipelineId]) {
+          this.computeReleaseMatrix();
+          return;
+        }
+
+        // Only fetch the newly added pipeline from server
+        await this.fetchReleaseMatrix([pipelineId]);
       }
     },
 
@@ -269,19 +341,22 @@ export const useDevopsDataStore = defineStore('devopsData', {
       if (idx > -1) {
         this.selectedPipelineIds.splice(idx, 1);
         this.saveSelectedPipelineIds();
-        if (this.selectedPipelineIds.length > 0) {
-          this.fetchReleaseMatrix();
-        } else {
-          this.releaseMatrix = null;
-        }
+        // Compute in-memory with zero network overhead
+        this.computeReleaseMatrix();
       }
     },
 
-    togglePipelineSelection(pipelineId: number) {
+    clearSelectedPipelines() {
+      this.selectedPipelineIds = [];
+      this.saveSelectedPipelineIds();
+      this.releaseMatrix = null;
+    },
+
+    async togglePipelineSelection(pipelineId: number) {
       if (this.selectedPipelineIds.includes(pipelineId)) {
         this.removePipeline(pipelineId);
       } else {
-        this.selectPipeline(pipelineId);
+        await this.selectPipeline(pipelineId);
       }
     },
 
@@ -303,13 +378,32 @@ export const useDevopsDataStore = defineStore('devopsData', {
       localStorage.setItem('adoEnvParamName', newConfig.environmentParameterName);
       localStorage.setItem('adoOpParamName', newConfig.operationParameterName);
       localStorage.setItem('adoTargetEnvs', JSON.stringify(newConfig.environments));
-      await this.fetchReleaseMatrix();
+      // Invalidate row cache because environment extraction depends on profileConfig
+      this.cachedPipelineRows = {};
+      await this.fetchReleaseMatrix(undefined, true);
     },
 
-    async fetchReleaseMatrix() {
+    async fetchReleaseMatrix(pipelineIdsToFetch?: number[], forceRefresh = false) {
       if (!this.organization || !this.project) return;
       if (this.selectedPipelineIds.length === 0) {
         this.releaseMatrix = null;
+        return;
+      }
+
+      // Determine which IDs need to be fetched from the backend
+      let targetIds: number[];
+      if (pipelineIdsToFetch && pipelineIdsToFetch.length > 0) {
+        targetIds = pipelineIdsToFetch;
+      } else if (forceRefresh) {
+        targetIds = [...this.selectedPipelineIds];
+      } else {
+        // Only fetch pipelines that are not yet in cache
+        targetIds = this.selectedPipelineIds.filter(id => !this.cachedPipelineRows[id]);
+      }
+
+      // If all selected pipelines are already cached and forceRefresh is false, compute locally
+      if (targetIds.length === 0 && !forceRefresh) {
+        this.computeReleaseMatrix();
         return;
       }
 
@@ -322,7 +416,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            pipelineIds: this.selectedPipelineIds,
+            pipelineIds: targetIds,
             profileConfig: this.profileConfig
           })
         });
@@ -333,7 +427,34 @@ export const useDevopsDataStore = defineStore('devopsData', {
         }
 
         const data: ReleaseMatrixResponse = await res.json();
-        this.releaseMatrix = data;
+        
+        // Cache newly fetched rows in the store
+        if (data.rows && data.rows.length > 0) {
+          for (const row of data.rows) {
+            this.cachedPipelineRows[row.pipelineId] = row;
+          }
+        }
+
+        // Cache stages
+        if (data.topoSortedStages && data.topoSortedStages.length > 0) {
+          for (const stage of data.topoSortedStages) {
+            if (!this.cachedTopoSortedStages.includes(stage)) {
+              this.cachedTopoSortedStages.push(stage);
+            }
+          }
+        }
+
+        // Cache environments
+        if (data.environments && data.environments.length > 0) {
+          for (const env of data.environments) {
+            if (!this.cachedEnvironments.includes(env)) {
+              this.cachedEnvironments.push(env);
+            }
+          }
+        }
+
+        // Recompute the release matrix for all currently selected pipeline IDs
+        this.computeReleaseMatrix();
       } catch (err: any) {
         this.matrixError = err.message || 'Error fetching release matrix';
       } finally {
