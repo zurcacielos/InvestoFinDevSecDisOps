@@ -170,14 +170,14 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
     </div>
 
     <!-- Selected Pipelines Chips Bar -->
-    <div v-if="devopsStore.selectedPipelineIds.length" class="flex items-center gap-2 mt-2 flex-wrap max-h-16 overflow-y-auto">
+    <div v-if="devopsStore.selectedPipelineIds.length" class="flex items-center gap-2 mt-2 flex-wrap">
       <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Matrix Rows:</span>
       <div 
         v-for="p in devopsStore.selectedPipelines" 
         :key="p.id"
         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-sm"
       >
-        <span class="font-medium truncate max-w-[160px]">{{ p.name }}</span>
+        <span class="font-medium truncate max-w-[30ch]" :title="p.name">{{ p.name }}</span>
 
         <!-- Quick Copy YAML context button -->
         <button 

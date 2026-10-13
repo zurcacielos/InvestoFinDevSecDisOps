@@ -159,13 +159,13 @@ const formatTimeAgo = (iso?: string) => {
             <th 
               v-for="(stage, sIdx) in stages" 
               :key="stage"
-              class="px-3 py-2.5 font-bold bg-slate-100 border-r border-slate-200 text-center min-w-[190px]"
+              class="px-3 py-2.5 font-bold bg-slate-100 border-r border-slate-200 text-center min-w-[190px] max-w-[50ch] align-top"
             >
-              <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white border border-slate-200 shadow-2xs text-slate-800 text-xs">
-                <span class="w-4 h-4 rounded-full bg-slate-100 text-slate-500 text-[9px] font-mono font-bold flex items-center justify-center border border-slate-200">
+              <div class="inline-flex items-start gap-1.5 px-2.5 py-1 rounded-md bg-white border border-slate-200 shadow-2xs text-slate-800 text-xs max-w-[50ch] text-left">
+                <span class="w-4 h-4 rounded-full bg-slate-100 text-slate-500 text-[9px] font-mono font-bold flex items-center justify-center border border-slate-200 shrink-0 mt-0.5">
                   {{ sIdx + 1 }}
                 </span>
-                <span class="font-mono truncate max-w-[150px]" :title="stage">{{ stage }}</span>
+                <span class="font-mono break-all whitespace-normal leading-tight" :title="stage">{{ stage }}</span>
               </div>
             </th>
           </tr>
@@ -278,7 +278,7 @@ const formatTimeAgo = (iso?: string) => {
               v-for="stage in stages" 
               :key="stage"
               @contextmenu="emit('open-context-menu', $event, row, row.deployments[stage], stage)"
-              class="px-3 py-2.5 border-r border-slate-200 select-none cursor-context-menu"
+              class="px-3 py-2.5 border-r border-slate-200 select-none cursor-context-menu min-w-[190px] max-w-[50ch]"
               :class="row.deployments[stage] ? 'hover:bg-blue-50/50' : 'bg-slate-50/40'"
             >
               <!-- If Stage Executed -->
