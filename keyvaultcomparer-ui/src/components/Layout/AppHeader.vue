@@ -16,7 +16,7 @@ const emit = defineEmits<{
 }>();
 
 const authStore = useAuthStore();
-const { globalError, profile } = storeToRefs(authStore);
+const { globalError, profile, showAuthError } = storeToRefs(authStore);
 
 const stagedStore = useStagedStore();
 const { stagedChanges } = storeToRefs(stagedStore);
@@ -36,8 +36,56 @@ const toggleDemoMode = () => {
 
 <template>
   <div class="flex-shrink-0">
-    <!-- Global Error Banner -->
-    <div v-if="globalError" class="bg-rose-500 text-white px-2 py-1 text-sm flex items-center justify-between shrink-0 shadow-sm z-40 relative">
+    <!-- Azure Auth Required Top Banner -->
+    <div 
+      v-if="showAuthError" 
+      class="bg-gradient-to-r from-rose-700 via-rose-600 to-rose-700 text-white px-3 py-1.5 text-xs sm:text-sm font-medium flex items-center justify-between shrink-0 shadow-md z-40 relative border-b border-rose-800 animate-fade-in"
+    >
+      <div class="flex items-center gap-2 flex-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 text-rose-200 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+        <span>
+          <strong class="font-bold tracking-wide">CANNOT CONNECT TO AZURE</strong> — Set the Personal Access Token in 
+          <button 
+            type="button" 
+            @click="emit('open-settings')" 
+            class="underline font-bold text-white hover:text-rose-100 decoration-white hover:decoration-rose-200 focus:outline-none cursor-pointer inline-flex items-center gap-0.5 mx-1"
+          >
+            Settings
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </button>
+          or authenticate locally via <code class="font-mono bg-rose-800/80 px-1 py-0.5 rounded text-[11px]">az login</code>.
+        </span>
+      </div>
+
+      <div class="flex items-center gap-3 shrink-0 ml-2">
+        <button 
+          @click="authStore.retryAuth()" 
+          class="bg-white/15 hover:bg-white/25 text-white px-2.5 py-1 rounded text-xs font-semibold uppercase tracking-wider flex items-center gap-1 transition-colors"
+          title="Retry Connection"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Retry
+        </button>
+        <button 
+          @click="authStore.setShowAuthError(false)" 
+          class="text-rose-200 hover:text-white p-1 rounded hover:bg-white/10 transition-colors focus:outline-none"
+          title="Dismiss Banner"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Global Error Banner (Only when showAuthError is not active) -->
+    <div v-else-if="globalError" class="bg-rose-500 text-white px-2 py-1 text-sm flex items-center justify-between shrink-0 shadow-sm z-40 relative">
       <div class="flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-90" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />

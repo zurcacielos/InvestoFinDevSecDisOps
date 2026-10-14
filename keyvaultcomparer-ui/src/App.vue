@@ -8,7 +8,6 @@ import FilterSection from './components/Filters/FilterSection.vue';
 import InspectionsToolSection from './components/Filters/InspectionsToolSection.vue';
 import GridTable from './components/ComparisonGrid/GridTable.vue';
 import StatusBar from './components/UI/StatusBar.vue';
-import AuthErrorModal from './components/Modals/AuthErrorModal.vue';
 import RegexHelpModal from './components/Modals/RegexHelpModal.vue';
 import QueryModal from './components/Modals/QueryModal.vue';
 import HelpModal from './components/Modals/HelpModal.vue';
@@ -32,7 +31,6 @@ import { useSecurityAnalysis } from './composables/useSecurityAnalysis';
 
 
 const authStore = useAuthStore();
-const { showAuthError } = storeToRefs(authStore);
 
 const vaultStore = useVaultStore();
 const { vaultUris, vaultData } = storeToRefs(vaultStore);
@@ -1038,7 +1036,6 @@ onUnmounted(() => {
       </div>
     </main>
 
-    <AuthErrorModal :show="showAuthError" @retry="authStore.retryAuth()" />
     <RegexHelpModal :show="showRegexHelpDialog" @close="showRegexHelpDialog = false" />
     <QueryModal :show="showQueryModal" @close="showQueryModal = false" />
     <GrantAccessModal :show="showGrantAccessModal" @close="showGrantAccessModal = false" @download="downloadGrantScript" />
