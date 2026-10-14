@@ -50,6 +50,7 @@ namespace KeyVaultComparer.Api.Models
         public PipelineRepository? Repository { get; set; }
         public Dictionary<string, StageDeploymentInfo> Deployments { get; set; } = new();
         public Dictionary<string, EnvironmentDeploymentInfo> EnvironmentDeployments { get; set; } = new();
+        public List<PipelineRunInfo> RecentRuns { get; set; } = new();
     }
 
     public class PipelineYamlLink
@@ -109,6 +110,32 @@ namespace KeyVaultComparer.Api.Models
     {
         public List<int> PipelineIds { get; set; } = new();
         public PipelineProfileConfig? ProfileConfig { get; set; }
+    }
+
+    public class PipelineRunStageInfo
+    {
+        public string StageName { get; set; } = string.Empty;
+        public string Status { get; set; } = "unknown";
+        public DateTime? StartTime { get; set; }
+        public DateTime? FinishTime { get; set; }
+        public int? Order { get; set; }
+    }
+
+    public class PipelineRunInfo
+    {
+        public int BuildId { get; set; }
+        public string BuildNumber { get; set; } = string.Empty;
+        public string OverallStatus { get; set; } = "unknown";
+        public string? Branch { get; set; }
+        public string? CommitSha { get; set; }
+        public string? Author { get; set; }
+        public string? AuthorImageUrl { get; set; }
+        public string? TriggerReason { get; set; }
+        public bool IsAutomated { get; set; }
+        public DateTime? DeployedAt { get; set; }
+        public string? BuildUrl { get; set; }
+        public string? PrNumber { get; set; }
+        public Dictionary<string, PipelineRunStageInfo> Stages { get; set; } = new();
     }
 }
 
