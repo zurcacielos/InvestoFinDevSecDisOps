@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import Ribbon from '../Ribbon.vue';
+import CurrentUserAvatar from './CurrentUserAvatar.vue';
 import { useAuthStore } from '../../stores/authStore';
 import { useStagedStore } from '../../stores/stagedStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -173,26 +174,11 @@ const handleSignIn = async () => {
 
         <div class="h-5 w-px bg-slate-200 mx-1"></div>
 
-        <div class="flex items-center gap-3">
-          <template v-if="profile && profile.email !== 'Unknown User'">
-            <div 
-              class="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-inner text-sm"
-              :title="`Connected as ${profile.email} (${profile.subscriptionName}) via ${authStore.cloudAuthMethod || 'Azure SSO'}`"
-            >
-              {{ profile.initials }}
-            </div>
-          </template>
-          <template v-else>
-            <button 
-              @click="handleSignIn" 
-              class="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-colors shadow-sm"
-              title="Sign in with your corporate Microsoft account"
-            >
-              <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-              <span>Azure: Disconnected</span>
-            </button>
-          </template>
-        </div>
+        <CurrentUserAvatar 
+          :profile="profile" 
+          :cloud-auth-method="authStore.cloudAuthMethod" 
+          @sign-in="handleSignIn" 
+        />
       </template>
       
       <template #select-vaults>

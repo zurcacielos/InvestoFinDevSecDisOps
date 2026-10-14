@@ -81,6 +81,7 @@ The connection to Azure Cloud and external platforms is strictly centralized in 
 - **Connection Method Transparency**: The UI explicitly shows the active connection method:
   - `Azure SSO Identity (Interactive / az login)` OR
   - `Service Principal (App ID & Secret)`
+- **Profile Identity & Avatar**: Displays the authenticated user identity in the header and settings via `CurrentUserAvatar.vue`. Dynamically resolves the user's photo from Microsoft Graph (`https://graph.microsoft.com/v1.0/me/photo/$value`) with fallback to Azure DevOps profile avatar and initials badge (`{{ profile.initials }}`). Includes online indicator dot and connection details tooltip.
 
 ### 2.2 Azure DevOps Authentication (ADO Pipelines & Variable Groups)
 - **Scope**: Azure DevOps REST API (`dev.azure.com`).
