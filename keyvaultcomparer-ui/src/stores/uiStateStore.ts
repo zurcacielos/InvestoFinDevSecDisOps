@@ -5,14 +5,14 @@ export const useUiStateStore = defineStore('uiState', {
     globalLoadingValues: false,
     fetchingVaults: {} as Record<string, boolean>,
     loadingCells: {} as Record<string, Record<string, boolean>>,
-    currentTab: 'select' as 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops',
+    currentTab: 'select' as 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops' | 'pipelines',
     contextMenu: { show: false, x: 0, y: 0, colId: '' },
   }),
   actions: {
     setGlobalLoading(val: boolean) {
       this.globalLoadingValues = val;
     },
-    setCurrentTab(tab: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops') {
+    setCurrentTab(tab: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops' | 'pipelines') {
       this.currentTab = tab;
     },
     showContextMenu(x: number, y: number, colId: string) {
