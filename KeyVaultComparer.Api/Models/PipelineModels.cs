@@ -28,9 +28,17 @@ namespace KeyVaultComparer.Api.Models
         public bool IsExpanded { get; set; } = true;
     }
 
+    public class PipelineProfileConfig
+    {
+        public string EnvironmentParameterName { get; set; } = "Environment";
+        public string OperationParameterName { get; set; } = "Operation";
+        public List<string> Environments { get; set; } = new() { "dev", "uat", "uat1", "uat2", "stg", "stg1", "prd", "prd1" };
+    }
+
     public class ReleaseMatrixResponse
     {
         public List<string> Environments { get; set; } = new();
+        public List<string> TopoSortedStages { get; set; } = new();
         public List<PipelineMatrixRow> Rows { get; set; } = new();
     }
 
@@ -41,6 +49,7 @@ namespace KeyVaultComparer.Api.Models
         public string? YamlFilename { get; set; }
         public PipelineRepository? Repository { get; set; }
         public Dictionary<string, StageDeploymentInfo> Deployments { get; set; } = new();
+        public Dictionary<string, EnvironmentDeploymentInfo> EnvironmentDeployments { get; set; } = new();
     }
 
     public class PipelineYamlLink
@@ -74,8 +83,26 @@ namespace KeyVaultComparer.Api.Models
         public string? PrNumber { get; set; }
     }
 
+    public class EnvironmentDeploymentInfo
+    {
+        public string Environment { get; set; } = string.Empty;
+        public string Status { get; set; } = "unknown";
+        public int BuildId { get; set; }
+        public string BuildNumber { get; set; } = string.Empty;
+        public string? Branch { get; set; }
+        public string? CommitSha { get; set; }
+        public string? Author { get; set; }
+        public DateTime? DeployedAt { get; set; }
+        public string? BuildUrl { get; set; }
+        public string? PrNumber { get; set; }
+        public string? Operation { get; set; }
+        public string? Version { get; set; }
+    }
+
     public class ReleaseMatrixRequest
     {
         public List<int> PipelineIds { get; set; } = new();
+        public PipelineProfileConfig? ProfileConfig { get; set; }
     }
 }
+
