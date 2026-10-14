@@ -32,27 +32,10 @@ namespace KeyVaultComparer.Api.Services
 
         public async Task<string> LoginInteractiveAsync(CancellationToken ct = default)
         {
-            // 1. In-process interactive browser login (launches default system browser with Microsoft SSO)
-            try
-            {
-                var options = new InteractiveBrowserCredentialOptions
-                {
-                    ClientId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46" // Microsoft Azure CLI public client ID
-                };
-                var interactive = new InteractiveBrowserCredential(options);
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                cts.CancelAfter(TimeSpan.FromMinutes(3));
-
-                await interactive.GetTokenAsync(new TokenRequestContext(new[] { "https://management.azure.com/.default" }), cts.Token);
-                _interactiveCredential = interactive;
-                return "Successfully authenticated via browser SSO.";
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Interactive browser credential fallback: {ex.Message}");
-            }
-
-            // 2. Fallback: if Azure CLI is installed, launch az login via system shell
+            // 1. If Azure CLI is installed, launch 'az login' via system shell.
+            // This stores the tokens and refresh tokens in the Azure CLI local profile (~/.azure),
+            // allowing DefaultAzureCredential (AzureCliCredential) to seamlessly serve all subscriptions,
+            // tenants, and services without opening extra browser windows or deadlocking on loopback listeners.
             if (IsAzureCliAvailable())
             {
                 var psi = new ProcessStartInfo
@@ -71,12 +54,32 @@ namespace KeyVaultComparer.Api.Services
                     await proc.WaitForExitAsync(cts.Token);
                     if (proc.ExitCode == 0)
                     {
+                        _interactiveCredential = null; // Clear so DefaultAzureCredential (AzureCliCredential) takes precedence
                         return "Successfully authenticated via Azure CLI.";
                     }
                 }
             }
 
-            throw new Exception("Authentication was cancelled or failed. Please try again or run 'az login' in your terminal.");
+            // 2. Fallback: In-process interactive browser login (launches default system browser with Microsoft SSO)
+            try
+            {
+                var options = new InteractiveBrowserCredentialOptions
+                {
+                    ClientId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46" // Microsoft Azure CLI public client ID
+                };
+                var interactive = new InteractiveBrowserCredential(options);
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(TimeSpan.FromMinutes(3));
+
+                await interactive.GetTokenAsync(new TokenRequestContext(new[] { "https://management.azure.com/.default" }), cts.Token);
+                _interactiveCredential = interactive;
+                return "Successfully authenticated via browser SSO.";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Interactive browser credential error: {ex.Message}");
+                throw new Exception($"Authentication was cancelled or failed: {ex.Message}. Please run 'az login' in your terminal.");
+            }
         }
 
         private static bool IsAzureCliAvailable()

@@ -19,7 +19,7 @@ namespace KeyVaultComparer.Api.Services
             _credential = credential;
         }
 
-        public async Task<UserProfile> GetProfileAsync()
+        public async Task<UserProfile> GetProfileAsync(CancellationToken ct = default)
         {
             var profile = new UserProfile
             {
@@ -28,16 +28,26 @@ namespace KeyVaultComparer.Api.Services
                 Initials = "??"
             };
 
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(15));
+
             try
             {
-                // 1. Get the default subscription name using ArmClient
-                var armClient = new ArmClient(_credential);
-                var defaultSub = await armClient.GetDefaultSubscriptionAsync();
-                profile.SubscriptionName = defaultSub.Data.DisplayName ?? profile.SubscriptionName;
+                // 1. Get the default subscription name using ArmClient (best effort)
+                try
+                {
+                    var armClient = new ArmClient(_credential);
+                    var defaultSub = await armClient.GetDefaultSubscriptionAsync(cts.Token);
+                    profile.SubscriptionName = defaultSub.Data.DisplayName ?? profile.SubscriptionName;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Default subscription discovery note: {ex.Message}");
+                }
 
                 // 2. Extract email from Token JWT
                 var tokenRequest = new TokenRequestContext(new[] { "https://management.azure.com/.default" });
-                var token = await _credential.GetTokenAsync(tokenRequest, new System.Threading.CancellationToken());
+                var token = await _credential.GetTokenAsync(tokenRequest, cts.Token);
                 
                 var jwtParts = token.Token.Split('.');
                 if (jwtParts.Length >= 2)
