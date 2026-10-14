@@ -16,6 +16,7 @@ export interface AzureCloudState {
   isConnecting: boolean;
   hasAttempted: boolean;
   isDismissed: boolean;
+  authMethod: 'InteractiveSSO' | 'ServicePrincipal' | null;
   error: string | null;
   profile: UserProfile | null;
   subscriptions: AzureSubscription[];
@@ -25,6 +26,8 @@ export interface AzureDevOpsState {
   isConnected: boolean | null;
   isConnecting: boolean;
   hasPat: boolean;
+  authMethod: 'AzureSSO' | 'PAT' | null;
+  connectionMessage: string | null;
   error: string | null;
 }
 
@@ -35,6 +38,7 @@ export const useAuthStore = defineStore('auth', {
       isConnecting: false,
       hasAttempted: false,
       isDismissed: false,
+      authMethod: null as 'InteractiveSSO' | 'ServicePrincipal' | null,
       error: null as string | null,
       profile: null as UserProfile | null,
       subscriptions: [] as AzureSubscription[],
@@ -43,6 +47,8 @@ export const useAuthStore = defineStore('auth', {
       isConnected: null as boolean | null,
       isConnecting: false,
       hasPat: false,
+      authMethod: null as 'AzureSSO' | 'PAT' | null,
+      connectionMessage: null as string | null,
       error: null as string | null,
     } as AzureDevOpsState,
     globalError: null as string | null,
@@ -57,6 +63,7 @@ export const useAuthStore = defineStore('auth', {
       !state.azureCloud.isConnected && state.azureCloud.hasAttempted && !state.azureCloud.isDismissed,
     profile: (state): UserProfile | null => state.azureCloud.profile,
     subscriptions: (state): AzureSubscription[] => state.azureCloud.subscriptions,
+    cloudAuthMethod: (state): 'InteractiveSSO' | 'ServicePrincipal' | null => state.azureCloud.authMethod,
 
     // Backward-compatibility Getters
     isConnected: (state): boolean => state.azureCloud.isConnected,
@@ -66,6 +73,7 @@ export const useAuthStore = defineStore('auth', {
 
     // Azure DevOps Getters
     isAdoConnected: (state): boolean => !!state.azureDevOps.isConnected,
+    adoAuthMethod: (state): 'AzureSSO' | 'PAT' | null => state.azureDevOps.authMethod,
   },
 
   actions: {
@@ -148,10 +156,17 @@ export const useAuthStore = defineStore('auth', {
 
       const promise = (async () => {
         try {
-          const [profileRes, subsRes] = await Promise.all([
+          const [profileRes, subsRes, settingsRes] = await Promise.all([
             fetch('/api/profile'),
-            fetch('/api/subscriptions')
+            fetch('/api/subscriptions'),
+            fetch('/api/settings').catch(() => null)
           ]);
+
+          if (settingsRes && settingsRes.ok) {
+            const settingsData = await settingsRes.json();
+            this.azureCloud.authMethod = settingsData.azureAuthMode || 'InteractiveSSO';
+            this.azureDevOps.hasPat = !!settingsData.hasAdoPat;
+          }
 
           if (profileRes.ok && subsRes.ok) {
             const profile = await profileRes.json();
@@ -161,13 +176,17 @@ export const useAuthStore = defineStore('auth', {
             this.azureCloud.isConnected = !!(profile && profile.email && profile.email !== 'Unknown User');
             this.azureCloud.hasAttempted = true;
             this.azureCloud.error = null;
+
+            // Probe ADO automatically with the connected Azure identity
+            this.checkAutoAdo();
+
             return this.azureCloud.isConnected;
           } else {
             this.azureCloud.profile = null;
             this.azureCloud.subscriptions = [];
             this.azureCloud.isConnected = false;
             this.azureCloud.hasAttempted = true;
-            this.azureCloud.error = 'Azure authentication required. Please run az login or configure Azure credentials in Settings.';
+            this.azureCloud.error = 'Azure authentication required. Please sign in with Microsoft or configure credentials.';
             return false;
           }
         } catch (e: any) {
@@ -187,6 +206,37 @@ export const useAuthStore = defineStore('auth', {
       return promise;
     },
 
+    async loginInteractive(): Promise<{ success: boolean; message: string }> {
+      this.azureCloud.isConnecting = true;
+      this.azureCloud.error = null;
+      try {
+        const res = await fetch('/api/auth/login-interactive', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          await this.retryAuth();
+          return { success: true, message: data.message || 'Authenticated successfully' };
+        } else {
+          this.azureCloud.error = data.message || 'Authentication failed';
+          return { success: false, message: this.azureCloud.error || 'Authentication failed' };
+        }
+      } catch (err: any) {
+        this.azureCloud.error = err?.message || 'Login request failed';
+        return { success: false, message: this.azureCloud.error || 'Login request failed' };
+      } finally {
+        this.azureCloud.isConnecting = false;
+      }
+    },
+
+    async logout(): Promise<void> {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+      } catch {}
+      this.disconnectFromAzure();
+      this.azureDevOps.isConnected = null;
+      this.azureDevOps.authMethod = null;
+      this.azureDevOps.connectionMessage = null;
+    },
+
     async retryAuth() {
       this.azureCloud.isDismissed = false;
       this.azureCloud.isConnected = false;
@@ -202,6 +252,14 @@ export const useAuthStore = defineStore('auth', {
       this.azureCloud.isDismissed = false;
     },
 
+    async checkAutoAdo() {
+      const org = localStorage.getItem('adoOrg') || '';
+      const project = localStorage.getItem('adoProject') || '';
+      if (org) {
+        await this.checkAdoConnection(org, project);
+      }
+    },
+
     async checkAdoConnection(organization: string, project: string, pat?: string) {
       if (!organization) return false;
       this.azureDevOps.isConnecting = true;
@@ -215,6 +273,8 @@ export const useAuthStore = defineStore('auth', {
         });
         const data = await res.json();
         this.azureDevOps.isConnected = !!data.success;
+        this.azureDevOps.authMethod = data.authMethod || (pat ? 'PAT' : 'AzureSSO');
+        this.azureDevOps.connectionMessage = data.message || (data.success ? 'Connected' : 'Connection failed');
         if (!data.success) {
           this.azureDevOps.error = data.message || 'Failed to connect to Azure DevOps';
         }
