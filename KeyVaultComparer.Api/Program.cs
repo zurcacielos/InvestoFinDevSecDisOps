@@ -28,13 +28,14 @@ builder.Services.AddSingleton<DefaultAzureCredential>(sp =>
 });
 
 // Register the dynamic TokenCredential that resolves Service Principal or DefaultAzureCredential
-builder.Services.AddSingleton<TokenCredential>(sp => 
+builder.Services.AddSingleton<DynamicAzureCredential>(sp => 
 {
     var secretManager = sp.GetRequiredService<SecretStoreManager>();
     var appSettings = sp.GetRequiredService<AppSettingsService>();
     var defaultCli = sp.GetRequiredService<DefaultAzureCredential>();
     return new DynamicAzureCredential(secretManager, appSettings, defaultCli);
 });
+builder.Services.AddSingleton<TokenCredential>(sp => sp.GetRequiredService<DynamicAzureCredential>());
 
 builder.Services.AddSingleton<KeyVaultService>();
 builder.Services.AddSingleton<KeyVaultManagementService>();
@@ -444,7 +445,7 @@ app.MapGet("/api/settings", async (
 .WithName("GetSettings");
 
 app.MapPost("/api/auth/login-interactive", async (
-    DynamicAzureCredential dynamicCred,
+    [FromServices] DynamicAzureCredential dynamicCred,
     CancellationToken ct) =>
 {
     try
@@ -540,7 +541,7 @@ app.MapPost("/api/settings", async (
 
 app.MapPost("/api/settings/test-ado", async (
     [FromBody] TestAdoRequest req,
-    AdoAuthService adoAuthService,
+    [FromServices] AdoAuthService adoAuthService,
     CancellationToken ct) =>
 {
     var (success, message, authMethod) = await adoAuthService.TestAdoConnectionAsync(req.Organization, req.Project, req.Pat, ct);
@@ -550,7 +551,7 @@ app.MapPost("/api/settings/test-ado", async (
 
 app.MapPost("/api/settings/test-github", async (
     [FromBody] TestGithubRequest req,
-    AdoAuthService adoAuthService,
+    [FromServices] AdoAuthService adoAuthService,
     CancellationToken ct) =>
 {
     var (success, message) = await adoAuthService.TestGithubConnectionAsync(req.BaseUrl, req.Organization, req.Token, ct);
@@ -560,7 +561,7 @@ app.MapPost("/api/settings/test-github", async (
 
 app.MapPost("/api/settings/test-azure", async (
     [FromBody] TestAzureRequest req,
-    TokenCredential credential,
+    [FromServices] TokenCredential credential,
     CancellationToken ct) =>
 {
     try
