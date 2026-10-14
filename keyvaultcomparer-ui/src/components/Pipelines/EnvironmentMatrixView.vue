@@ -4,6 +4,7 @@ import { useDevopsDataStore } from '../../stores/devopsDataStore';
 import type { PipelineMatrixRow, EnvironmentDeploymentInfo } from '../../stores/devopsDataStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { openUrlInNewTab } from '../../utils/urlOpener';
+import PipelineAuthorBadge from './PipelineAuthorBadge.vue';
 
 const devopsStore = useDevopsDataStore();
 const settingsStore = useSettingsStore();
@@ -381,14 +382,17 @@ const getLagStatus = (row: PipelineMatrixRow, envIndex: number) => {
                   </button>
                 </div>
 
-                <!-- Bottom Row: Time ago & Author -->
-                <div class="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
-                  <span :title="row.environmentDeployments[env].deployedAt">
+                <!-- Bottom Row: Time ago & Author Badge -->
+                <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-100">
+                  <span :title="row.environmentDeployments[env].deployedAt" class="text-[9px] shrink-0 font-mono">
                     {{ formatTimeAgo(row.environmentDeployments[env].deployedAt) }}
                   </span>
-                  <span v-if="row.environmentDeployments[env].author" class="truncate max-w-[100px]" :title="row.environmentDeployments[env].author">
-                    {{ row.environmentDeployments[env].author }}
-                  </span>
+                  <PipelineAuthorBadge 
+                    :author="row.environmentDeployments[env].author"
+                    :author-image-url="row.environmentDeployments[env].authorImageUrl"
+                    :is-automated="row.environmentDeployments[env].isAutomated"
+                    :trigger-reason="row.environmentDeployments[env].triggerReason"
+                  />
                 </div>
 
                 <!-- Upstream Lag Indicator -->

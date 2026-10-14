@@ -4,6 +4,7 @@ import { useDevopsDataStore } from '../../stores/devopsDataStore';
 import type { PipelineMatrixRow, StageDeploymentInfo } from '../../stores/devopsDataStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { openUrlInNewTab } from '../../utils/urlOpener';
+import PipelineAuthorBadge from './PipelineAuthorBadge.vue';
 
 const devopsStore = useDevopsDataStore();
 const settingsStore = useSettingsStore();
@@ -351,14 +352,17 @@ const formatTimeAgo = (iso?: string) => {
                   </button>
                 </div>
 
-                <!-- Bottom Row: Time ago & Author -->
-                <div class="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
-                  <span :title="row.deployments[stage].deployedAt">
+                <!-- Bottom Row: Time ago & Author Badge -->
+                <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-100">
+                  <span :title="row.deployments[stage].deployedAt" class="text-[9px] shrink-0 font-mono">
                     {{ formatTimeAgo(row.deployments[stage].deployedAt) }}
                   </span>
-                  <span v-if="row.deployments[stage].author" class="truncate max-w-[90px]" :title="row.deployments[stage].author">
-                    {{ row.deployments[stage].author }}
-                  </span>
+                  <PipelineAuthorBadge 
+                    :author="row.deployments[stage].author"
+                    :author-image-url="row.deployments[stage].authorImageUrl"
+                    :is-automated="row.deployments[stage].isAutomated"
+                    :trigger-reason="row.deployments[stage].triggerReason"
+                  />
                 </div>
               </div>
 
