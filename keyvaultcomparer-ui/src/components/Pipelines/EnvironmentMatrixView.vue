@@ -351,11 +351,14 @@ const getLagStatus = (row: PipelineMatrixRow, envIndex: number) => {
                   <!-- Branch -->
                   <span 
                     v-if="row.environmentDeployments[env].branch"
-                    class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 max-w-[130px] truncate"
-                    :title="row.environmentDeployments[env].branch"
+                    class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-100 hover:bg-slate-200/70 px-1.5 py-0.5 rounded border border-slate-200 max-w-[130px] truncate transition-colors cursor-default"
+                    :title="`Branch: ${row.environmentDeployments[env].branch}`"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="6" y1="3" x2="6" y2="15"></line>
+                      <circle cx="18" cy="6" r="3"></circle>
+                      <circle cx="6" cy="18" r="3"></circle>
+                      <path d="M18 9a9 9 0 0 1-9 9"></path>
                     </svg>
                     <span class="truncate">{{ row.environmentDeployments[env].branch }}</span>
                   </span>
