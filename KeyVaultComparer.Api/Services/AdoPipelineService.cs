@@ -15,27 +15,25 @@ namespace KeyVaultComparer.Api.Services
 {
     public class AdoPipelineService
     {
-        private readonly TokenCredential _credential;
+        private readonly AdoAuthService _adoAuthService;
         private readonly IHttpClientFactory _httpClientFactory;
 
-        public AdoPipelineService(TokenCredential credential, IHttpClientFactory httpClientFactory)
+        public AdoPipelineService(AdoAuthService adoAuthService, IHttpClientFactory httpClientFactory)
         {
-            _credential = credential;
+            _adoAuthService = adoAuthService;
             _httpClientFactory = httpClientFactory;
         }
 
-        private async Task<string> GetAdoTokenAsync(CancellationToken cancellationToken = default)
+        private async Task<AuthenticationHeaderValue> GetAdoAuthHeaderAsync(CancellationToken cancellationToken = default)
         {
-            var tokenContext = new TokenRequestContext(new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" });
-            var token = await _credential.GetTokenAsync(tokenContext, cancellationToken);
-            return token.Token;
+            return await _adoAuthService.GetAdoAuthHeaderAsync(cancellationToken);
         }
 
         public async Task<List<PipelineSummary>> GetPipelinesAsync(string organization, string project, CancellationToken cancellationToken = default)
         {
-            var token = await GetAdoTokenAsync(cancellationToken);
+            var authHeader = await GetAdoAuthHeaderAsync(cancellationToken);
             using var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Authorization = authHeader;
 
             var url = $"https://dev.azure.com/{organization}/{project}/_apis/build/definitions?api-version=7.1";
             var response = await client.GetAsync(url, cancellationToken);
@@ -86,9 +84,9 @@ namespace KeyVaultComparer.Api.Services
 
         public async Task<PipelinePreviewResponse> GetPipelinePreviewYamlAsync(string organization, string project, int pipelineId, CancellationToken cancellationToken = default)
         {
-            var token = await GetAdoTokenAsync(cancellationToken);
+            var authHeader = await GetAdoAuthHeaderAsync(cancellationToken);
             using var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Authorization = authHeader;
 
             // Fetch pipeline name from definition first
             var defUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/definitions/{pipelineId}?api-version=7.1";
@@ -150,9 +148,9 @@ namespace KeyVaultComparer.Api.Services
             string? defaultGithubOrg = null,
             CancellationToken cancellationToken = default)
         {
-            var token = await GetAdoTokenAsync(cancellationToken);
+            var authHeader = await GetAdoAuthHeaderAsync(cancellationToken);
             using var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Authorization = authHeader;
 
             // 1. Definition Details
             var defUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/definitions/{pipelineId}?api-version=7.1";
@@ -401,10 +399,10 @@ namespace KeyVaultComparer.Api.Services
             CancellationToken cancellationToken = default)
         {
             profileConfig ??= new PipelineProfileConfig();
-            var token = await GetAdoTokenAsync(cancellationToken);
+            var authHeader = await GetAdoAuthHeaderAsync(cancellationToken);
             var collectedEdges = new System.Collections.Concurrent.ConcurrentBag<(string From, string To)>();
 
-            var tasks = pipelineIds.Select(id => FetchPipelineRowAsync(organization, project, id, token, profileConfig, collectedEdges, cancellationToken));
+            var tasks = pipelineIds.Select(id => FetchPipelineRowAsync(organization, project, id, authHeader, profileConfig, collectedEdges, cancellationToken));
             var rows = await Task.WhenAll(tasks);
 
             // 1. Gather all discovered stages for the Expanded Stages DAG view
@@ -441,13 +439,13 @@ namespace KeyVaultComparer.Api.Services
             string organization, 
             string project, 
             int pipelineId, 
-            string token, 
+            AuthenticationHeaderValue authHeader, 
             PipelineProfileConfig profileConfig,
             System.Collections.Concurrent.ConcurrentBag<(string From, string To)> collectedEdges,
             CancellationToken cancellationToken)
         {
             using var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Authorization = authHeader;
 
             var row = new PipelineMatrixRow
             {
