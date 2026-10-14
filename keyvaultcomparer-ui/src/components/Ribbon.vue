@@ -53,7 +53,7 @@ const filterStore = useFilterStore()
             class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
             :class="modelValue === 'devops' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
           >
-            DevOps
+            ADO Libraries
           </button>
           <button 
             @click="setTab('pipelines')"

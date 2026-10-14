@@ -416,7 +416,7 @@ namespace KeyVaultComparer.Api.Services
             // 2. Perform strict DAG topological sort respecting dependencies first, then environment ranking
             var topoSortedStages = DagTopologicalSorter.Sort(allStages, collectedEdges, profileConfig.Environments);
 
-            // 3. For Modo Ambientes (Release Matrix), build environment columns
+            // 3. For Environment Matrix mode, build environment columns
             var targetEnvs = new List<string>(profileConfig.Environments);
             foreach (var row in rows)
             {
@@ -675,7 +675,7 @@ namespace KeyVaultComparer.Api.Services
                                         }
                                         previousStageName = stageName;
 
-                                        // Register in Modo Expandido Deployments
+                                        // Register in Expanded Stages Deployments
                                         if (!row.Deployments.ContainsKey(stageName))
                                         {
                                             row.Deployments[stageName] = new StageDeploymentInfo
