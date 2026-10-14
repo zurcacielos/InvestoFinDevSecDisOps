@@ -2,15 +2,15 @@
 import { useFilterStore } from '../stores/filterStore'
 
 const props = defineProps<{
-  modelValue: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops'
+  modelValue: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops' | 'pipelines'
   stagedCount?: number
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops'): void
+  (e: 'update:modelValue', value: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops' | 'pipelines'): void
 }>()
 
-const setTab = (tab: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops') => {
+const setTab = (tab: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops' | 'pipelines') => {
   emit('update:modelValue', tab)
 }
 
@@ -54,6 +54,16 @@ const filterStore = useFilterStore()
             :class="modelValue === 'devops' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
           >
             DevOps
+          </button>
+          <button 
+            @click="setTab('pipelines')"
+            class="px-3 py-1 font-medium text-[13px] transition-colors border-b-2 flex items-center gap-1.5"
+            :class="modelValue === 'pipelines' ? 'border-blue-600 text-blue-700 bg-white rounded-t-md shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-md'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Pipelines &amp; Releases
           </button>
           <button 
             @click="setTab('inspections-tool')"
@@ -127,6 +137,10 @@ const filterStore = useFilterStore()
 
       <div v-show="modelValue === 'devops'">
         <slot name="devops"></slot>
+      </div>
+
+      <div v-show="modelValue === 'pipelines'">
+        <slot name="pipelines"></slot>
       </div>
     </div>
   </div>

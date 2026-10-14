@@ -14,6 +14,9 @@ import QueryModal from './components/Modals/QueryModal.vue';
 import HelpModal from './components/Modals/HelpModal.vue';
 import GrantAccessModal from './components/Modals/GrantAccessModal.vue';
 import InfoTooltip from './components/UI/InfoTooltip.vue';
+import PipelineRibbonBar from './components/Pipelines/PipelineRibbonBar.vue';
+import ReleaseMatrixGrid from './components/Pipelines/ReleaseMatrixGrid.vue';
+import PipelineYamlModal from './components/Pipelines/PipelineYamlModal.vue';
 import { useAuthStore } from './stores/authStore';
 import { useVaultStore } from './stores/vaultStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -845,6 +848,10 @@ onMounted(async () => {
           </div>
         </div>
       </template>
+
+      <template #pipelines>
+        <PipelineRibbonBar />
+      </template>
     </AppHeader>
 
     <main class="flex-1 flex flex-col min-h-0 overflow-hidden px-2 pb-2 pt-0">
@@ -860,6 +867,11 @@ onMounted(async () => {
           @grant-access="showGrantAccessModal = true"
         />
       </div>      
+
+      <!-- Pipelines & Releases Matrix Tab -->
+      <div v-if="currentTab === 'pipelines'" class="w-full h-full flex flex-col gap-2 min-h-0 flex-1">
+        <ReleaseMatrixGrid />
+      </div>
 
       <!-- Staged Changes Tab -->
       <div v-if="currentTab === 'staged'" class="w-full mx-auto flex-1 flex flex-col min-h-0">
@@ -1004,6 +1016,7 @@ onMounted(async () => {
     <QueryModal :show="showQueryModal" @close="showQueryModal = false" />
     <GrantAccessModal :show="showGrantAccessModal" @close="showGrantAccessModal = false" @download="downloadGrantScript" />
     <HelpModal :show="showHelpDialog" @close="showHelpDialog = false" />
+    <PipelineYamlModal />
   </div>
 </template>
 

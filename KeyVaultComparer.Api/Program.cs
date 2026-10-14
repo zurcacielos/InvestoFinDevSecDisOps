@@ -29,6 +29,8 @@ builder.Services.AddSingleton<TokenCredential>(sp =>
 builder.Services.AddSingleton<KeyVaultService>();
 builder.Services.AddSingleton<KeyVaultManagementService>();
 builder.Services.AddSingleton<ProfileService>();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<AdoPipelineService>();
 
 // Enable CORS for Vue dev server
 builder.Services.AddCors(options =>
@@ -220,6 +222,52 @@ app.MapPut("/api/devops/variablegroups/{groupId}/variables", async (
     }
 })
 .WithName("AddVariableToAdoGroup");
+
+app.MapGet("/api/devops/pipelines", async ([FromQuery] string organization, [FromQuery] string project, AdoPipelineService pipelineService, CancellationToken ct) =>
+{
+    try
+    {
+        var pipelines = await pipelineService.GetPipelinesAsync(organization, project, ct);
+        return Results.Ok(pipelines);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.WithName("GetAdoPipelines");
+
+app.MapPost("/api/devops/pipelines/matrix", async ([FromQuery] string organization, [FromQuery] string project, [FromBody] ReleaseMatrixRequest request, AdoPipelineService pipelineService, CancellationToken ct) =>
+{
+    try
+    {
+        if (request?.PipelineIds == null || request.PipelineIds.Count == 0)
+        {
+            return Results.Ok(new ReleaseMatrixResponse());
+        }
+        var matrix = await pipelineService.GetReleaseMatrixAsync(organization, project, request.PipelineIds, ct);
+        return Results.Ok(matrix);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.WithName("GetReleaseMatrix");
+
+app.MapPost("/api/devops/pipelines/{pipelineId:int}/preview-yaml", async (int pipelineId, [FromQuery] string organization, [FromQuery] string project, AdoPipelineService pipelineService, CancellationToken ct) =>
+{
+    try
+    {
+        var result = await pipelineService.GetPipelinePreviewYamlAsync(organization, project, pipelineId, ct);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.WithName("GetPipelinePreviewYaml");
 
 
 app.MapPost("/api/logs/url", async ([FromBody] LogUrlRequest request) =>
