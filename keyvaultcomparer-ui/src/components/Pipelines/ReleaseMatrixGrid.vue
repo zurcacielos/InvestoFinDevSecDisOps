@@ -230,7 +230,7 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
 
         <!-- Refresh Matrix -->
         <button 
-          @click="devopsStore.fetchReleaseMatrix()"
+          @click="devopsStore.fetchReleaseMatrix(undefined, true)"
           class="p-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 shadow-2xs transition-colors"
           :disabled="devopsStore.isMatrixLoading"
           title="Reload matrix"
@@ -292,7 +292,7 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
         <div class="font-bold text-sm mb-1">Failed to Load Release Matrix</div>
         <div class="text-xs">{{ devopsStore.matrixError }}</div>
         <button 
-          @click="devopsStore.fetchReleaseMatrix()"
+          @click="devopsStore.fetchReleaseMatrix(undefined, true)"
           class="mt-3 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
         >
           Retry Matrix Fetch

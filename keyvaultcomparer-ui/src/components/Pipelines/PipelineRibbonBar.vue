@@ -149,7 +149,7 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
       <!-- Refresh Matrix Button -->
       <button 
         v-if="devopsStore.selectedPipelineIds.length"
-        @click="devopsStore.fetchReleaseMatrix"
+        @click="devopsStore.fetchReleaseMatrix(undefined, true)"
         class="px-3 py-1.5 font-medium text-xs rounded-lg transition-colors shadow-sm flex items-center gap-1.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
         :disabled="devopsStore.isMatrixLoading"
       >
@@ -162,7 +162,7 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
       <!-- Clear Selected Button -->
       <button 
         v-if="devopsStore.selectedPipelineIds.length > 1"
-        @click="devopsStore.selectedPipelineIds = []; devopsStore.saveSelectedPipelineIds(); devopsStore.releaseMatrix = null"
+        @click="devopsStore.clearSelectedPipelines()"
         class="text-xs text-slate-400 hover:text-slate-600 underline ml-auto"
       >
         Clear All ({{ devopsStore.selectedPipelineIds.length }})

@@ -553,8 +553,36 @@ namespace KeyVaultComparer.Api.Services
                             }
                             var sourceVersion = build["sourceVersion"]?.ToString();
                             var author = build["requestedFor"]?["displayName"]?.ToString();
-                            var authorImageUrl = build["requestedFor"]?["imageUrl"]?.ToString()
+                            var rawAvatarUrl = build["requestedFor"]?["imageUrl"]?.ToString()
                                 ?? build["requestedFor"]?["_links"]?["avatar"]?["href"]?.ToString();
+
+                            if (string.IsNullOrWhiteSpace(rawAvatarUrl))
+                            {
+                                var descriptor = build["requestedFor"]?["descriptor"]?.ToString();
+                                if (!string.IsNullOrEmpty(descriptor))
+                                {
+                                    rawAvatarUrl = $"https://dev.azure.com/{organization}/_apis/GraphProfile/MemberAvatars/{descriptor}";
+                                }
+                                else
+                                {
+                                    var identityId = build["requestedFor"]?["id"]?.ToString();
+                                    if (!string.IsNullOrEmpty(identityId))
+                                    {
+                                        rawAvatarUrl = $"https://dev.azure.com/{organization}/_api/_common/IdentityImage?id={identityId}";
+                                    }
+                                }
+                            }
+
+                            string? authorImageUrl = null;
+                            if (!string.IsNullOrWhiteSpace(rawAvatarUrl))
+                            {
+                                if (!rawAvatarUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                                    !rawAvatarUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    rawAvatarUrl = $"https://dev.azure.com/{organization}{rawAvatarUrl}";
+                                }
+                                authorImageUrl = $"/api/devops/avatar?url={Uri.EscapeDataString(rawAvatarUrl)}";
+                            }
                             var triggerReason = build["reason"]?.ToString();
 
                             bool isAutomated = false;
