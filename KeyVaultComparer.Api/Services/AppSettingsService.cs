@@ -12,6 +12,8 @@ namespace KeyVaultComparer.Api.Services
         public string? AdoProject { get; set; }
         public string? GithubBaseUrl { get; set; } = "https://github.com";
         public string? GithubOrganization { get; set; }
+        public string? AzureTenantId { get; set; }
+        public string? AzureClientId { get; set; }
         public string? SecretStorageProvider { get; set; }
     }
 

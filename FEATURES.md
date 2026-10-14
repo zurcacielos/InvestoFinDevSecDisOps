@@ -67,3 +67,27 @@ The application features a top ribbon with distinct tabs that define the main vi
 - **Purpose**: System and API operation observability.
 - **Visual State**: A chronological, console-like list of system events, API requests, and errors.
 - **Business Rules**: Displays logs for fetching status, authentication events, and API responses to aid in observability and debugging.
+
+## 2. Authentication & Connection Architecture (Pinia authStore)
+
+The connection to Azure Cloud and external platforms is strictly centralized in Pinia under `useAuthStore` as the single source of truth:
+
+### 2.1 Azure Cloud Authentication (Key Vaults & Subscriptions)
+- **Scope**: Azure Resource Manager (`management.azure.com`) and Key Vault Data Plane (`vault.azure.net`).
+- **Mechanism**: Entra ID via `DynamicAzureCredential`.
+  - **Primary / Headless**: Service Principal configured in Settings (`AzureTenantId`, `AzureClientId`, and encrypted `AzureClientSecret`).
+  - **Local Fallback**: Local Azure CLI session (`az login`).
+- **Personal Access Token Policy**: An Azure DevOps Personal Access Token (PAT) CANNOT be used for Azure Cloud or Key Vaults.
+- **Visual Notification**: If Azure Cloud is unauthenticated, a non-blocking top banner informs the user:
+  `CANNOT CONNECT TO AZURE CLOUD — Run 'az login' in your terminal or configure Azure Service Principal credentials in Settings.` with a direct interactive link to the Azure Cloud settings tab.
+- **Status Indicator**: An interactive status badge in the header shows whether Azure Cloud is `Connected` (with user initials) or `Offline`.
+
+### 2.2 Azure DevOps Authentication (ADO Pipelines & Variable Groups)
+- **Scope**: Azure DevOps REST API (`dev.azure.com`).
+- **Mechanism**: Configured via `AdoOrganization`, `AdoProject`, and an encrypted Personal Access Token (`AdoPat`) using HTTP Basic Authentication. If empty, falls back to `az login` token acquisition.
+
+### 2.3 Secret Storage (Zero Plaintext)
+- All client secrets, PATs, and GitHub tokens are encrypted at rest using `SecretStoreManager`.
+  - Windows: Windows Credential Manager (`Advapi32.dll` DPAPI).
+  - Linux/Docker: AES-256-GCM authenticated encrypted file (`secrets.enc`).
+
