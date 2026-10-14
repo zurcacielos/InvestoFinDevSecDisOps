@@ -38,8 +38,26 @@ namespace KeyVaultComparer.Api.Models
     {
         public int PipelineId { get; set; }
         public string PipelineName { get; set; } = string.Empty;
+        public string? YamlFilename { get; set; }
         public PipelineRepository? Repository { get; set; }
         public Dictionary<string, StageDeploymentInfo> Deployments { get; set; } = new();
+    }
+
+    public class PipelineYamlLink
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Repository { get; set; } = string.Empty;
+        public string Path { get; set; } = string.Empty;
+        public string Branch { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public bool IsMainPipeline { get; set; }
+    }
+
+    public class PipelineYamlLinksResponse
+    {
+        public int PipelineId { get; set; }
+        public string PipelineName { get; set; } = string.Empty;
+        public List<PipelineYamlLink> Links { get; set; } = new();
     }
 
     public class StageDeploymentInfo

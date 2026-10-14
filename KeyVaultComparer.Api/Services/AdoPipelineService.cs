@@ -142,6 +142,257 @@ namespace KeyVaultComparer.Api.Services
             };
         }
 
+        public async Task<PipelineYamlLinksResponse> GetPipelineYamlLinksAsync(
+            string organization,
+            string project,
+            int pipelineId,
+            string? githubBaseUrl = null,
+            string? defaultGithubOrg = null,
+            CancellationToken cancellationToken = default)
+        {
+            var token = await GetAdoTokenAsync(cancellationToken);
+            using var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // 1. Definition Details
+            var defUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/definitions/{pipelineId}?api-version=7.1";
+            var defResp = await client.GetAsync(defUrl, cancellationToken);
+            if (!defResp.IsSuccessStatusCode)
+            {
+                var err = await defResp.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"ADO API Error ({defResp.StatusCode}): {err}");
+            }
+
+            var defJson = await defResp.Content.ReadAsStringAsync(cancellationToken);
+            var defNode = JsonNode.Parse(defJson);
+            var pipelineName = defNode?["name"]?.ToString() ?? $"Pipeline {pipelineId}";
+            var yamlFilename = defNode?["process"]?["yamlFilename"]?.ToString() ?? "azure-pipelines.yml";
+
+            var repoNode = defNode?["repository"];
+            var repoName = repoNode?["name"]?.ToString() ?? string.Empty;
+            var repoType = repoNode?["type"]?.ToString() ?? "GitHub";
+            var defaultBranch = repoNode?["defaultBranch"]?.ToString() ?? "main";
+            if (defaultBranch.StartsWith("refs/heads/"))
+            {
+                defaultBranch = defaultBranch.Substring("refs/heads/".Length);
+            }
+            var connectedServiceId = repoNode?["properties"]?["connectedServiceId"]?.ToString();
+
+            var baseUrl = !string.IsNullOrWhiteSpace(githubBaseUrl) 
+                ? githubBaseUrl.TrimEnd('/') 
+                : "https://github.com";
+
+            string BuildGithubUrl(string rName, string branch, string path)
+            {
+                var targetRepo = rName.Trim();
+                if (!targetRepo.Contains('/') && !string.IsNullOrWhiteSpace(defaultGithubOrg))
+                {
+                    targetRepo = $"{defaultGithubOrg}/{targetRepo}";
+                }
+                var cleanBranch = branch.StartsWith("refs/heads/") ? branch.Substring("refs/heads/".Length) : branch;
+                if (string.IsNullOrWhiteSpace(cleanBranch)) cleanBranch = "main";
+                var cleanPath = path.TrimStart('/');
+                return $"{baseUrl}/{targetRepo}/blob/{cleanBranch}/{cleanPath}";
+            }
+
+            var links = new List<PipelineYamlLink>();
+            var seenUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Main Pipeline YAML is the first tab
+            var mainUrl = BuildGithubUrl(repoName, defaultBranch, yamlFilename);
+            seenUrls.Add(mainUrl);
+            links.Add(new PipelineYamlLink
+            {
+                Title = $"Main Pipeline ({System.IO.Path.GetFileName(yamlFilename)})",
+                Repository = repoName,
+                Branch = defaultBranch,
+                Path = yamlFilename,
+                Url = mainUrl,
+                IsMainPipeline = true
+            });
+
+            // 2. Fetch YAML content to discover templates
+            string? yamlContent = null;
+            try
+            {
+                var spUrl = $"https://dev.azure.com/{organization}/{project}/_apis/sourceProviders/{repoType}/filecontents?repository={Uri.EscapeDataString(repoName)}&commitOrBranch={Uri.EscapeDataString(defaultBranch)}&path={Uri.EscapeDataString(yamlFilename)}&serviceEndpointId={connectedServiceId}&api-version=7.1";
+                var spResp = await client.GetAsync(spUrl, cancellationToken);
+                if (spResp.IsSuccessStatusCode)
+                {
+                    yamlContent = await spResp.Content.ReadAsStringAsync(cancellationToken);
+                }
+            }
+            catch { }
+
+            if (string.IsNullOrWhiteSpace(yamlContent) && string.Equals(repoType, "tfsgit", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var repoId = repoNode?["id"]?.ToString();
+                    var gitUrl = $"https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repoId}/items?path={Uri.EscapeDataString(yamlFilename)}&includeContent=true&api-version=7.1";
+                    var gitResp = await client.GetAsync(gitUrl, cancellationToken);
+                    if (gitResp.IsSuccessStatusCode)
+                    {
+                        var gitJson = await gitResp.Content.ReadAsStringAsync(cancellationToken);
+                        var gitNode = JsonNode.Parse(gitJson);
+                        yamlContent = gitNode?["content"]?.ToString();
+                    }
+                }
+                catch { }
+            }
+
+            if (string.IsNullOrWhiteSpace(yamlContent))
+            {
+                try
+                {
+                    var preview = await GetPipelinePreviewYamlAsync(organization, project, pipelineId, cancellationToken);
+                    yamlContent = preview.FinalYaml;
+                }
+                catch { }
+            }
+
+            // 3. Parse templates if YAML content found
+            if (!string.IsNullOrWhiteSpace(yamlContent))
+            {
+                var repoAliases = new Dictionary<string, (string RepoName, string? Branch)>(StringComparer.OrdinalIgnoreCase);
+
+                var lines = yamlContent.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+                string? currentAlias = null;
+                string? currentName = null;
+                string? currentRef = null;
+                bool inRepositoriesBlock = false;
+
+                foreach (var rawLine in lines)
+                {
+                    var trimmed = rawLine.Trim();
+                    if (trimmed.StartsWith("repositories:"))
+                    {
+                        inRepositoriesBlock = true;
+                        continue;
+                    }
+
+                    if (inRepositoriesBlock)
+                    {
+                        if (!rawLine.StartsWith(" ") && !rawLine.StartsWith("\t") && !string.IsNullOrWhiteSpace(trimmed) && !trimmed.StartsWith("-"))
+                        {
+                            inRepositoriesBlock = false;
+                        }
+                    }
+
+                    if (inRepositoriesBlock)
+                    {
+                        var repoMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"^-\s+repository:\s*['""]?([^'""]+)['""]?");
+                        if (repoMatch.Success)
+                        {
+                            if (!string.IsNullOrEmpty(currentAlias) && !string.IsNullOrEmpty(currentName))
+                            {
+                                repoAliases[currentAlias] = (currentName, currentRef);
+                            }
+                            currentAlias = repoMatch.Groups[1].Value.Trim();
+                            currentName = null;
+                            currentRef = null;
+                            continue;
+                        }
+
+                        var nameMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"^name:\s*['""]?([^'""]+)['""]?");
+                        if (nameMatch.Success)
+                        {
+                            currentName = nameMatch.Groups[1].Value.Trim();
+                            continue;
+                        }
+
+                        var refMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"^ref:\s*['""]?([^'""]+)['""]?");
+                        if (refMatch.Success)
+                        {
+                            currentRef = refMatch.Groups[1].Value.Trim();
+                            continue;
+                        }
+                    }
+                }
+                if (!string.IsNullOrEmpty(currentAlias) && !string.IsNullOrEmpty(currentName))
+                {
+                    repoAliases[currentAlias] = (currentName, currentRef);
+                }
+
+                var templateMatches = System.Text.RegularExpressions.Regex.Matches(yamlContent, @"template:\s*['""]?([^'""\r\n\s]+)['""]?", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                foreach (System.Text.RegularExpressions.Match m in templateMatches)
+                {
+                    var templateStr = m.Groups[1].Value.Trim();
+                    if (string.IsNullOrWhiteSpace(templateStr) || templateStr.StartsWith("$")) continue;
+
+                    string tPath = templateStr;
+                    string targetRepo = repoName;
+                    string targetBranch = defaultBranch;
+
+                    if (templateStr.Contains("@"))
+                    {
+                        var parts = templateStr.Split('@');
+                        tPath = parts[0].Trim();
+                        var alias = parts[1].Trim();
+
+                        if (repoAliases.TryGetValue(alias, out var target))
+                        {
+                            targetRepo = target.RepoName;
+                            if (!string.IsNullOrWhiteSpace(target.Branch))
+                            {
+                                targetBranch = target.Branch;
+                            }
+                        }
+                        else
+                        {
+                            targetRepo = alias;
+                        }
+                    }
+
+                    tPath = tPath.TrimStart('/');
+                    var tUrl = BuildGithubUrl(targetRepo, targetBranch, tPath);
+                    if (!seenUrls.Contains(tUrl))
+                    {
+                        seenUrls.Add(tUrl);
+                        links.Add(new PipelineYamlLink
+                        {
+                            Title = $"Template: {System.IO.Path.GetFileName(tPath)} ({tPath})",
+                            Repository = targetRepo,
+                            Branch = targetBranch,
+                            Path = tPath,
+                            Url = tUrl,
+                            IsMainPipeline = false
+                        });
+                    }
+                }
+
+                foreach (var kvp in repoAliases)
+                {
+                    var extRepo = kvp.Value.RepoName;
+                    var extBranch = kvp.Value.Branch ?? defaultBranch;
+                    if (!links.Any(l => string.Equals(l.Repository, extRepo, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        var extUrl = $"{baseUrl}/{extRepo}";
+                        if (!seenUrls.Contains(extUrl))
+                        {
+                            seenUrls.Add(extUrl);
+                            links.Add(new PipelineYamlLink
+                            {
+                                Title = $"Template Repo: {extRepo}",
+                                Repository = extRepo,
+                                Branch = extBranch,
+                                Path = "",
+                                Url = extUrl,
+                                IsMainPipeline = false
+                            });
+                        }
+                    }
+                }
+            }
+
+            return new PipelineYamlLinksResponse
+            {
+                PipelineId = pipelineId,
+                PipelineName = pipelineName,
+                Links = links
+            };
+        }
+
         public async Task<ReleaseMatrixResponse> GetReleaseMatrixAsync(string organization, string project, List<int> pipelineIds, CancellationToken cancellationToken = default)
         {
             var token = await GetAdoTokenAsync(cancellationToken);
@@ -183,6 +434,7 @@ namespace KeyVaultComparer.Api.Services
                     var defJson = await defResp.Content.ReadAsStringAsync(cancellationToken);
                     var defNode = JsonNode.Parse(defJson);
                     row.PipelineName = defNode?["name"]?.ToString() ?? row.PipelineName;
+                    row.YamlFilename = defNode?["process"]?["yamlFilename"]?.ToString() ?? "azure-pipelines.yml";
 
                     var repoNode = defNode?["repository"];
                     if (repoNode != null)

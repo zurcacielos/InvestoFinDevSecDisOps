@@ -269,6 +269,27 @@ app.MapPost("/api/devops/pipelines/{pipelineId:int}/preview-yaml", async (int pi
 })
 .WithName("GetPipelinePreviewYaml");
 
+app.MapGet("/api/devops/pipelines/{pipelineId:int}/github-yamls", async (
+    int pipelineId, 
+    [FromQuery] string organization, 
+    [FromQuery] string project, 
+    [FromQuery] string? githubBaseUrl,
+    [FromQuery] string? githubOrg,
+    AdoPipelineService pipelineService, 
+    CancellationToken ct) =>
+{
+    try
+    {
+        var result = await pipelineService.GetPipelineYamlLinksAsync(organization, project, pipelineId, githubBaseUrl, githubOrg, ct);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.WithName("GetPipelineGithubYamls");
+
 
 app.MapPost("/api/logs/url", async ([FromBody] LogUrlRequest request) =>
 {

@@ -139,6 +139,42 @@ const copyToClipboard = async (text?: string) => {
   await navigator.clipboard.writeText(text);
   hideContextMenu();
 };
+
+const isOpeningYamls = ref(false);
+
+const openAllGithubYamls = async (row: PipelineMatrixRow) => {
+  isOpeningYamls.value = true;
+  try {
+    const baseUrl = settingsStore.uiSettings.githubBaseUrl?.replace(/\/$/, '') || 'https://github.com';
+    const org = settingsStore.uiSettings.useGithubOrg ? settingsStore.uiSettings.githubOrg : '';
+
+    const result = await devopsStore.getPipelineGithubYamls(row.pipelineId, baseUrl, org);
+
+    if (result && result.links && result.links.length > 0) {
+      // First link is main pipeline YAML, subsequent links are templates in order
+      for (const link of result.links) {
+        openUrlInNewTab(link.url);
+      }
+    } else {
+      // Fallback: construct main YAML link directly
+      const repo = row.repository;
+      if (repo) {
+        let repoName = repo.name || '';
+        if (!repoName.includes('/') && settingsStore.uiSettings.useGithubOrg && settingsStore.uiSettings.githubOrg) {
+          repoName = `${settingsStore.uiSettings.githubOrg}/${repoName}`;
+        }
+        const branch = repo.defaultBranch?.replace('refs/heads/', '') || 'main';
+        const yamlPath = row.yamlFilename || 'azure-pipelines.yml';
+        const fallbackUrl = `${baseUrl}/${repoName}/blob/${branch}/${yamlPath}`;
+        openUrlInNewTab(fallbackUrl);
+      }
+    }
+  } catch (err) {
+    console.error('Error opening GitHub YAMLs:', err);
+  } finally {
+    isOpeningYamls.value = false;
+  }
+};
 </script>
 
 <template>
@@ -260,7 +296,10 @@ const copyToClipboard = async (text?: string) => {
               class="hover:bg-slate-50/80 transition-colors"
             >
               <!-- Row Header: Pipeline Info & Action Buttons -->
-              <td class="px-4 py-3 border-r border-slate-200 bg-white sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.02)]">
+              <td 
+                @contextmenu="openContextMenu($event, row, undefined, '')"
+                class="px-4 py-3 border-r border-slate-200 bg-white sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.02)] cursor-context-menu"
+              >
                 <div class="flex items-start justify-between gap-2">
                   <div class="min-w-0">
                     <button 
@@ -277,6 +316,17 @@ const copyToClipboard = async (text?: string) => {
 
                   <!-- Quick Action Buttons -->
                   <div class="flex items-center gap-1 shrink-0">
+                    <!-- Open all GitHub Yaml Button -->
+                    <button 
+                      @click.stop="openAllGithubYamls(row)"
+                      class="p-1 rounded text-slate-400 hover:text-violet-700 hover:bg-violet-50 transition-colors"
+                      title="Open all GitHub Yaml (Main pipeline &amp; templates in new tabs)"
+                    >
+                      <svg class="h-3.5 w-3.5 text-slate-700" viewBox="0 0 24 24" fill="currentColor">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                      </svg>
+                    </button>
+
                     <!-- Copy Full YAML Button -->
                     <button 
                       @click.stop="devopsStore.copyPipelineYamlToClipboard(row.pipelineId, row.pipelineName)"
@@ -309,7 +359,10 @@ const copyToClipboard = async (text?: string) => {
               </td>
 
               <!-- Repository Cell -->
-              <td class="px-3 py-3 border-r border-slate-200">
+              <td 
+                @contextmenu="openContextMenu($event, row, undefined, '')"
+                class="px-3 py-3 border-r border-slate-200 cursor-context-menu"
+              >
                 <div v-if="row.repository" class="flex flex-col min-w-0">
                   <div class="flex items-center gap-1.5">
                     <!-- Git Icon -->
@@ -500,6 +553,19 @@ const copyToClipboard = async (text?: string) => {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
           Open Repository
+        </button>
+
+        <!-- Open all GitHub Yaml -->
+        <button 
+          v-if="contextMenu.row"
+          @click="openAllGithubYamls(contextMenu.row); hideContextMenu()"
+          class="w-full text-left px-3 py-1.5 hover:bg-violet-50 hover:text-violet-700 flex items-center gap-2 text-slate-800 font-medium"
+        >
+          <svg class="h-3.5 w-3.5 text-slate-800 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+          </svg>
+          <span>Open all GitHub Yaml</span>
+          <span class="ml-auto text-[10px] text-violet-600 bg-violet-50 px-1 py-0.5 rounded border border-violet-200 font-mono">All Tabs</span>
         </button>
 
         <!-- Open Definition in ADO -->

@@ -41,9 +41,25 @@ export interface StageDeploymentInfo {
   prNumber?: string;
 }
 
+export interface PipelineYamlLink {
+  title: string;
+  repository: string;
+  path: string;
+  branch: string;
+  url: string;
+  isMainPipeline: boolean;
+}
+
+export interface PipelineYamlLinksResponse {
+  pipelineId: number;
+  pipelineName: string;
+  links: PipelineYamlLink[];
+}
+
 export interface PipelineMatrixRow {
   pipelineId: number;
   pipelineName: string;
+  yamlFilename?: string;
   repository?: PipelineRepository;
   deployments: Record<string, StageDeploymentInfo>;
 }
@@ -311,6 +327,28 @@ export const useDevopsDataStore = defineStore('devopsData', {
       this.yamlModal.show = false;
       this.yamlModal.yaml = '';
       this.yamlModal.error = '';
+    },
+
+    async getPipelineGithubYamls(pipelineId: number, githubBaseUrl?: string, githubOrg?: string): Promise<PipelineYamlLinksResponse | null> {
+      if (!this.organization || !this.project) return null;
+      try {
+        const params = new URLSearchParams({
+          organization: this.organization,
+          project: this.project,
+        });
+        if (githubBaseUrl) params.append('githubBaseUrl', githubBaseUrl);
+        if (githubOrg) params.append('githubOrg', githubOrg);
+
+        const res = await apiFetch(
+          `/api/devops/pipelines/${pipelineId}/github-yamls?${params.toString()}`
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data as PipelineYamlLinksResponse;
+      } catch (err: any) {
+        console.error('Failed to get pipeline GitHub YAMLs:', err);
+        return null;
+      }
     }
   },
   getters: {
