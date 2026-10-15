@@ -66,7 +66,10 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Local"))
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Local"))
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors();
 
 app.Use(async (context, next) =>

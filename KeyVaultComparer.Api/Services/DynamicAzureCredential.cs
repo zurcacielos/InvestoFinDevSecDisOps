@@ -32,47 +32,51 @@ namespace KeyVaultComparer.Api.Services
 
         public async Task<string> LoginInteractiveAsync(CancellationToken ct = default)
         {
-            // 1. If Azure CLI is installed, az login is the gold standard for developer workstations
+            // 1. In-process interactive browser login (launches default system browser with Microsoft SSO)
+            try
+            {
+                var options = new InteractiveBrowserCredentialOptions
+                {
+                    ClientId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46" // Microsoft Azure CLI public client ID
+                };
+                var interactive = new InteractiveBrowserCredential(options);
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(TimeSpan.FromMinutes(3));
+
+                await interactive.GetTokenAsync(new TokenRequestContext(new[] { "https://management.azure.com/.default" }), cts.Token);
+                _interactiveCredential = interactive;
+                return "Successfully authenticated via browser SSO.";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Interactive browser credential fallback: {ex.Message}");
+            }
+
+            // 2. Fallback: if Azure CLI is installed, launch az login via system shell
             if (IsAzureCliAvailable())
             {
                 var psi = new ProcessStartInfo
                 {
                     FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "az",
                     Arguments = OperatingSystem.IsWindows() ? "/c az login" : "login",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
+                    UseShellExecute = true,
+                    WindowStyle = ProcessWindowStyle.Normal
                 };
 
                 using var proc = Process.Start(psi);
                 if (proc != null)
                 {
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    cts.CancelAfter(TimeSpan.FromMinutes(2));
-
+                    cts.CancelAfter(TimeSpan.FromMinutes(3));
                     await proc.WaitForExitAsync(cts.Token);
                     if (proc.ExitCode == 0)
                     {
                         return "Successfully authenticated via Azure CLI.";
                     }
-                    else
-                    {
-                        var err = await proc.StandardError.ReadToEndAsync(ct);
-                        throw new Exception($"Azure CLI login exited with code {proc.ExitCode}: {err}");
-                    }
                 }
             }
 
-            // 2. Fallback to in-process interactive browser login
-            var options = new InteractiveBrowserCredentialOptions
-            {
-                ClientId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46" // Standard Azure CLI public client ID
-            };
-            var interactive = new InteractiveBrowserCredential(options);
-            await interactive.GetTokenAsync(new TokenRequestContext(new[] { "https://management.azure.com/.default" }), ct);
-            _interactiveCredential = interactive;
-            return "Successfully authenticated via browser.";
+            throw new Exception("Authentication was cancelled or failed. Please try again or run 'az login' in your terminal.");
         }
 
         private static bool IsAzureCliAvailable()
