@@ -543,6 +543,27 @@ export const useDevopsDataStore = defineStore('devopsData', {
       this.hasPendingChanges = false;
     },
 
+    async clearAllAndCache() {
+      this.selectedPipelineIds = [];
+      this.saveSelectedPipelineIds();
+      this.releaseMatrix = null;
+      this.cachedPipelineRows = {};
+      this.hasPendingChanges = false;
+
+      try {
+        localStorage.removeItem('adoSelectedPipelineIds');
+        localStorage.removeItem('adoCachedPipelineRows');
+      } catch (e) {
+        console.warn('Failed to clear localStorage', e);
+      }
+
+      try {
+        await apiFetch('/api/cache/clear?category=PipelineRuns', { method: 'POST' });
+      } catch (e) {
+        console.warn('Failed to clear PipelineRuns from server cache', e);
+      }
+    },
+
     async togglePipelineSelection(pipelineId: number) {
       if (this.selectedPipelineIds.includes(pipelineId)) {
         this.removePipeline(pipelineId);
