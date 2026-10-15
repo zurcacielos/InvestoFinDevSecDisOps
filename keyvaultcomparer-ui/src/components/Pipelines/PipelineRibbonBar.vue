@@ -9,6 +9,9 @@ const searchQuery = ref('');
 const isDropdownOpen = ref(false);
 const copySuccessNotice = ref('');
 
+const isSearching = computed(() => searchQuery.value.trim().length > 0);
+const recentPipelines = computed(() => devopsStore.recentPipelines);
+
 const filteredPipelines = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
   let list = devopsStore.pipelines;
@@ -134,29 +137,122 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
 
           <!-- Combobox Dropdown Results -->
           <div 
-            v-if="isDropdownOpen && filteredPipelines.length"
-            class="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50 divide-y divide-slate-100"
+            v-if="isDropdownOpen"
+            class="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-72 overflow-y-auto z-50 divide-y divide-slate-100"
           >
-            <div 
-              v-for="p in filteredPipelines" 
-              :key="p.id"
-              @mousedown="handleSelectPipeline(p.id)"
-              class="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs transition-colors"
-              :class="devopsStore.selectedPipelineIds.includes(p.id) ? 'bg-blue-50/60 font-semibold' : ''"
-            >
-              <div class="flex flex-col min-w-0 pr-2">
-                <span class="text-slate-800 truncate font-medium">{{ p.name }}</span>
-                <span v-if="p.repository?.name" class="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                  <span>repo:</span> {{ p.repository.name }}
+            <!-- Empty Search State -->
+            <div v-if="isSearching && filteredPipelines.length === 0" class="px-3 py-4 text-center text-xs text-slate-400">
+              No pipelines matching "{{ searchQuery }}"
+            </div>
+
+            <!-- State A: Not searching and has recents -->
+            <template v-else-if="!isSearching && recentPipelines.length > 0">
+              <!-- Recent Section Sticky Header -->
+              <div class="px-3 py-1.5 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between sticky top-0 z-10 select-none">
+                <div class="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Recent ({{ recentPipelines.length }})</span>
+                </div>
+              </div>
+
+              <!-- Recent Items -->
+              <div 
+                v-for="p in recentPipelines" 
+                :key="'recent-' + p.id"
+                @mousedown="handleSelectPipeline(p.id)"
+                class="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs transition-colors"
+                :class="devopsStore.selectedPipelineIds.includes(p.id) ? 'bg-blue-50/60 font-semibold' : ''"
+              >
+                <div class="flex flex-col min-w-0 pr-2">
+                  <span class="text-slate-800 truncate font-medium">{{ p.name }}</span>
+                  <span v-if="p.repository?.name" class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                    <span>repo:</span> {{ p.repository.name }}
+                  </span>
+                </div>
+                <span 
+                  v-if="devopsStore.selectedPipelineIds.includes(p.id)"
+                  class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 shrink-0"
+                >
+                  Selected
+                </span>
+                <span 
+                  v-else
+                  class="text-slate-400 shrink-0"
+                  title="Recently selected"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </span>
               </div>
-              <span 
-                v-if="devopsStore.selectedPipelineIds.includes(p.id)"
-                class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 shrink-0"
+
+              <!-- All Pipelines Section Sticky Header -->
+              <div class="px-3 py-1.5 bg-slate-50 border-y border-slate-200/80 flex items-center justify-between sticky top-0 z-10 select-none">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  All Pipelines ({{ filteredPipelines.length }})
+                </span>
+              </div>
+
+              <!-- All Pipelines Items -->
+              <div 
+                v-for="p in filteredPipelines" 
+                :key="'all-' + p.id"
+                @mousedown="handleSelectPipeline(p.id)"
+                class="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs transition-colors"
+                :class="devopsStore.selectedPipelineIds.includes(p.id) ? 'bg-blue-50/60 font-semibold' : ''"
               >
-                Selected
-              </span>
-            </div>
+                <div class="flex flex-col min-w-0 pr-2">
+                  <span class="text-slate-800 truncate font-medium">{{ p.name }}</span>
+                  <span v-if="p.repository?.name" class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                    <span>repo:</span> {{ p.repository.name }}
+                  </span>
+                </div>
+                <span 
+                  v-if="devopsStore.selectedPipelineIds.includes(p.id)"
+                  class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 shrink-0"
+                >
+                  Selected
+                </span>
+              </div>
+            </template>
+
+            <!-- State B: Searching OR no recents yet -->
+            <template v-else>
+              <div 
+                v-for="p in filteredPipelines" 
+                :key="p.id"
+                @mousedown="handleSelectPipeline(p.id)"
+                class="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs transition-colors"
+                :class="devopsStore.selectedPipelineIds.includes(p.id) ? 'bg-blue-50/60 font-semibold' : ''"
+              >
+                <div class="flex flex-col min-w-0 pr-2">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-slate-800 truncate font-medium">{{ p.name }}</span>
+                    <span 
+                      v-if="devopsStore.recentPipelineIds.includes(p.id)" 
+                      class="px-1 py-0.2 rounded text-[9px] bg-slate-100 text-slate-500 border border-slate-200 shrink-0 font-normal flex items-center gap-0.5"
+                      title="Recently selected pipeline"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Recent
+                    </span>
+                  </div>
+                  <span v-if="p.repository?.name" class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                    <span>repo:</span> {{ p.repository.name }}
+                  </span>
+                </div>
+                <span 
+                  v-if="devopsStore.selectedPipelineIds.includes(p.id)"
+                  class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 shrink-0"
+                >
+                  Selected
+                </span>
+              </div>
+            </template>
           </div>
         </div>
       </div>
