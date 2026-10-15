@@ -104,11 +104,18 @@ The application provides continuous delivery and deployment visibility across Az
 - **Target Environments View**: Matrix mapping pipelines to target deployment environments (`dev`, `uat`, `stg`, `prd`, etc.).
 - **Expanded Stages (Hierarchical Run DAG) View**: Unfolds all executed stages in topological order (prerequisites to dependents) according to Azure DevOps YAML stage dependencies and timeline sequences.
 
-### 3.2 Target Environments Matrix & Rollback (N-1) Architecture
-- **In-Cell Stacked Deployment Cards**:
-  - **Active Deployment (N)**: Displays the latest deployed build, tag/version, operation, branch pill, commit SHA, PR badge, upstream promotion lag status, author avatar badge, and time ago.
-  - **Rollback Candidate (N-1)**: Secondary amber card displaying the immediate prior deployment for that environment, providing instant visibility into what version to roll back to.
-  - If no previous deployment exists within the scanned window, displays a subtle notice (`No prior version in scan range`).
+### 3.2 Target Environments Matrix & Interchangeable Layout Modes
+- **Integrated Service / Pipeline Column**:
+  - The standalone `REPOSITORY` column is eliminated and merged into the sticky left `SERVICE / PIPELINE` column, displaying definition link, ID, YAML AST shortcuts, repository link, and default branch, recovering ~220px of horizontal viewport width.
+- **Minimalist Status & Progressive Disclosure**:
+  - Replaces bulky "SUCCEEDED" pill badges with minimalist Azure-style circular indicators (`✓` green check, `✕` red cross, pulsing blue dot).
+  - Compact author badges hide verbose names from the default cell view while retaining full user and trigger details in native hover tooltips.
+- **Three Interchangeable Layout Modes**:
+  - **Cards Mode (`cards`)**: Default optimized view featuring prominent top-line version tags, active deployment metadata, and a docked compact $N-1$ previous run ribbon.
+  - **Rows Mode (`rows`)**: Strict cross-environment row alignment. Enforces identical Y-positions for Version, Commit, Branch, and Time across all environment columns, facilitating rapid horizontal eye scanning.
+  - **Columns Mode (`columns`)**: Temporal in-environment comparison. Splits each environment cell vertically into two sub-columns (Active Run $N$ on the left, Prior Run $N-1$ on the right) for side-by-side auditing without vertical scrolling.
+- **Redesigned Previous Run ($N-1$) Ribbon**:
+  - Replaces the bulky literal "ROLLBACK (N-1)" card with a minimalist docked ribbon displaying return arrow (`↺`), prior version/tag, commit SHA, and elapsed time with full date on hover.
 - **Scan Depth & Quality Filters**:
   - Configurable scan depth selector in the toolbar (`15`, `25`, `50`, `100` recent runs per pipeline).
   - `Only Succeeded (✓)` toggle to restrict deployment detection to successful pipeline runs.

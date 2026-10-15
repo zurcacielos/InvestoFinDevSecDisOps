@@ -6,6 +6,7 @@ const props = defineProps<{
   authorImageUrl?: string;
   isAutomated?: boolean;
   triggerReason?: string;
+  compact?: boolean;
 }>();
 
 const imgFailed = ref(false);
@@ -107,8 +108,8 @@ const initials = computed(() => {
       {{ initials }}
     </div>
 
-    <!-- 2-Line Name Display -->
-    <div class="flex flex-col leading-[1.05] min-w-0 text-left">
+    <!-- 2-Line Name Display (Hidden in compact mode) -->
+    <div v-if="!compact" class="flex flex-col leading-[1.05] min-w-0 text-left">
       <span class="truncate font-semibold text-slate-700 text-[9px]">{{ parsedName.line1 }}</span>
       <span v-if="parsedName.line2" class="truncate text-slate-400 text-[8px]">{{ parsedName.line2 }}</span>
     </div>
