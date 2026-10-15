@@ -2,6 +2,7 @@ using Azure.Core;
 using Azure.Identity;
 using KeyVaultComparer.Api.Models;
 using KeyVaultComparer.Api.Services;
+using KeyVaultComparer.Api.Services.SecretStore;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +31,11 @@ builder.Services.AddSingleton<KeyVaultService>();
 builder.Services.AddSingleton<KeyVaultManagementService>();
 builder.Services.AddSingleton<ProfileService>();
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<AppSettingsService>();
+builder.Services.AddSingleton<ISecureSecretStore, WindowsCredentialStore>();
+builder.Services.AddSingleton<ISecureSecretStore, EncryptedFileSecretStore>();
+builder.Services.AddSingleton<SecretStoreManager>();
+builder.Services.AddSingleton<AdoAuthService>();
 builder.Services.AddSingleton<AdoPipelineService>();
 
 // Enable CORS for Vue dev server
@@ -128,15 +134,12 @@ app.MapGet("/api/subscriptions", async (KeyVaultManagementService service) =>
 })
 .WithName("GetSubscriptions");
 
-app.MapGet("/api/devops/variablegroups", async ([FromQuery] string organization, [FromQuery] string project, TokenCredential credential) =>
+app.MapGet("/api/devops/variablegroups", async ([FromQuery] string organization, [FromQuery] string project, AdoAuthService adoAuthService) =>
 {
     try
     {
-        var tokenContext = new TokenRequestContext(new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" });
-        var token = await credential.GetTokenAsync(tokenContext, default);
-
         using var client = new HttpClient();
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
+        client.DefaultRequestHeaders.Authorization = await adoAuthService.GetAdoAuthHeaderAsync();
         
         var url = $"https://dev.azure.com/{organization}/{project}/_apis/distributedtask/variablegroups?api-version=7.1";
         var response = await client.GetAsync(url);
@@ -169,15 +172,12 @@ app.MapPut("/api/devops/variablegroups/{groupId}/variables", async (
     [FromQuery] string organization, 
     [FromQuery] string project, 
     [FromBody] AddVariableRequest req,
-    TokenCredential credential) =>
+    AdoAuthService adoAuthService) =>
 {
     try
     {
-        var tokenContext = new TokenRequestContext(new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" });
-        var token = await credential.GetTokenAsync(tokenContext, default);
-
         using var client = new HttpClient();
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
+        client.DefaultRequestHeaders.Authorization = await adoAuthService.GetAdoAuthHeaderAsync();
         
         // 1. Get the current variable group
         var getUrl = $"https://dev.azure.com/{organization}/{project}/_apis/distributedtask/variablegroups/{groupId}?api-version=7.1";
@@ -395,6 +395,112 @@ app.MapPost("/api/logs/url", async ([FromBody] LogUrlRequest request) =>
 })
 .WithName("LogUrlOpened");
 
+app.MapGet("/api/settings", async (
+    AppSettingsService appSettingsService,
+    SecretStoreManager secretStoreManager,
+    CancellationToken ct) =>
+{
+    var settings = await appSettingsService.GetSettingsAsync(ct);
+    var providers = await secretStoreManager.GetProvidersInfoAsync(ct);
+    var activeProvider = await secretStoreManager.GetActiveStoreAsync(ct);
+    bool hasAdoPat = await secretStoreManager.HasSecretAsync(SecretStoreManager.AdoPatKey, ct);
+    bool hasGithubToken = await secretStoreManager.HasSecretAsync(SecretStoreManager.GithubTokenKey, ct);
+
+    return Results.Ok(new
+    {
+        adoOrganization = settings.AdoOrganization ?? "",
+        adoProject = settings.AdoProject ?? "",
+        hasAdoPat = hasAdoPat,
+        githubBaseUrl = string.IsNullOrWhiteSpace(settings.GithubBaseUrl) ? "https://github.com" : settings.GithubBaseUrl,
+        githubOrganization = settings.GithubOrganization ?? "",
+        hasGithubToken = hasGithubToken,
+        activeStorageProvider = activeProvider.ProviderName,
+        isWindows = OperatingSystem.IsWindows(),
+        storageProviders = providers
+    });
+})
+.WithName("GetSettings");
+
+app.MapPost("/api/settings", async (
+    [FromBody] UpdateSettingsDto req,
+    AppSettingsService appSettingsService,
+    SecretStoreManager secretStoreManager,
+    CancellationToken ct) =>
+{
+    try
+    {
+        if (!string.IsNullOrWhiteSpace(req.StorageProvider))
+        {
+            await secretStoreManager.SwitchProviderAsync(req.StorageProvider, ct);
+        }
+
+        var settings = await appSettingsService.GetSettingsAsync(ct);
+        if (req.AdoOrganization != null) settings.AdoOrganization = req.AdoOrganization;
+        if (req.AdoProject != null) settings.AdoProject = req.AdoProject;
+        if (req.GithubBaseUrl != null) settings.GithubBaseUrl = req.GithubBaseUrl;
+        if (req.GithubOrganization != null) settings.GithubOrganization = req.GithubOrganization;
+        await appSettingsService.SaveSettingsAsync(settings, ct);
+
+        if (req.ClearAdoPat)
+        {
+            await secretStoreManager.DeleteSecretAsync(SecretStoreManager.AdoPatKey, ct);
+        }
+        else if (!string.IsNullOrWhiteSpace(req.AdoPat))
+        {
+            await secretStoreManager.SetSecretAsync(SecretStoreManager.AdoPatKey, req.AdoPat.Trim(), ct);
+        }
+
+        if (req.ClearGithubToken)
+        {
+            await secretStoreManager.DeleteSecretAsync(SecretStoreManager.GithubTokenKey, ct);
+        }
+        else if (!string.IsNullOrWhiteSpace(req.GithubToken))
+        {
+            await secretStoreManager.SetSecretAsync(SecretStoreManager.GithubTokenKey, req.GithubToken.Trim(), ct);
+        }
+
+        return Results.Ok(new { message = "Settings saved successfully." });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.WithName("UpdateSettings");
+
+app.MapPost("/api/settings/test-ado", async (
+    [FromBody] TestAdoRequest req,
+    AdoAuthService adoAuthService,
+    CancellationToken ct) =>
+{
+    var (success, message) = await adoAuthService.TestAdoConnectionAsync(req.Organization, req.Project, req.Pat, ct);
+    return Results.Ok(new { success, message });
+})
+.WithName("TestAdoConnection");
+
+app.MapPost("/api/settings/test-github", async (
+    [FromBody] TestGithubRequest req,
+    AdoAuthService adoAuthService,
+    CancellationToken ct) =>
+{
+    var (success, message) = await adoAuthService.TestGithubConnectionAsync(req.BaseUrl, req.Organization, req.Token, ct);
+    return Results.Ok(new { success, message });
+})
+.WithName("TestGithubConnection");
+
 app.Run();
 
 public record LogUrlRequest(string Url);
+public record UpdateSettingsDto(
+    string? AdoOrganization,
+    string? AdoProject,
+    string? AdoPat,
+    bool ClearAdoPat,
+    string? GithubBaseUrl,
+    string? GithubOrganization,
+    string? GithubToken,
+    bool ClearGithubToken,
+    string? StorageProvider
+);
+public record TestAdoRequest(string Organization, string Project, string? Pat);
+public record TestGithubRequest(string? BaseUrl, string? Organization, string? Token);

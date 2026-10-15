@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 
 import AppHeader from './components/Layout/AppHeader.vue';
@@ -12,6 +12,7 @@ import AuthErrorModal from './components/Modals/AuthErrorModal.vue';
 import RegexHelpModal from './components/Modals/RegexHelpModal.vue';
 import QueryModal from './components/Modals/QueryModal.vue';
 import HelpModal from './components/Modals/HelpModal.vue';
+import SettingsModal from './components/Modals/SettingsModal.vue';
 import GrantAccessModal from './components/Modals/GrantAccessModal.vue';
 import InfoTooltip from './components/UI/InfoTooltip.vue';
 import PipelineRibbonBar from './components/Pipelines/PipelineRibbonBar.vue';
@@ -111,9 +112,19 @@ const showDevopsContextMenu = (e: MouseEvent, group: import('./stores/devopsData
 const uiStateStore = useUiStateStore();
 const { currentTab } = storeToRefs(uiStateStore);
 const showHelpDialog = ref(false);
+const showSettingsModal = ref(false);
 const showRegexHelpDialog = ref(false);
 const showQueryModal = ref(false);
 const showGrantAccessModal = ref(false);
+
+const handleGlobalKeydown = (e: KeyboardEvent) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+    e.preventDefault();
+    showSettingsModal.value = !showSettingsModal.value;
+  } else if (e.key === 'Escape' && showSettingsModal.value) {
+    showSettingsModal.value = false;
+  }
+};
 
 const useGithubOrgInput = ref(settingsStore.uiSettings.useGithubOrg);
 const githubOrgInput = ref(settingsStore.uiSettings.githubOrg);
@@ -459,14 +470,19 @@ const toggleLinkedGroups = () => {
 };
 
 onMounted(async () => {
+  window.addEventListener('keydown', handleGlobalKeydown);
   await authStore.connectToAzure(); 
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown);
 });
 </script>
 
 <template>
   <div class="h-screen w-screen flex flex-col bg-slate-50 text-slate-900 font-sans overflow-hidden">
     
-    <AppHeader v-model="currentTab" @show-help="showHelpDialog = true">
+    <AppHeader v-model="currentTab" @show-help="showHelpDialog = true" @open-settings="showSettingsModal = true">
       <template #select-vaults>
         <VaultSelector @grant-access="showGrantAccessModal = true" />
       </template>
@@ -667,7 +683,7 @@ onMounted(async () => {
 
       <template #code>
         <div class="flex flex-col w-full h-full min-h-[84px] px-2 py-1 relative">
-          <div class="flex items-center gap-6 pt-1">
+          <div class="flex items-center gap-6 pt-1 flex-wrap">
             <div class="flex items-center gap-2">
               <label class="flex items-center gap-1.5 text-sm font-medium text-slate-600 cursor-pointer select-none hover:text-slate-800 transition-colors">
                 <input type="checkbox" v-model="useGithubOrgInput" @change="saveGithubSettings" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer border-slate-300" />
@@ -679,6 +695,17 @@ onMounted(async () => {
               <span class="text-sm font-medium text-slate-600">Base URL:</span>
               <input type="text" v-model="githubBaseUrlInput" @blur="saveGithubSettings" @keyup.enter="saveGithubSettings" placeholder="https://github.com" class="w-64 text-sm bg-slate-100 border border-slate-200 rounded-md px-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
             </div>
+            <button 
+              @click="showSettingsModal = true" 
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors flex items-center gap-1.5 ml-auto"
+              title="Open Full Settings (Ctrl+,)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>Token &amp; Storage Settings (Ctrl+,)</span>
+            </button>
           </div>
           <div class="text-sm text-slate-500 mt-3 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1016,6 +1043,7 @@ onMounted(async () => {
     <QueryModal :show="showQueryModal" @close="showQueryModal = false" />
     <GrantAccessModal :show="showGrantAccessModal" @close="showGrantAccessModal = false" @download="downloadGrantScript" />
     <HelpModal :show="showHelpDialog" @close="showHelpDialog = false" />
+    <SettingsModal :show="showSettingsModal" @close="showSettingsModal = false" />
     <PipelineYamlModal />
   </div>
 </template>
