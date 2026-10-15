@@ -22,6 +22,13 @@ const rows = computed(() => {
   return devopsStore.releaseMatrix?.rows || [];
 });
 
+const getDeploymentsForEnv = (row: PipelineMatrixRow, env: string): EnvironmentDeploymentInfo[] => {
+  const history = row.environmentHistory?.[env];
+  if (history && history.length > 0) return history;
+  const current = row.environmentDeployments?.[env];
+  return current ? [current] : [];
+};
+
 const getPipelineDefinitionUrl = (pipelineId: number) => {
   const org = devopsStore.organization;
   const proj = devopsStore.project;
@@ -125,8 +132,8 @@ const getLagStatus = (row: PipelineMatrixRow, envIndex: number) => {
 <template>
   <div class="flex-1 flex flex-col overflow-hidden">
     <!-- Sub-header Bar -->
-    <div class="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
-      <div class="flex items-center gap-2">
+    <div class="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0 flex-wrap gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold text-[11px]">
           <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
           Environment Matrix
@@ -136,9 +143,23 @@ const getLagStatus = (row: PipelineMatrixRow, envIndex: number) => {
           {{ rows.length }} Pipelines &times; {{ environments.length }} Environments
         </span>
         <span class="text-slate-400">|</span>
-        <span class="text-[11px] text-slate-500">
-          Tracks branch promotions, release versions, commit SHAs and deploy status per target environment
-        </span>
+
+        <!-- Show Rollback (N-1) Toggle -->
+        <label 
+          class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white border border-slate-300 shadow-2xs text-[11px] font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none transition-colors"
+          title="Display the previous installation (N-1) in each environment as a rollback target"
+        >
+          <input 
+            type="checkbox" 
+            v-model="devopsStore.showRollbackTarget"
+            @change="devopsStore.setShowRollbackTarget(devopsStore.showRollbackTarget)"
+            class="rounded text-amber-600 focus:ring-amber-500 h-3.5 w-3.5"
+          />
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+          </svg>
+          <span>Show Rollback Target (N-1)</span>
+        </label>
       </div>
 
       <div class="flex items-center gap-3 text-[11px]">
@@ -173,7 +194,7 @@ const getLagStatus = (row: PipelineMatrixRow, envIndex: number) => {
             <th 
               v-for="env in environments" 
               :key="env"
-              class="px-3 py-2.5 font-bold bg-slate-100 border-r border-slate-200 text-center min-w-[210px]"
+              class="px-3 py-2.5 font-bold bg-slate-100 border-r border-slate-200 text-center min-w-[220px]"
             >
               <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-slate-200 shadow-2xs text-slate-800 font-mono font-bold text-xs uppercase">
                 <span class="w-2 h-2 rounded-full bg-blue-500"></span>
@@ -192,7 +213,7 @@ const getLagStatus = (row: PipelineMatrixRow, envIndex: number) => {
             <!-- Service Header Column -->
             <td 
               @contextmenu="emit('open-context-menu', $event, row, undefined, '')"
-              class="px-4 py-3 border-r border-slate-200 bg-white sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.02)] cursor-context-menu"
+              class="px-4 py-3 border-r border-slate-200 bg-white sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.02)] cursor-context-menu align-top"
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
@@ -255,7 +276,7 @@ const getLagStatus = (row: PipelineMatrixRow, envIndex: number) => {
             <!-- Repository Column -->
             <td 
               @contextmenu="emit('open-context-menu', $event, row, undefined, '')"
-              class="px-3 py-3 border-r border-slate-200 cursor-context-menu"
+              class="px-3 py-3 border-r border-slate-200 cursor-context-menu align-top"
             >
               <div v-if="row.repository" class="flex flex-col min-w-0">
                 <div class="flex items-center gap-1.5">
@@ -289,131 +310,227 @@ const getLagStatus = (row: PipelineMatrixRow, envIndex: number) => {
             <td 
               v-for="(env, envIdx) in environments" 
               :key="env"
-              @contextmenu="emit('open-context-menu', $event, row, row.environmentDeployments[env], env)"
-              class="px-3 py-2.5 border-r border-slate-200 select-none cursor-context-menu"
-              :class="row.environmentDeployments[env] ? 'hover:bg-blue-50/50' : 'bg-slate-50/40'"
+              @contextmenu="emit('open-context-menu', $event, row, getDeploymentsForEnv(row, env)[0] || null, env)"
+              class="px-3 py-2.5 border-r border-slate-200 select-none cursor-context-menu min-w-[220px] align-top"
+              :class="getDeploymentsForEnv(row, env).length ? 'hover:bg-blue-50/40 bg-white' : 'bg-slate-50/40'"
             >
-              <!-- If Environment Deployment Exists -->
-              <div v-if="row.environmentDeployments[env]" class="flex flex-col gap-1.5">
-                
-                <!-- Top Row: Status Badge & Build Number -->
-                <div class="flex items-center justify-between gap-1">
-                  <span 
-                    class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"
-                    :class="{
-                      'bg-emerald-100 text-emerald-800 border border-emerald-200': row.environmentDeployments[env].status === 'succeeded',
-                      'bg-rose-100 text-rose-800 border border-rose-200': row.environmentDeployments[env].status === 'failed',
-                      'bg-blue-100 text-blue-800 border border-blue-200 animate-pulse': row.environmentDeployments[env].status === 'inProgress',
-                      'bg-amber-100 text-amber-800 border border-amber-200': row.environmentDeployments[env].status === 'partiallySucceeded',
-                      'bg-slate-100 text-slate-600 border border-slate-200': !['succeeded', 'failed', 'inProgress', 'partiallySucceeded'].includes(row.environmentDeployments[env].status)
-                    }"
-                  >
-                    <span class="w-1.5 h-1.5 rounded-full" :class="{
-                      'bg-emerald-600': row.environmentDeployments[env].status === 'succeeded',
-                      'bg-rose-600': row.environmentDeployments[env].status === 'failed',
-                      'bg-blue-600': row.environmentDeployments[env].status === 'inProgress',
-                      'bg-amber-600': row.environmentDeployments[env].status === 'partiallySucceeded',
-                      'bg-slate-400': !['succeeded', 'failed', 'inProgress', 'partiallySucceeded'].includes(row.environmentDeployments[env].status)
-                    }"></span>
-                    {{ row.environmentDeployments[env].status }}
-                  </span>
+              <template v-for="depList in [getDeploymentsForEnv(row, env)]">
+                <!-- If Environment Deployment Exists -->
+                <div v-if="depList.length > 0 && depList[0]" class="flex flex-col gap-1.5">
+                  
+                  <!-- 1. Active / Current Deployment (N) -->
+                  <div class="flex flex-col gap-1">
+                    <!-- Top Row: Status Badge & Build Number -->
+                    <div class="flex items-center justify-between gap-1">
+                      <span 
+                        class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"
+                        :class="{
+                          'bg-emerald-100 text-emerald-800 border border-emerald-200': depList[0].status === 'succeeded',
+                          'bg-rose-100 text-rose-800 border border-rose-200': depList[0].status === 'failed',
+                          'bg-blue-100 text-blue-800 border border-blue-200 animate-pulse': depList[0].status === 'inProgress',
+                          'bg-amber-100 text-amber-800 border border-amber-200': depList[0].status === 'partiallySucceeded',
+                          'bg-slate-100 text-slate-600 border border-slate-200': !['succeeded', 'failed', 'inProgress', 'partiallySucceeded'].includes(depList[0].status)
+                        }"
+                      >
+                        <span class="w-1.5 h-1.5 rounded-full" :class="{
+                          'bg-emerald-600': depList[0].status === 'succeeded',
+                          'bg-rose-600': depList[0].status === 'failed',
+                          'bg-blue-600': depList[0].status === 'inProgress',
+                          'bg-amber-600': depList[0].status === 'partiallySucceeded',
+                          'bg-slate-400': !['succeeded', 'failed', 'inProgress', 'partiallySucceeded'].includes(depList[0].status)
+                        }"></span>
+                        {{ depList[0].status }}
+                      </span>
 
-                  <!-- Build Number Link -->
-                  <button 
-                    v-if="row.environmentDeployments[env].buildUrl"
-                    @click.stop="openUrlInNewTab(row.environmentDeployments[env].buildUrl!)"
-                    class="text-[11px] font-mono text-blue-600 hover:underline hover:text-blue-800 truncate"
-                    title="Open Run in Azure DevOps"
-                  >
-                    #{{ row.environmentDeployments[env].buildNumber }}
-                  </button>
+                      <!-- Build Number Link -->
+                      <button 
+                        v-if="depList[0].buildUrl"
+                        @click.stop="openUrlInNewTab(depList[0].buildUrl!)"
+                        class="text-[11px] font-mono text-blue-600 hover:underline hover:text-blue-800 truncate"
+                        :title="`Open Run #${depList[0].buildNumber} in Azure DevOps`"
+                      >
+                        #{{ depList[0].buildNumber }}
+                      </button>
+                    </div>
+
+                    <!-- Middle Row: Version / Operation / Branch -->
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <!-- Version / Tag if present -->
+                      <span 
+                        v-if="depList[0].version"
+                        class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-violet-50 text-violet-700 border border-violet-200 truncate"
+                        :title="`Version/Tag: ${depList[0].version}`"
+                      >
+                        v{{ depList[0].version }}
+                      </span>
+
+                      <!-- Operation badge if present (e.g. release) -->
+                      <span 
+                        v-if="depList[0].operation"
+                        class="px-1.5 py-0.5 rounded text-[9px] font-medium uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200"
+                      >
+                        {{ depList[0].operation }}
+                      </span>
+
+                      <!-- Branch -->
+                      <span 
+                        v-if="depList[0].branch"
+                        class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-100 hover:bg-slate-200/70 px-1.5 py-0.5 rounded border border-slate-200 max-w-[130px] truncate transition-colors cursor-default"
+                        :title="`Branch: ${depList[0].branch}`"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <line x1="6" y1="3" x2="6" y2="15"></line>
+                          <circle cx="18" cy="6" r="3"></circle>
+                          <circle cx="6" cy="18" r="3"></circle>
+                          <path d="M18 9a9 9 0 0 1-9 9"></path>
+                        </svg>
+                        <span class="truncate">{{ (depList[0].branch || '').replace('refs/heads/', '') }}</span>
+                      </span>
+
+                      <!-- Commit SHA Link -->
+                      <button 
+                        v-if="depList[0].commitSha"
+                        @click.stop="getCommitUrl(row, depList[0]) ? openUrlInNewTab(getCommitUrl(row, depList[0])!) : null"
+                        class="text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors"
+                        :class="getCommitUrl(row, depList[0]) ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:underline' : 'bg-slate-100 text-slate-600'"
+                        :title="`Commit: ${depList[0].commitSha}`"
+                      >
+                        {{ depList[0].commitSha?.substring(0, 7) }}
+                      </button>
+
+                      <!-- PR Badge if present -->
+                      <button 
+                        v-if="depList[0].prNumber"
+                        @click.stop="getPrUrl(row, depList[0]) ? openUrlInNewTab(getPrUrl(row, depList[0])!) : null"
+                        class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 hover:bg-violet-200 transition-colors"
+                        :title="`Pull Request #${depList[0].prNumber}`"
+                      >
+                        PR #{{ depList[0].prNumber }}
+                      </button>
+                    </div>
+
+                    <!-- Bottom Row: Time ago & Author Badge -->
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-100">
+                      <span :title="depList[0].deployedAt" class="text-[9px] shrink-0 font-mono">
+                        {{ formatTimeAgo(depList[0].deployedAt) }}
+                      </span>
+                      <PipelineAuthorBadge 
+                        :author="depList[0].author"
+                        :author-image-url="depList[0].authorImageUrl"
+                        :is-automated="depList[0].isAutomated"
+                        :trigger-reason="depList[0].triggerReason"
+                      />
+                    </div>
+
+                    <!-- Upstream Lag Indicator -->
+                    <div v-if="getLagStatus(row, envIdx)" class="pt-0.5 border-t border-slate-100 flex items-center justify-between text-[9px]">
+                      <span 
+                        class="inline-flex items-center gap-1 font-medium"
+                        :class="getLagStatus(row, envIdx)?.isSynced ? 'text-emerald-600' : 'text-amber-600 font-semibold'"
+                      >
+                        <span class="w-1.5 h-1.5 rounded-full" :class="getLagStatus(row, envIdx)?.isSynced ? 'bg-emerald-500' : 'bg-amber-500'"></span>
+                        {{ getLagStatus(row, envIdx)?.label }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- 2. Rollback Target (N-1) Card (when enabled) -->
+                  <template v-if="devopsStore.showRollbackTarget">
+                    <!-- Previous deployment found -->
+                    <div 
+                      v-if="depList.length > 1 && depList[1]"
+                      @contextmenu.stop="emit('open-context-menu', $event, row, depList[1], env)"
+                      class="mt-1 p-1.5 rounded-md bg-amber-50/70 border border-amber-200/80 shadow-2xs flex flex-col gap-1"
+                    >
+                      <!-- Top Row: Rollback Badge & Previous Build -->
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="inline-flex items-center gap-1 text-[9px] font-bold text-amber-800 uppercase tracking-wider">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                          </svg>
+                          Rollback (N-1)
+                        </span>
+
+                        <!-- Previous Build Number Link -->
+                        <button 
+                          v-if="depList[1].buildUrl"
+                          @click.stop="openUrlInNewTab(depList[1].buildUrl!)"
+                          class="text-[10px] font-mono text-blue-600 hover:underline hover:text-blue-800 truncate"
+                          :title="`Open Previous Run #${depList[1].buildNumber} in Azure DevOps`"
+                        >
+                          #{{ depList[1].buildNumber }}
+                        </button>
+                      </div>
+
+                      <!-- Middle: Version, Branch, Commit -->
+                      <div class="flex items-center gap-1 flex-wrap">
+                        <span 
+                          v-if="depList[1].version"
+                          class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-white text-amber-900 border border-amber-200"
+                          :title="`Previous Version/Tag: ${depList[1].version}`"
+                        >
+                          v{{ depList[1].version }}
+                        </span>
+
+                        <span 
+                          v-if="depList[1].branch"
+                          class="inline-flex items-center gap-0.5 text-[9px] font-medium text-slate-700 bg-white px-1 py-0.2 rounded border border-amber-200/60 max-w-[100px] truncate"
+                          :title="`Branch: ${depList[1].branch}`"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="18" cy="6" r="3"></circle>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <path d="M18 9a9 9 0 0 1-9 9"></path>
+                          </svg>
+                          <span class="truncate">{{ (depList[1].branch || '').replace('refs/heads/', '') }}</span>
+                        </span>
+
+                        <button 
+                          v-if="depList[1].commitSha"
+                          @click.stop="getCommitUrl(row, depList[1]) ? openUrlInNewTab(getCommitUrl(row, depList[1])!) : null"
+                          class="text-[9px] font-mono px-1 py-0.2 rounded bg-white text-indigo-700 hover:underline border border-amber-200/60"
+                          :title="`Previous Commit: ${depList[1].commitSha}`"
+                        >
+                          {{ depList[1].commitSha?.substring(0, 7) }}
+                        </button>
+
+                        <button 
+                          v-if="depList[1].prNumber"
+                          @click.stop="getPrUrl(row, depList[1]) ? openUrlInNewTab(getPrUrl(row, depList[1])!) : null"
+                          class="text-[9px] font-semibold px-1 py-0.2 rounded bg-white text-violet-800 hover:underline border border-amber-200/60"
+                          :title="`Previous PR #${depList[1].prNumber}`"
+                        >
+                          PR #{{ depList[1].prNumber }}
+                        </button>
+                      </div>
+
+                      <!-- Bottom: Time Ago & Author -->
+                      <div class="flex items-center justify-between text-[9px] text-slate-400 pt-0.5 border-t border-amber-100">
+                        <span :title="depList[1].deployedAt">{{ formatTimeAgo(depList[1].deployedAt) }}</span>
+                        <PipelineAuthorBadge 
+                          :author="depList[1].author"
+                          :author-image-url="depList[1].authorImageUrl"
+                          :is-automated="depList[1].isAutomated"
+                          :trigger-reason="depList[1].triggerReason"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- No previous deployment found in explored window -->
+                    <div 
+                      v-else
+                      class="mt-1 px-2 py-1 rounded bg-slate-50 border border-dashed border-slate-200 text-center text-[10px] text-slate-400 italic"
+                    >
+                      No prior version in last {{ devopsStore.scanDepth }} runs
+                    </div>
+                  </template>
                 </div>
 
-                <!-- Middle Row: Version / Operation / Branch -->
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <!-- Version / Tag if present -->
-                  <span 
-                    v-if="row.environmentDeployments[env].version"
-                    class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-violet-50 text-violet-700 border border-violet-200 truncate"
-                    :title="`Version/Tag: ${row.environmentDeployments[env].version}`"
-                  >
-                    v{{ row.environmentDeployments[env].version }}
-                  </span>
-
-                  <!-- Operation badge if present (e.g. release) -->
-                  <span 
-                    v-if="row.environmentDeployments[env].operation"
-                    class="px-1.5 py-0.5 rounded text-[9px] font-medium uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200"
-                  >
-                    {{ row.environmentDeployments[env].operation }}
-                  </span>
-
-                  <!-- Branch -->
-                  <span 
-                    v-if="row.environmentDeployments[env].branch"
-                    class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-100 hover:bg-slate-200/70 px-1.5 py-0.5 rounded border border-slate-200 max-w-[130px] truncate transition-colors cursor-default"
-                    :title="`Branch: ${row.environmentDeployments[env].branch}`"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="6" y1="3" x2="6" y2="15"></line>
-                      <circle cx="18" cy="6" r="3"></circle>
-                      <circle cx="6" cy="18" r="3"></circle>
-                      <path d="M18 9a9 9 0 0 1-9 9"></path>
-                    </svg>
-                    <span class="truncate">{{ row.environmentDeployments[env].branch }}</span>
-                  </span>
-
-                  <!-- Commit SHA Link -->
-                  <button 
-                    v-if="row.environmentDeployments[env].commitSha"
-                    @click.stop="getCommitUrl(row, row.environmentDeployments[env]) ? openUrlInNewTab(getCommitUrl(row, row.environmentDeployments[env])!) : null"
-                    class="text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors"
-                    :class="getCommitUrl(row, row.environmentDeployments[env]) ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:underline' : 'bg-slate-100 text-slate-600'"
-                    :title="`Commit: ${row.environmentDeployments[env].commitSha}`"
-                  >
-                    {{ row.environmentDeployments[env].commitSha?.substring(0, 7) }}
-                  </button>
-
-                  <!-- PR Badge if present -->
-                  <button 
-                    v-if="row.environmentDeployments[env].prNumber"
-                    @click.stop="getPrUrl(row, row.environmentDeployments[env]) ? openUrlInNewTab(getPrUrl(row, row.environmentDeployments[env])!) : null"
-                    class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 hover:bg-violet-200 transition-colors"
-                    :title="`Pull Request #${row.environmentDeployments[env].prNumber}`"
-                  >
-                    PR #{{ row.environmentDeployments[env].prNumber }}
-                  </button>
+                <!-- Not Deployed in this environment -->
+                <div v-else class="h-full flex items-center justify-center py-4 text-slate-300">
+                  <span class="text-xs">&mdash;</span>
                 </div>
-
-                <!-- Bottom Row: Time ago & Author Badge -->
-                <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-100">
-                  <span :title="row.environmentDeployments[env].deployedAt" class="text-[9px] shrink-0 font-mono">
-                    {{ formatTimeAgo(row.environmentDeployments[env].deployedAt) }}
-                  </span>
-                  <PipelineAuthorBadge 
-                    :author="row.environmentDeployments[env].author"
-                    :author-image-url="row.environmentDeployments[env].authorImageUrl"
-                    :is-automated="row.environmentDeployments[env].isAutomated"
-                    :trigger-reason="row.environmentDeployments[env].triggerReason"
-                  />
-                </div>
-
-                <!-- Upstream Lag Indicator -->
-                <div v-if="getLagStatus(row, envIdx)" class="pt-0.5 border-t border-slate-100 flex items-center justify-between text-[9px]">
-                  <span 
-                    class="inline-flex items-center gap-1 font-medium"
-                    :class="getLagStatus(row, envIdx)?.isSynced ? 'text-emerald-600' : 'text-amber-600 font-semibold'"
-                  >
-                    <span class="w-1.5 h-1.5 rounded-full" :class="getLagStatus(row, envIdx)?.isSynced ? 'bg-emerald-500' : 'bg-amber-500'"></span>
-                    {{ getLagStatus(row, envIdx)?.label }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Not Deployed in this environment -->
-              <div v-else class="h-full flex items-center justify-center py-4 text-slate-300">
-                <span class="text-xs">&mdash;</span>
-              </div>
+              </template>
             </td>
           </tr>
         </tbody>

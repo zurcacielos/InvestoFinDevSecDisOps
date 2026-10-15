@@ -104,7 +104,20 @@ The application provides continuous delivery and deployment visibility across Az
 - **Target Environments View**: Matrix mapping pipelines to target deployment environments (`dev`, `uat`, `stg`, `prd`, etc.).
 - **Expanded Stages (Hierarchical Run DAG) View**: Unfolds all executed stages in topological order (prerequisites to dependents) according to Azure DevOps YAML stage dependencies and timeline sequences.
 
-### 3.2 Expanded Stages (Hierarchical Run DAG) Architecture
+### 3.2 Target Environments Matrix & Rollback (N-1) Architecture
+- **In-Cell Stacked Deployment Cards**:
+  - **Active Deployment (N)**: Displays the latest deployed build, tag/version, operation, branch pill, commit SHA, PR badge, upstream promotion lag status, author avatar badge, and time ago.
+  - **Rollback Candidate (N-1)**: Secondary amber card displaying the immediate prior deployment for that environment, providing instant visibility into what version to roll back to.
+  - If no previous deployment exists within the scanned window, displays a subtle notice (`No prior version in scan range`).
+- **Scan Depth & Quality Filters**:
+  - Configurable scan depth selector in the toolbar (`15`, `25`, `50`, `100` recent runs per pipeline).
+  - `Only Succeeded (✓)` toggle to restrict deployment detection to successful pipeline runs.
+  - Dynamic `Apply Filters` button that highlights with pending indicator when filters are modified.
+- **Pipeline Selection Decoupling**:
+  - Selected pipeline chips are rendered in the ribbon even prior to fetching the full catalog of pipelines.
+  - Catalog retrieval (`Fetch Pipelines`) is decoupled from matrix querying, allowing the user to select rows without triggering automatic refresh.
+
+### 3.3 Expanded Stages (Hierarchical Run DAG) Architecture
 - **Hierarchical Layout (Option A)**:
   - **Main Pipeline Row**: Displays pipeline name, ID, repository information, action shortcuts (View YAML, Copy Full YAML, Open GitHub/ADO YAMLs), a run count badge, and a summary status across stages.
   - **Run Sub-Rows (1 row per build run)**: Expanding a pipeline unfolds its recent historical runs cleanly without inter-run stage collision.
