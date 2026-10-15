@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
 using KeyVaultComparer.Api.Models;
+using KeyVaultComparer.Api.Services.Cache;
 
 namespace KeyVaultComparer.Api.Services
 {
@@ -13,10 +14,12 @@ namespace KeyVaultComparer.Api.Services
     {
         private readonly Azure.Core.TokenCredential _credential;
         private readonly SecretClientOptions _options;
+        private readonly EncryptedCacheService _cacheService;
 
-        public KeyVaultService(Azure.Core.TokenCredential credential)
+        public KeyVaultService(Azure.Core.TokenCredential credential, EncryptedCacheService cacheService)
         {
             _credential = credential;
+            _cacheService = cacheService;
             _options = new SecretClientOptions();
             _options.Diagnostics.ApplicationId = "KeyVaultComparerApp";
         }
@@ -32,6 +35,14 @@ namespace KeyVaultComparer.Api.Services
 
             var propTasks = vaultUris.Select(async uri =>
             {
+                string cacheKey = $"vault_keys:{uri.ToLower()}";
+                var cached = await _cacheService.GetAsync<List<SecretMetadata>>(cacheKey, "VaultKeys");
+                if (cached != null && cached.Count > 0)
+                {
+                    results[uri] = new VaultSyncResult { Secrets = cached };
+                    return;
+                }
+
                 var vaultNames = new List<SecretMetadata>();
                 try
                 {
@@ -50,6 +61,10 @@ namespace KeyVaultComparer.Api.Services
                         }
                     }
                     results[uri] = new VaultSyncResult { Secrets = vaultNames };
+                    if (vaultNames.Count > 0)
+                    {
+                        await _cacheService.SetAsync(cacheKey, vaultNames, "VaultKeys");
+                    }
                 }
                 catch (Azure.RequestFailedException ex) when (ex.Status == 403)
                 {
@@ -164,6 +179,10 @@ namespace KeyVaultComparer.Api.Services
                 }
             });
             await Task.WhenAll(tasks);
+            if (!errors.Any())
+            {
+                await _cacheService.ClearCategoryAsync("VaultKeys");
+            }
             return errors.ToList();
         }
     }

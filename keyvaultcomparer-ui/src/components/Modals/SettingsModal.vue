@@ -5,7 +5,7 @@ import { useDevopsDataStore } from '../../stores/devopsDataStore';
 import { useAuthStore } from '../../stores/authStore';
 import CurrentUserAvatar from '../Layout/CurrentUserAvatar.vue';
 
-type SectionTab = 'azure-cloud' | 'azure-devops' | 'github' | 'security-storage' | 'ui-appearance';
+type SectionTab = 'azure-cloud' | 'azure-devops' | 'github' | 'security-storage' | 'cache' | 'ui-appearance';
 
 const props = withDefaults(defineProps<{
   show: boolean;
@@ -63,6 +63,84 @@ const activeStorageProvider = ref('WindowsCredentialManager');
 const storageProviders = ref<StorageProviderInfo[]>([]);
 const isWindows = ref(true);
 
+// Encrypted Cache State (Option 1)
+interface CacheCategoryStat {
+  category: string;
+  itemCount: number;
+}
+interface CacheStats {
+  isEnabled: boolean;
+  isUnlocked: boolean;
+  totalItems: number;
+  fileSizeBytes: number;
+  filePath: string;
+  categories: CacheCategoryStat[];
+}
+
+const cacheEnabled = ref(true);
+const cachePipelinesTtlMinutes = ref(60);
+const cachePipelineRunsTtlMinutes = ref(30);
+const cacheVaultKeysTtlMinutes = ref(120);
+const cacheVariableGroupsTtlMinutes = ref(60);
+
+const cacheStats = ref<CacheStats | null>(null);
+const isLoadingCacheStats = ref(false);
+const isClearingCache = ref(false);
+const clearingCategory = ref<string | null>(null);
+const cacheActionMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null);
+
+const formatBytes = (bytes: number): string => {
+  if (!bytes || bytes <= 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+const fetchCacheStats = async () => {
+  isLoadingCacheStats.value = true;
+  try {
+    const res = await fetch('/api/cache/stats');
+    if (res.ok) {
+      cacheStats.value = await res.json();
+    }
+  } catch (err: any) {
+    console.warn('Could not load cache stats:', err);
+  } finally {
+    isLoadingCacheStats.value = false;
+  }
+};
+
+const handleClearCache = async (category?: string) => {
+  isClearingCache.value = true;
+  clearingCategory.value = category || 'all';
+  cacheActionMessage.value = null;
+  try {
+    const url = category ? `/api/cache/clear?category=${encodeURIComponent(category)}` : '/api/cache/clear';
+    const res = await fetch(url, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to clear cache');
+    const data = await res.json();
+    cacheActionMessage.value = {
+      type: 'success',
+      text: data.message || (category ? `Cache category "${category}" cleared.` : 'All cached data cleared.')
+    };
+    await fetchCacheStats();
+    setTimeout(() => {
+      if (cacheActionMessage.value?.type === 'success') {
+        cacheActionMessage.value = null;
+      }
+    }, 4000);
+  } catch (err: any) {
+    cacheActionMessage.value = {
+      type: 'error',
+      text: err.message || 'Error clearing cache'
+    };
+  } finally {
+    isClearingCache.value = false;
+    clearingCategory.value = null;
+  }
+};
+
 // Action States
 const isSaving = ref(false);
 const saveSuccess = ref(false);
@@ -109,6 +187,13 @@ const loadSettingsFromBackend = async () => {
     activeStorageProvider.value = data.activeStorageProvider || 'WindowsCredentialManager';
     storageProviders.value = data.storageProviders || [];
     isWindows.value = data.isWindows ?? true;
+
+    cacheEnabled.value = data.cacheEnabled ?? true;
+    cachePipelinesTtlMinutes.value = data.cachePipelinesTtlMinutes ?? 60;
+    cachePipelineRunsTtlMinutes.value = data.cachePipelineRunsTtlMinutes ?? 30;
+    cacheVaultKeysTtlMinutes.value = data.cacheVaultKeysTtlMinutes ?? 120;
+    cacheVariableGroupsTtlMinutes.value = data.cacheVariableGroupsTtlMinutes ?? 60;
+    fetchCacheStats();
   } catch (err: any) {
     console.warn('Could not load backend settings:', err);
   }
@@ -120,6 +205,7 @@ watch(() => props.show, (newVal) => {
       activeTab.value = props.initialTab;
     }
     loadSettingsFromBackend();
+    fetchCacheStats();
     saveSuccess.value = false;
     saveError.value = '';
     azureTestResult.value = null;
@@ -131,12 +217,16 @@ watch(() => props.show, (newVal) => {
 watch(() => props.initialTab, (newTab) => {
   if (newTab) {
     activeTab.value = newTab;
+    if (newTab === 'cache') {
+      fetchCacheStats();
+    }
   }
 });
 
 onMounted(() => {
   if (props.show) {
     loadSettingsFromBackend();
+    fetchCacheStats();
   }
 });
 
@@ -177,7 +267,12 @@ const handleSave = async () => {
       githubOrganization: githubOrganization.value.trim(),
       githubToken: githubToken.value.trim() ? githubToken.value.trim() : null,
       clearGithubToken: clearGithubToken.value,
-      storageProvider: activeStorageProvider.value
+      storageProvider: activeStorageProvider.value,
+      cacheEnabled: cacheEnabled.value,
+      cachePipelinesTtlMinutes: Number(cachePipelinesTtlMinutes.value) || 60,
+      cachePipelineRunsTtlMinutes: Number(cachePipelineRunsTtlMinutes.value) || 30,
+      cacheVaultKeysTtlMinutes: Number(cacheVaultKeysTtlMinutes.value) || 120,
+      cacheVariableGroupsTtlMinutes: Number(cacheVariableGroupsTtlMinutes.value) || 60
     };
 
     const res = await fetch('/api/settings', {
@@ -348,6 +443,11 @@ const showStorageSection = computed(() => {
   return matchesSearch('security storage windows credential manager dpapi aes-256-gcm docker linux encrypt plaintext secret');
 });
 
+const showCacheSection = computed(() => {
+  if (!searchQuery.value.trim()) return activeTab.value === 'cache';
+  return matchesSearch('cache ttl encrypted memory disk expires pipelines runs key vault secrets variable groups purge wipe');
+});
+
 const showUiSection = computed(() => {
   if (!searchQuery.value.trim()) return activeTab.value === 'ui-appearance';
   return matchesSearch('ui appearance demo mode blur limit layout grouping font');
@@ -494,6 +594,30 @@ const showUiSection = computed(() => {
                 </svg>
                 <span>Security &amp; Storage</span>
               </div>
+            </button>
+
+            <!-- Encrypted Cache -->
+            <button 
+              @click="activeTab = 'cache'; searchQuery = ''; fetchCacheStats()"
+              class="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-lg transition-all"
+              :class="activeTab === 'cache' && !searchQuery ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'"
+            >
+              <div class="flex items-center gap-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+                <span>Encrypted Cache</span>
+              </div>
+              <span 
+                v-if="cacheStats?.isUnlocked" 
+                class="w-2 h-2 rounded-full bg-emerald-400" 
+                title="Session Unlocked & Active"
+              ></span>
+              <span 
+                v-else-if="cacheStats?.isEnabled" 
+                class="w-2 h-2 rounded-full bg-slate-300" 
+                title="Encrypted & Sealed (Login Required)"
+              ></span>
             </button>
 
             <!-- UI & Behavior -->
@@ -1113,6 +1237,362 @@ const showUiSection = computed(() => {
               <p class="text-[11px] text-slate-500">
                 When running KeyVaultComparer in a Linux container, set <code class="font-mono bg-slate-200 px-1 py-0.5 rounded text-slate-800">KEYVAULTCOMPARER_MASTER_KEY</code> (or mount a Docker secret) to supply the master key, and mount a volume at <code class="font-mono bg-slate-200 px-1 py-0.5 rounded text-slate-800">/root/.keyvaultcomparer</code>. The store uses AES-256-GCM authenticated encryption.
               </p>
+            </div>
+          </section>
+
+          <!-- ENCRYPTED CACHE SECTION (OPTION 1) -->
+          <section v-if="showCacheSection" class="space-y-6 animate-fade-in">
+            <div class="border-b border-slate-200 pb-2">
+              <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                Encrypted Cache &amp; Cold-Start Acceleration
+              </h4>
+              <p class="text-xs text-slate-500 mt-0.5">
+                AES-256-GCM local cache keyed to your Azure Entra identity. Instantly loads previous state across all tabs upon sign-in with zero redundant Azure API calls.
+              </p>
+            </div>
+
+            <!-- Session Security Status Banner -->
+            <div 
+              class="p-4 rounded-xl border transition-all"
+              :class="cacheStats?.isUnlocked ? 'bg-emerald-50/70 border-emerald-200' : 'bg-amber-50/70 border-amber-200'"
+            >
+              <div class="flex items-start justify-between gap-4 flex-wrap">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span 
+                      class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                      :class="cacheStats?.isUnlocked ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
+                    >
+                      <span class="w-2 h-2 rounded-full" :class="cacheStats?.isUnlocked ? 'bg-emerald-500' : 'bg-amber-500'"></span>
+                      {{ cacheStats?.isUnlocked ? 'Cache Unlocked (Active Azure Session)' : 'Cache Sealed (Login Required)' }}
+                    </span>
+                    <span class="text-xs font-medium text-slate-500">
+                      Storage: <strong class="text-slate-800 font-semibold font-mono">cache.enc</strong>
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-600 max-w-2xl">
+                    <template v-if="cacheStats?.isUnlocked">
+                      Decryption key is resident only in volatile RAM, derived via HKDF(SHA256) from your Azure Entra token + DPAPI machine entropy. Safe from offline extraction; completely cleared on logout or app shutdown.
+                    </template>
+                    <template v-else>
+                      The cache file on disk is sealed with AES-256-GCM authenticated ciphertext. Keys are generated strictly in memory upon completing Microsoft SSO sign-in.
+                    </template>
+                  </p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <button 
+                    type="button" 
+                    @click="fetchCacheStats" 
+                    :disabled="isLoadingCacheStats"
+                    class="px-3 py-1.5 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                    title="Refresh cache metrics"
+                  >
+                    <svg class="h-3.5 w-3.5 text-slate-500" :class="{ 'animate-spin': isLoadingCacheStats }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Metrics Overview Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <!-- Total Items -->
+              <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Cached Entries</div>
+                <div class="mt-1 text-xl font-bold text-slate-900 flex items-baseline gap-1.5">
+                  <span>{{ cacheStats?.totalItems ?? 0 }}</span>
+                  <span class="text-xs font-normal text-slate-500">items</span>
+                </div>
+              </div>
+
+              <!-- Disk Usage -->
+              <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Encrypted Size</div>
+                <div class="mt-1 text-xl font-bold text-slate-900 flex items-baseline gap-1.5">
+                  <span>{{ formatBytes(cacheStats?.fileSizeBytes ?? 0) }}</span>
+                </div>
+              </div>
+
+              <!-- Cache Switch Status -->
+              <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Cache Mode</div>
+                <div class="mt-1 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full" :class="cacheEnabled ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                  <span class="text-sm font-bold" :class="cacheEnabled ? 'text-emerald-700' : 'text-slate-500'">
+                    {{ cacheEnabled ? 'Enabled' : 'Bypassed' }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Cryptographic Standard -->
+              <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Protection</div>
+                <div class="mt-1 text-xs font-bold text-slate-800">AES-256-GCM</div>
+                <div class="text-[10px] text-slate-500 font-mono">HKDF + DPAPI</div>
+              </div>
+            </div>
+
+            <!-- Master Toggle -->
+            <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <div class="space-y-0.5">
+                <div class="text-xs font-bold text-slate-800">Enable Local Encrypted Cache</div>
+                <div class="text-[11px] text-slate-500">
+                  When enabled, Key Vault names, subscriptions, ADO pipelines, matrix rows, and variable groups are served from disk immediately upon startup.
+                </div>
+              </div>
+              <button 
+                type="button"
+                @click="cacheEnabled = !cacheEnabled"
+                class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                :class="cacheEnabled ? 'bg-blue-600' : 'bg-slate-300'"
+              >
+                <span 
+                  class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                  :class="cacheEnabled ? 'translate-x-6' : 'translate-x-1'"
+                />
+              </button>
+            </div>
+
+            <!-- Time-To-Live (TTL) Settings -->
+            <div class="space-y-3">
+              <div class="border-b border-slate-200 pb-1">
+                <h5 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Expiration &amp; Refresh Durations (TTL)</h5>
+                <p class="text-[11px] text-slate-500 mt-0.5">
+                  Set how many minutes cached items remain valid before being quietly re-fetched in the background.
+                </p>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <!-- Pipelines Catalog TTL -->
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-4">
+                  <div>
+                    <label class="text-xs font-bold text-slate-800 block">Pipelines Catalog</label>
+                    <span class="text-[11px] text-slate-500 block mt-0.5">ADO pipeline definitions &amp; IDs</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <input 
+                      v-model.number="cachePipelinesTtlMinutes" 
+                      type="number" 
+                      min="1" 
+                      max="10080" 
+                      class="w-20 text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right font-semibold"
+                    />
+                    <span class="text-xs text-slate-500 font-medium">min</span>
+                  </div>
+                </div>
+
+                <!-- Pipeline Runs & Matrix TTL -->
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-4">
+                  <div>
+                    <label class="text-xs font-bold text-slate-800 block">Matrix Runs &amp; Rollback History</label>
+                    <span class="text-[11px] text-slate-500 block mt-0.5">Cross-env deployment rows &amp; N-1 builds</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <input 
+                      v-model.number="cachePipelineRunsTtlMinutes" 
+                      type="number" 
+                      min="1" 
+                      max="10080" 
+                      class="w-20 text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right font-semibold"
+                    />
+                    <span class="text-xs text-slate-500 font-medium">min</span>
+                  </div>
+                </div>
+
+                <!-- Vault Keys TTL -->
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-4">
+                  <div>
+                    <label class="text-xs font-bold text-slate-800 block">Vault Secret Names &amp; Keys</label>
+                    <span class="text-[11px] text-slate-500 block mt-0.5">Discovered secret names per vault URI</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <input 
+                      v-model.number="cacheVaultKeysTtlMinutes" 
+                      type="number" 
+                      min="1" 
+                      max="10080" 
+                      class="w-20 text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right font-semibold"
+                    />
+                    <span class="text-xs text-slate-500 font-medium">min</span>
+                  </div>
+                </div>
+
+                <!-- Variable Groups TTL -->
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-4">
+                  <div>
+                    <label class="text-xs font-bold text-slate-800 block">ADO Variable Groups</label>
+                    <span class="text-[11px] text-slate-500 block mt-0.5">Library variable inventories &amp; key maps</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <input 
+                      v-model.number="cacheVariableGroupsTtlMinutes" 
+                      type="number" 
+                      min="1" 
+                      max="10080" 
+                      class="w-20 text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right font-semibold"
+                    />
+                    <span class="text-xs text-slate-500 font-medium">min</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Categories Breakdown & Purge Controls -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between border-b border-slate-200 pb-1">
+                <div>
+                  <h5 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Cached Categories &amp; Granular Purging</h5>
+                  <p class="text-[11px] text-slate-500 mt-0.5">
+                    Clear specific cached categories or wipe the entire encrypted storage file.
+                  </p>
+                </div>
+                <button 
+                  type="button" 
+                  @click="handleClearCache()" 
+                  :disabled="isClearingCache || (cacheStats?.totalItems ?? 0) === 0"
+                  class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-40"
+                  title="Purge all items from local encrypted cache"
+                >
+                  <svg v-if="isClearingCache && clearingCategory === 'all'" class="animate-spin h-3.5 w-3.5 text-rose-600" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <svg v-else class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span>Clear Entire Cache</span>
+                </button>
+              </div>
+
+              <!-- Action notification message -->
+              <div 
+                v-if="cacheActionMessage" 
+                class="p-2.5 rounded-lg text-xs font-semibold flex items-center gap-2 animate-fade-in"
+                :class="cacheActionMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'"
+              >
+                <svg v-if="cacheActionMessage.type === 'success'" class="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <svg v-else class="w-4 h-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span>{{ cacheActionMessage.text }}</span>
+              </div>
+
+              <!-- Categories List Grid -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                <!-- Pipelines -->
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+                  <div class="min-w-0 pr-2">
+                    <div class="text-xs font-bold text-slate-800 truncate">Pipelines</div>
+                    <div class="text-[10px] text-slate-500">
+                      {{ cacheStats?.categories?.find(c => c.category === 'Pipelines')?.itemCount ?? 0 }} items cached
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    @click="handleClearCache('Pipelines')"
+                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'Pipelines')?.itemCount)"
+                    class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    Purge
+                  </button>
+                </div>
+
+                <!-- PipelineRuns -->
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+                  <div class="min-w-0 pr-2">
+                    <div class="text-xs font-bold text-slate-800 truncate">Pipeline Runs &amp; Matrix</div>
+                    <div class="text-[10px] text-slate-500">
+                      {{ cacheStats?.categories?.find(c => c.category === 'PipelineRuns')?.itemCount ?? 0 }} items cached
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    @click="handleClearCache('PipelineRuns')"
+                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'PipelineRuns')?.itemCount)"
+                    class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    Purge
+                  </button>
+                </div>
+
+                <!-- VaultKeys -->
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+                  <div class="min-w-0 pr-2">
+                    <div class="text-xs font-bold text-slate-800 truncate">Vault Keys &amp; Names</div>
+                    <div class="text-[10px] text-slate-500">
+                      {{ cacheStats?.categories?.find(c => c.category === 'VaultKeys')?.itemCount ?? 0 }} items cached
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    @click="handleClearCache('VaultKeys')"
+                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'VaultKeys')?.itemCount)"
+                    class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    Purge
+                  </button>
+                </div>
+
+                <!-- VaultDiscovery -->
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+                  <div class="min-w-0 pr-2">
+                    <div class="text-xs font-bold text-slate-800 truncate">Vault Discovery</div>
+                    <div class="text-[10px] text-slate-500">
+                      {{ cacheStats?.categories?.find(c => c.category === 'VaultDiscovery')?.itemCount ?? 0 }} items cached
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    @click="handleClearCache('VaultDiscovery')"
+                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'VaultDiscovery')?.itemCount)"
+                    class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    Purge
+                  </button>
+                </div>
+
+                <!-- Subscriptions -->
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+                  <div class="min-w-0 pr-2">
+                    <div class="text-xs font-bold text-slate-800 truncate">Subscriptions</div>
+                    <div class="text-[10px] text-slate-500">
+                      {{ cacheStats?.categories?.find(c => c.category === 'Subscriptions')?.itemCount ?? 0 }} items cached
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    @click="handleClearCache('Subscriptions')"
+                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'Subscriptions')?.itemCount)"
+                    class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    Purge
+                  </button>
+                </div>
+
+                <!-- VariableGroups -->
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+                  <div class="min-w-0 pr-2">
+                    <div class="text-xs font-bold text-slate-800 truncate">Variable Groups</div>
+                    <div class="text-[10px] text-slate-500">
+                      {{ cacheStats?.categories?.find(c => c.category === 'VariableGroups')?.itemCount ?? 0 }} items cached
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    @click="handleClearCache('VariableGroups')"
+                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'VariableGroups')?.itemCount)"
+                    class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    Purge
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
 

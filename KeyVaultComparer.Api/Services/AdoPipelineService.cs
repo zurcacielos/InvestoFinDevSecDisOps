@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Core;
 using KeyVaultComparer.Api.Models;
+using KeyVaultComparer.Api.Services.Cache;
 
 namespace KeyVaultComparer.Api.Services
 {
@@ -17,11 +18,13 @@ namespace KeyVaultComparer.Api.Services
     {
         private readonly AdoAuthService _adoAuthService;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly EncryptedCacheService _cacheService;
 
-        public AdoPipelineService(AdoAuthService adoAuthService, IHttpClientFactory httpClientFactory)
+        public AdoPipelineService(AdoAuthService adoAuthService, IHttpClientFactory httpClientFactory, EncryptedCacheService cacheService)
         {
             _adoAuthService = adoAuthService;
             _httpClientFactory = httpClientFactory;
+            _cacheService = cacheService;
         }
 
         private async Task<AuthenticationHeaderValue> GetAdoAuthHeaderAsync(CancellationToken cancellationToken = default)
@@ -31,6 +34,13 @@ namespace KeyVaultComparer.Api.Services
 
         public async Task<List<PipelineSummary>> GetPipelinesAsync(string organization, string project, CancellationToken cancellationToken = default)
         {
+            string cacheKey = $"pipelines:{organization.ToLower()}:{project.ToLower()}";
+            var cached = await _cacheService.GetAsync<List<PipelineSummary>>(cacheKey, "Pipelines", cancellationToken);
+            if (cached != null && cached.Count > 0)
+            {
+                return cached;
+            }
+
             var authHeader = await GetAdoAuthHeaderAsync(cancellationToken);
             using var client = _httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Authorization = authHeader;
@@ -79,7 +89,9 @@ namespace KeyVaultComparer.Api.Services
                 }
             }
 
-            return pipelines.OrderBy(p => p.Name).ToList();
+            var result = pipelines.OrderBy(p => p.Name).ToList();
+            await _cacheService.SetAsync(cacheKey, result, "Pipelines", cancellationToken: cancellationToken);
+            return result;
         }
 
         public async Task<PipelinePreviewResponse> GetPipelinePreviewYamlAsync(string organization, string project, int pipelineId, CancellationToken cancellationToken = default)
@@ -448,6 +460,13 @@ namespace KeyVaultComparer.Api.Services
             bool onlySucceeded,
             CancellationToken cancellationToken)
         {
+            string rowCacheKey = $"pipeline_row:{organization.ToLower()}:{project.ToLower()}:{pipelineId}:{scanDepth}:{onlySucceeded}";
+            var cachedRow = await _cacheService.GetAsync<PipelineMatrixRow>(rowCacheKey, "PipelineRuns", cancellationToken);
+            if (cachedRow != null)
+            {
+                return cachedRow;
+            }
+
             using var client = _httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Authorization = authHeader;
 
@@ -889,6 +908,7 @@ namespace KeyVaultComparer.Api.Services
             }
             catch { }
 
+            await _cacheService.SetAsync(rowCacheKey, row, "PipelineRuns", cancellationToken: cancellationToken);
             return row;
         }
 

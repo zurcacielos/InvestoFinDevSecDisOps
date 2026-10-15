@@ -162,5 +162,41 @@ The application provides continuous delivery and deployment visibility across Az
 - **State Management (`devopsDataStore.ts`)**:
   - Centralizes `matrixLayoutMode` (`'cards' | 'rows' | 'columns'`), `viewMode` (`'environments' | 'stages'`), `scanDepth`, `onlySucceeded`, and `showRollbackTarget`, persisted in `localStorage`.
 
+## 4. Local Session-Bound Encrypted Cache (Option 1) & Cold-Start Acceleration
+
+### 4.1 Cryptographic & Memory Architecture
+- **Encryption Algorithm**: AES-256-GCM authenticated encryption (`1 byte version [1] + 12-byte random nonce + 16-byte authentication tag + ciphertext`).
+- **Session-Bound Key Derivation (RAM Only)**:
+  - Ephemeral master key is derived via `HKDF(SHA256)` using the active Azure Entra ID bearer token + machine-specific entropy (`ProtectedData.Protect` DPAPI on Windows).
+  - The derived key resides exclusively in volatile memory (`byte[]` zeroized via `Array.Clear` on user logout or process termination).
+  - Zero plain text on disk: `cache.enc` is stored in `%AppData%/KeyVaultComparer/cache.enc`. Without an active, authenticated Azure SSO session, disk contents cannot be decrypted.
+  - Zero Cloud Costs: 100% local cryptographic operations; no Key Vault HSM, Azure Managed Keys, or external cloud resources are created or billed.
+
+### 4.2 Cached Domains & Intelligent Invalidation
+- **Pipelines Catalog (`Pipelines`)**: Pipeline definitions and IDs across the organization/project.
+- **Pipeline Deployment Matrix (`PipelineRuns`)**: Historical runs, active and prior deployment metadata, and environment matrices.
+- **Vault Secret Inventory (`VaultKeys`)**: Secret names and discovery metadata per Key Vault URI. Automatically invalidated when staged changes are committed via `ApplyChangesAsync`.
+- **Vault Discovery (`VaultDiscovery`)**: Discovered Key Vault resources per Azure subscription.
+- **Subscriptions (`Subscriptions`)**: Azure subscription directory listings.
+- **Variable Groups (`VariableGroups`)**: Azure DevOps variable group definitions and variables. Automatically invalidated when variables are modified.
+
+### 4.3 Settings Modal Integration (`SettingsModal.vue`)
+- **Navigation**: Dedicated "Encrypted Cache" tab accessible from the global settings modal (`Ctrl+,`).
+- **Live Security Badge**: Real-time indicator displaying whether the cache is "Unlocked (Active Azure Session)" or "Sealed (Login Required)".
+- **Metrics Dashboard**: Displays live counts of cached entries, encrypted file size in bytes/KB, cache mode (Enabled/Bypassed), and protection level.
+- **Configurable Time-To-Live (TTL)**:
+  - Pipelines Catalog TTL (minutes, default: 60)
+  - Matrix Runs & Rollback History TTL (minutes, default: 30)
+  - Vault Secret Names & Keys TTL (minutes, default: 120)
+  - ADO Variable Groups TTL (minutes, default: 60)
+- **Granular & Global Purge Controls**:
+  - Per-category "Purge" buttons to wipe specific domains without losing others.
+  - "Clear Entire Cache" button to instantly purge all stored records and wipe `cache.enc`.
+  - In-DOM feedback notifications without native browser dialogs.
+
+### 4.4 Acceptance Criteria
+- **Given** an authenticated user who previously fetched pipelines or vault keys, **When** restarting or refreshing the application, **Then** all previous data renders immediately upon sign-in from `cache.enc` without redundant Azure/ADO API latency.
+- **Given** an unauthenticated state (logged out), **When** reading `cache.enc`, **Then** the file is inaccessible and cannot be decrypted without completing Azure SSO.
+- **Given** a user changes TTL values or clicks "Purge", **Then** the cache updates dynamically without requiring an application restart.
 
 

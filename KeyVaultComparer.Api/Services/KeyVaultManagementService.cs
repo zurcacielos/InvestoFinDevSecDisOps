@@ -10,17 +10,21 @@ using Azure.Monitor.Query;
 using Azure.Monitor.Query.Models;
 using Azure.Core;
 using KeyVaultComparer.Api.Models;
+using KeyVaultComparer.Api.Services.Cache;
 
 namespace KeyVaultComparer.Api.Services
 {
     public class KeyVaultManagementService
     {
         private readonly Azure.Core.TokenCredential _credential;
+        private readonly EncryptedCacheService _cacheService;
 
-        public KeyVaultManagementService(Azure.Core.TokenCredential credential)
+        public KeyVaultManagementService(Azure.Core.TokenCredential credential, EncryptedCacheService cacheService)
         {
             _credential = credential;
+            _cacheService = cacheService;
         }
+
         public async Task<List<DiscoveredVault>> GetAvailableVaultsAsync(string? query, string? subscriptionId = null)
         {
             var vaults = new List<DiscoveredVault>();
@@ -29,6 +33,13 @@ namespace KeyVaultComparer.Api.Services
             {
                 // Safety guard: Never query Azure if the search string is too short or empty
                 return vaults;
+            }
+
+            string cacheKey = $"discovered_vaults:{query.Trim().ToLower()}:{subscriptionId?.Trim().ToLower()}";
+            var cached = await _cacheService.GetAsync<List<DiscoveredVault>>(cacheKey, "VaultDiscovery");
+            if (cached != null && cached.Count > 0)
+            {
+                return cached;
             }
 
             var client = new ArmClient(_credential);
@@ -100,11 +111,23 @@ namespace KeyVaultComparer.Api.Services
                 }
             }
 
+            if (vaults.Count > 0)
+            {
+                await _cacheService.SetAsync(cacheKey, vaults, "VaultDiscovery");
+            }
+
             return vaults;
         }
 
         public async Task<List<AzureSubscription>> GetSubscriptionsAsync(CancellationToken ct = default)
         {
+            string subCacheKey = "azure_subscriptions";
+            var cachedSubs = await _cacheService.GetAsync<List<AzureSubscription>>(subCacheKey, "Subscriptions", ct);
+            if (cachedSubs != null && cachedSubs.Count > 0)
+            {
+                return cachedSubs;
+            }
+
             var subs = new List<AzureSubscription>();
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(TimeSpan.FromSeconds(20));
@@ -119,6 +142,11 @@ namespace KeyVaultComparer.Api.Services
                         Id = sub.Data.SubscriptionId,
                         Name = sub.Data.DisplayName
                     });
+                }
+
+                if (subs.Count > 0)
+                {
+                    await _cacheService.SetAsync(subCacheKey, subs, "Subscriptions", cancellationToken: ct);
                 }
             }
             catch (Exception ex)
