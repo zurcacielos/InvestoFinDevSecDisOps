@@ -396,13 +396,15 @@ namespace KeyVaultComparer.Api.Services
             string project, 
             List<int> pipelineIds, 
             PipelineProfileConfig? profileConfig = null, 
+            int scanDepth = 25,
+            bool onlySucceeded = true,
             CancellationToken cancellationToken = default)
         {
             profileConfig ??= new PipelineProfileConfig();
             var authHeader = await GetAdoAuthHeaderAsync(cancellationToken);
             var collectedEdges = new System.Collections.Concurrent.ConcurrentBag<(string From, string To)>();
 
-            var tasks = pipelineIds.Select(id => FetchPipelineRowAsync(organization, project, id, authHeader, profileConfig, collectedEdges, cancellationToken));
+            var tasks = pipelineIds.Select(id => FetchPipelineRowAsync(organization, project, id, authHeader, profileConfig, collectedEdges, scanDepth, onlySucceeded, cancellationToken));
             var rows = await Task.WhenAll(tasks);
 
             // 1. Gather all discovered stages for the Expanded Stages DAG view
@@ -442,6 +444,8 @@ namespace KeyVaultComparer.Api.Services
             AuthenticationHeaderValue authHeader, 
             PipelineProfileConfig profileConfig,
             System.Collections.Concurrent.ConcurrentBag<(string From, string To)> collectedEdges,
+            int scanDepth,
+            bool onlySucceeded,
             CancellationToken cancellationToken)
         {
             using var client = _httpClientFactory.CreateClient();
@@ -525,10 +529,11 @@ namespace KeyVaultComparer.Api.Services
             }
             catch { }
 
-            // 3. Recent Builds (top 15 to find deployments across environments)
+            // 3. Recent Builds (scanDepth builds to find deployments across environments)
             try
             {
-                var buildsUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={pipelineId}&$top=15&api-version=7.1";
+                var resultFilterQuery = onlySucceeded ? "&resultFilter=succeeded" : "";
+                var buildsUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={pipelineId}&$top={scanDepth}{resultFilterQuery}&queryOrder=finishTimeDescending&api-version=7.1";
                 var buildsResp = await client.GetAsync(buildsUrl, cancellationToken);
                 if (buildsResp.IsSuccessStatusCode)
                 {
@@ -657,30 +662,41 @@ namespace KeyVaultComparer.Api.Services
                                     ?? templateParams["Version"]?.ToString();
                             }
 
-                            // If environment was specified via parameters, register in EnvironmentDeployments
+                            // If environment was specified via parameters, register in EnvironmentDeployments & EnvironmentHistory
                             if (!string.IsNullOrWhiteSpace(envParam))
                             {
                                 var matchedTarget = profileConfig.Environments.FirstOrDefault(e => string.Equals(e, envParam.Trim(), StringComparison.OrdinalIgnoreCase)) ?? envParam.Trim();
+                                var envDep = new EnvironmentDeploymentInfo
+                                {
+                                    Environment = matchedTarget,
+                                    Status = overallStatus,
+                                    BuildId = buildId,
+                                    BuildNumber = buildNumber,
+                                    Branch = sourceBranch,
+                                    CommitSha = sourceVersion,
+                                    Author = author,
+                                    AuthorImageUrl = authorImageUrl,
+                                    TriggerReason = triggerReason,
+                                    IsAutomated = isAutomated,
+                                    DeployedAt = deployedAt,
+                                    BuildUrl = buildUrl,
+                                    PrNumber = prNumber,
+                                    Operation = opParam,
+                                    Version = tagParam
+                                };
+
                                 if (!row.EnvironmentDeployments.ContainsKey(matchedTarget))
                                 {
-                                    row.EnvironmentDeployments[matchedTarget] = new EnvironmentDeploymentInfo
-                                    {
-                                        Environment = matchedTarget,
-                                        Status = overallStatus,
-                                        BuildId = buildId,
-                                        BuildNumber = buildNumber,
-                                        Branch = sourceBranch,
-                                        CommitSha = sourceVersion,
-                                        Author = author,
-                                        AuthorImageUrl = authorImageUrl,
-                                        TriggerReason = triggerReason,
-                                        IsAutomated = isAutomated,
-                                        DeployedAt = deployedAt,
-                                        BuildUrl = buildUrl,
-                                        PrNumber = prNumber,
-                                        Operation = opParam,
-                                        Version = tagParam
-                                    };
+                                    row.EnvironmentDeployments[matchedTarget] = envDep;
+                                }
+
+                                if (!row.EnvironmentHistory.ContainsKey(matchedTarget))
+                                {
+                                    row.EnvironmentHistory[matchedTarget] = new List<EnvironmentDeploymentInfo>();
+                                }
+                                if (!row.EnvironmentHistory[matchedTarget].Any(d => d.BuildId == buildId))
+                                {
+                                    row.EnvironmentHistory[matchedTarget].Add(envDep);
                                 }
                             }
 
@@ -793,9 +809,9 @@ namespace KeyVaultComparer.Api.Services
                                             stageName.StartsWith($"{e}-", StringComparison.OrdinalIgnoreCase) ||
                                             stageName.StartsWith($"{e} ", StringComparison.OrdinalIgnoreCase));
 
-                                        if (!string.IsNullOrEmpty(matchedEnv) && !row.EnvironmentDeployments.ContainsKey(matchedEnv))
+                                        if (!string.IsNullOrEmpty(matchedEnv))
                                         {
-                                            row.EnvironmentDeployments[matchedEnv] = new EnvironmentDeploymentInfo
+                                            var stageEnvDep = new EnvironmentDeploymentInfo
                                             {
                                                 Environment = matchedEnv,
                                                 Status = status,
@@ -813,6 +829,20 @@ namespace KeyVaultComparer.Api.Services
                                                 Operation = opParam,
                                                 Version = tagParam
                                             };
+
+                                            if (!row.EnvironmentDeployments.ContainsKey(matchedEnv))
+                                            {
+                                                row.EnvironmentDeployments[matchedEnv] = stageEnvDep;
+                                            }
+
+                                            if (!row.EnvironmentHistory.ContainsKey(matchedEnv))
+                                            {
+                                                row.EnvironmentHistory[matchedEnv] = new List<EnvironmentDeploymentInfo>();
+                                            }
+                                            if (!row.EnvironmentHistory[matchedEnv].Any(d => d.BuildId == buildId))
+                                            {
+                                                row.EnvironmentHistory[matchedEnv].Add(stageEnvDep);
+                                            }
                                         }
                                     }
                                 }

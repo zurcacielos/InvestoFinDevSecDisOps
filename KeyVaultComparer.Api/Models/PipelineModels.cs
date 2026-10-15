@@ -50,6 +50,7 @@ namespace KeyVaultComparer.Api.Models
         public PipelineRepository? Repository { get; set; }
         public Dictionary<string, StageDeploymentInfo> Deployments { get; set; } = new();
         public Dictionary<string, EnvironmentDeploymentInfo> EnvironmentDeployments { get; set; } = new();
+        public Dictionary<string, List<EnvironmentDeploymentInfo>> EnvironmentHistory { get; set; } = new();
         public List<PipelineRunInfo> RecentRuns { get; set; } = new();
     }
 
@@ -110,6 +111,8 @@ namespace KeyVaultComparer.Api.Models
     {
         public List<int> PipelineIds { get; set; } = new();
         public PipelineProfileConfig? ProfileConfig { get; set; }
+        public int ScanDepth { get; set; } = 25;
+        public bool OnlySucceeded { get; set; } = true;
     }
 
     public class PipelineRunStageInfo

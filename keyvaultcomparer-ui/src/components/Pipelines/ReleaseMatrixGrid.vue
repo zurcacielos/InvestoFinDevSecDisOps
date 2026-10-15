@@ -31,6 +31,17 @@ const contextMenu = ref<ContextMenuState>({
   targetName: '',
 });
 
+const hasPendingChanges = ref(false);
+
+const onFilterChange = () => {
+  hasPendingChanges.value = true;
+};
+
+const applyFiltersAndRefresh = async () => {
+  hasPendingChanges.value = false;
+  await devopsStore.fetchReleaseMatrix(undefined, true);
+};
+
 const hideContextMenu = () => {
   contextMenu.value.show = false;
   window.removeEventListener('click', hideContextMenu);
@@ -212,31 +223,63 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
         </button>
       </div>
 
-      <!-- Right Actions: Parametrization & Refresh -->
-      <div class="flex items-center gap-2">
+      <!-- Right Actions: Filters, Parametrization & Refresh -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Scan Depth Selector -->
+        <div class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs text-xs">
+          <span class="text-slate-500 font-medium text-[11px]">Scan:</span>
+          <select 
+            v-model.number="devopsStore.scanDepth"
+            @change="onFilterChange"
+            class="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none cursor-pointer"
+            title="Number of recent builds scanned per pipeline"
+          >
+            <option :value="15">15 runs</option>
+            <option :value="25">25 runs</option>
+            <option :value="50">50 runs</option>
+            <option :value="100">100 runs</option>
+          </select>
+        </div>
+
+        <!-- Only Succeeded Runs Toggle -->
+        <label 
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-300 shadow-2xs text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 select-none transition-colors"
+          title="Only scan successful pipeline runs when resolving deployments"
+        >
+          <input 
+            type="checkbox" 
+            v-model="devopsStore.onlySucceeded" 
+            @change="onFilterChange"
+            class="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+          />
+          <span class="text-[11px] font-medium">Only Succeeded (✓)</span>
+        </label>
+
         <!-- Configure Parametrization Profile -->
         <button 
           @click="devopsStore.setProfileModalOpen(true)"
-          class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium shadow-2xs flex items-center gap-1.5 transition-colors"
+          class="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium shadow-2xs flex items-center gap-1.5 transition-colors"
           title="Customize parameter names (Environment, Operation) and target environment order"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <span>Parametrization</span>
-          <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+          <span class="text-[11px]">Parametrization</span>
         </button>
 
-        <!-- Refresh Matrix -->
+        <!-- Refresh / Apply Matrix Button -->
         <button 
-          @click="devopsStore.fetchReleaseMatrix(undefined, true)"
-          class="p-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 shadow-2xs transition-colors"
+          @click="applyFiltersAndRefresh"
+          class="px-3 py-1 rounded-lg border text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors"
+          :class="hasPendingChanges 
+            ? 'border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100 ring-2 ring-blue-400/30' 
+            : 'border-slate-300 bg-white hover:bg-slate-50 text-slate-700'"
           :disabled="devopsStore.isMatrixLoading"
-          title="Reload matrix"
+          :title="hasPendingChanges ? 'Apply modified filters and refresh matrix' : 'Reload matrix'"
         >
           <svg 
-            class="h-4 w-4" 
+            class="h-3.5 w-3.5" 
             :class="{ 'animate-spin text-blue-600': devopsStore.isMatrixLoading }" 
             fill="none" 
             viewBox="0 0 24 24" 
@@ -244,6 +287,8 @@ const openAllGithubYamls = async (row: PipelineMatrixRow) => {
           >
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
+          <span class="text-[11px]">{{ hasPendingChanges ? 'Apply Filters' : 'Refresh Matrix' }}</span>
+          <span v-if="hasPendingChanges" class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
         </button>
       </div>
     </div>

@@ -258,7 +258,8 @@ app.MapPost("/api/devops/pipelines/matrix", async ([FromQuery] string organizati
         {
             return Results.Ok(new ReleaseMatrixResponse());
         }
-        var matrix = await pipelineService.GetReleaseMatrixAsync(organization, project, request.PipelineIds, request.ProfileConfig, ct);
+        var scanDepth = request.ScanDepth > 0 ? request.ScanDepth : 25;
+        var matrix = await pipelineService.GetReleaseMatrixAsync(organization, project, request.PipelineIds, request.ProfileConfig, scanDepth, request.OnlySucceeded, ct);
         return Results.Ok(matrix);
     }
     catch (Exception ex)

@@ -114,6 +114,7 @@ export interface PipelineMatrixRow {
   repository?: PipelineRepository;
   deployments: Record<string, StageDeploymentInfo>;
   environmentDeployments: Record<string, EnvironmentDeploymentInfo>;
+  environmentHistory?: Record<string, EnvironmentDeploymentInfo[]>;
   recentRuns?: PipelineRunInfo[];
 }
 
@@ -138,6 +139,9 @@ export const useDevopsDataStore = defineStore('devopsData', {
     } catch {}
 
     const savedViewMode = (localStorage.getItem('adoMatrixViewMode') as 'environments' | 'stages') || 'environments';
+    const savedScanDepth = localStorage.getItem('adoScanDepth') ? parseInt(localStorage.getItem('adoScanDepth')!) : 25;
+    const savedOnlySucceeded = localStorage.getItem('adoOnlySucceeded') !== 'false';
+    const savedShowRollback = localStorage.getItem('adoShowRollbackTarget') !== 'false';
 
     return {
       organization: localStorage.getItem('adoOrg') || '',
@@ -162,6 +166,11 @@ export const useDevopsDataStore = defineStore('devopsData', {
 
       // Dual Display Mode ('environments' = Release Matrix, 'stages' = DAG Expanded)
       viewMode: savedViewMode as 'environments' | 'stages',
+
+      // Pipeline Run Exploration & History Filters
+      scanDepth: savedScanDepth,
+      onlySucceeded: savedOnlySucceeded,
+      showRollbackTarget: savedShowRollback,
 
       // Parametrization & Profile Configuration
       profileConfig: {
@@ -273,9 +282,9 @@ export const useDevopsDataStore = defineStore('devopsData', {
         const data = await res.json();
         this.pipelines = data || [];
 
-        // If we already have selected pipelines, fetch matrix automatically
+        // If we already have selected pipelines, compute locally from cache without triggering remote matrix refresh
         if (this.selectedPipelineIds.length > 0) {
-          await this.fetchReleaseMatrix();
+          this.computeReleaseMatrix();
         }
       } catch (err: any) {
         this.pipelinesError = err.message || 'Error fetching pipelines';
@@ -442,7 +451,9 @@ export const useDevopsDataStore = defineStore('devopsData', {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             pipelineIds: targetIds,
-            profileConfig: this.profileConfig
+            profileConfig: this.profileConfig,
+            scanDepth: this.scanDepth,
+            onlySucceeded: this.onlySucceeded
           })
         });
 
@@ -564,6 +575,21 @@ export const useDevopsDataStore = defineStore('devopsData', {
         console.error('Failed to get pipeline GitHub YAMLs:', err);
         return null;
       }
+    },
+
+    setScanDepth(val: number) {
+      this.scanDepth = val;
+      localStorage.setItem('adoScanDepth', val.toString());
+    },
+
+    setOnlySucceeded(val: boolean) {
+      this.onlySucceeded = val;
+      localStorage.setItem('adoOnlySucceeded', val.toString());
+    },
+
+    setShowRollbackTarget(val: boolean) {
+      this.showRollbackTarget = val;
+      localStorage.setItem('adoShowRollbackTarget', val.toString());
     }
   },
   getters: {
@@ -571,7 +597,16 @@ export const useDevopsDataStore = defineStore('devopsData', {
       return state.variableGroups.filter(g => state.selectedGroupIds.includes(g.id));
     },
     selectedPipelines: (state) => {
-      return state.pipelines.filter(p => state.selectedPipelineIds.includes(p.id));
+      return state.selectedPipelineIds.map(id => {
+        const found = state.pipelines.find(p => p.id === id);
+        if (found) return found;
+        const cached = state.cachedPipelineRows[id];
+        return {
+          id,
+          name: cached?.pipelineName || `Pipeline #${id}`,
+          repository: cached?.repository
+        };
+      });
     }
   }
 });
