@@ -126,23 +126,23 @@ app.MapGet("/api/vaults", async ([FromQuery] string? query, [FromQuery] string? 
 })
 .WithName("GetVaults");
 
-app.MapGet("/api/profile", async (ProfileService service) =>
+app.MapGet("/api/profile", async ([FromServices] ProfileService service, CancellationToken ct) =>
 {
-    var profile = await service.GetProfileAsync();
+    var profile = await service.GetProfileAsync(ct);
     return Results.Ok(profile);
 })
 .WithName("GetProfile");
 
-app.MapPost("/api/vaults/usage", async ([FromBody] UsageStatsRequest req, [FromQuery] int days, KeyVaultManagementService service) =>
+app.MapPost("/api/vaults/usage", async ([FromBody] UsageStatsRequest req, [FromQuery] int days, [FromServices] KeyVaultManagementService service) =>
 {
     var stats = await service.GetVaultUsageStatsAsync(req.VaultUris, req.SecretNames, days == 0 ? 90 : days);
     return Results.Ok(stats);
 })
 .WithName("GetVaultsUsage");
 
-app.MapGet("/api/subscriptions", async (KeyVaultManagementService service) =>
+app.MapGet("/api/subscriptions", async ([FromServices] KeyVaultManagementService service, CancellationToken ct) =>
 {
-    var subs = await service.GetSubscriptionsAsync();
+    var subs = await service.GetSubscriptionsAsync(ct);
     return Results.Ok(subs);
 })
 .WithName("GetSubscriptions");

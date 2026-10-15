@@ -103,13 +103,16 @@ namespace KeyVaultComparer.Api.Services
             return vaults;
         }
 
-        public async Task<List<AzureSubscription>> GetSubscriptionsAsync()
+        public async Task<List<AzureSubscription>> GetSubscriptionsAsync(CancellationToken ct = default)
         {
             var subs = new List<AzureSubscription>();
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(20));
+
             try
             {
                 var client = new ArmClient(_credential);
-                await foreach (var sub in client.GetSubscriptions().GetAllAsync())
+                await foreach (var sub in client.GetSubscriptions().GetAllAsync(cancellationToken: cts.Token))
                 {
                     subs.Add(new AzureSubscription
                     {

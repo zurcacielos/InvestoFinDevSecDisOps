@@ -156,10 +156,20 @@ export const useAuthStore = defineStore('auth', {
 
       const promise = (async () => {
         try {
+          const fetchWithTimeout = async (url: string, timeoutMs = 15000) => {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+              return await fetch(url, { signal: controller.signal });
+            } finally {
+              clearTimeout(timer);
+            }
+          };
+
           const [profileRes, subsRes, settingsRes] = await Promise.all([
-            fetch('/api/profile'),
-            fetch('/api/subscriptions'),
-            fetch('/api/settings').catch(() => null)
+            fetchWithTimeout('/api/profile').catch(() => null),
+            fetchWithTimeout('/api/subscriptions').catch(() => null),
+            fetchWithTimeout('/api/settings').catch(() => null)
           ]);
 
           if (settingsRes && settingsRes.ok) {
@@ -168,19 +178,32 @@ export const useAuthStore = defineStore('auth', {
             this.azureDevOps.hasPat = !!settingsData.hasAdoPat;
           }
 
-          if (profileRes.ok && subsRes.ok) {
-            const profile = await profileRes.json();
-            const subs = await subsRes.json();
-            this.setProfile(profile);
-            this.setSubscriptions(subs);
-            this.azureCloud.isConnected = !!(profile && profile.email && profile.email !== 'Unknown User');
+          let profile = null;
+          let subs: any[] = [];
+
+          if (profileRes && profileRes.ok) {
+            try {
+              profile = await profileRes.json();
+              this.setProfile(profile);
+            } catch {}
+          }
+
+          if (subsRes && subsRes.ok) {
+            try {
+              subs = await subsRes.json();
+              this.setSubscriptions(subs);
+            } catch {}
+          }
+
+          if (profile && profile.email && profile.email !== 'Unknown User') {
+            this.azureCloud.isConnected = true;
             this.azureCloud.hasAttempted = true;
             this.azureCloud.error = null;
 
             // Probe ADO automatically with the connected Azure identity
             this.checkAutoAdo();
 
-            return this.azureCloud.isConnected;
+            return true;
           } else {
             this.azureCloud.profile = null;
             this.azureCloud.subscriptions = [];
