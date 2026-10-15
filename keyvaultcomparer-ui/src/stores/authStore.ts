@@ -4,6 +4,7 @@ export interface UserProfile {
   email: string;
   subscriptionName: string;
   initials: string;
+  photoUrl?: string | null;
 }
 
 export interface AzureSubscription {

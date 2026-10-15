@@ -5,6 +5,7 @@ namespace KeyVaultComparer.Api.Models
         public string Email { get; set; } = string.Empty;
         public string SubscriptionName { get; set; } = string.Empty;
         public string Initials { get; set; } = string.Empty;
+        public string? PhotoUrl { get; set; }
     }
 
     public class AzureSubscription

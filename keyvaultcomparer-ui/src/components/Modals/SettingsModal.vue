@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useDevopsDataStore } from '../../stores/devopsDataStore';
 import { useAuthStore } from '../../stores/authStore';
+import CurrentUserAvatar from '../Layout/CurrentUserAvatar.vue';
 
 type SectionTab = 'azure-cloud' | 'azure-devops' | 'github' | 'security-storage' | 'ui-appearance';
 
@@ -557,10 +558,17 @@ const showUiSection = computed(() => {
                   </div>
 
                   <!-- Details when connected -->
-                  <div v-if="authStore.isCloudConnected && authStore.profile" class="mt-2 text-xs text-slate-700 space-y-0.5">
-                    <div>User: <strong class="font-semibold text-slate-900">{{ authStore.profile.email }}</strong></div>
-                    <div>Default Subscription: <span class="font-medium text-slate-600">{{ authStore.profile.subscriptionName }}</span></div>
-                    <div>Available Subscriptions: <span class="font-medium text-slate-600">{{ authStore.subscriptions.length }}</span></div>
+                  <div v-if="authStore.isCloudConnected && authStore.profile" class="mt-2.5 flex items-center gap-3">
+                    <CurrentUserAvatar 
+                      :profile="authStore.profile" 
+                      :cloud-auth-method="authStore.cloudAuthMethod" 
+                      size="lg" 
+                    />
+                    <div class="text-xs text-slate-700 space-y-0.5 min-w-0">
+                      <div>User: <strong class="font-semibold text-slate-900">{{ authStore.profile.email }}</strong></div>
+                      <div>Default Subscription: <span class="font-medium text-slate-600">{{ authStore.profile.subscriptionName }}</span></div>
+                      <div>Available Subscriptions: <span class="font-medium text-slate-600">{{ authStore.subscriptions.length }}</span></div>
+                    </div>
                   </div>
 
                   <!-- Guidance when disconnected -->
