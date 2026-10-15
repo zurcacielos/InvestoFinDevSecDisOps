@@ -140,10 +140,18 @@ The application provides continuous delivery and deployment visibility across Az
   - On application startup, if pipelines were previously fetched, the search combobox is immediately pre-filled and enabled (e.g. `Search 497 pipelines...`), and the fetch button is automatically labeled **"Re-fetch Pipelines"** with cache details surfaced via hover tooltip.
   - On a fresh session with no prior cache, the button displays **"Fetch Pipelines"** and the search combobox is disabled with `Fetch pipelines first...`.
   - Matrix row names are preserved from session to session using cached row summaries and catalog metadata, preventing pipeline names from ever reverting to generic numeric placeholders (`Pipeline #<id>`).
+- **On-Demand Per-Pipeline Deep Scan (`EmptyEnvironmentCell.vue`)**:
+  - Sparse environments where no deployment was found within the initial scan window (`scanDepth: 15/25/50`) display a recoverable empty state (`—` with an actionable `Scan deeper` link).
+  - Hovering provides full context via native tooltip (`No deployment found in the last {N} runs for '{pipeline}' on '{env}'. Click 'Scan deeper' to search up to {N+50} runs.`).
+  - Clicking `Scan deeper` triggers an isolated, non-blocking single-pipeline query (`POST /api/devops/pipelines/{id}/deep-scan`) without reloading or freezing the rest of the matrix.
+  - Replaces the dash with an inline micro-spinner (`Scanning +50...`).
+  - Upon completion, the returned pipeline row hydrates in-place in Pinia (`releaseMatrix.rows`), automatically populating the clicked environment as well as any other sparse environments found in the extended run history for that pipeline.
 - **Acceptance Criteria**:
   - **Given** an initial load or reset of the environment matrix, **Then** "Rows (Cross-Env)" is selected as the default layout mode.
   - **Given** a user opens the application after a previous session where pipelines were retrieved, **Then** the combobox is active with the pipeline catalog count, the button shows "Re-fetch Pipelines", hover tooltips reveal cache status, and selected matrix row chips render their full pipeline names.
   - **Given** an environment cell with a prior deployment, **When** the user clicks the previous version tag (`v...`), **Then** that previous run opens directly in Azure DevOps in a new tab without rendering an abstract build number.
+  - **Given** an environment cell with no deployment found within the current scan depth, **When** the cell is viewed, **Then** it renders a dash (`—`) and a "Scan deeper" link with an explanatory tooltip.
+  - **Given** the user clicks "Scan deeper", **Then** only that specific pipeline executes a deep scan for up to 50 additional runs, displaying an inline micro-spinner and hydrating all discovered environments in-place without triggering a global matrix reload.
   - **Given** an active deployment and a prior deployment, **When** "Columns" mode is enabled, **Then** the cell splits vertically showing Prior Run $N-1$ on the left and Active Run $N$ on the right.
   - **Given** an environment column header, **When** right-clicking on the header, **Then** a context menu appears with options to "Hide this column", "Hide Others", and if any columns are hidden, "Show hidden columns".
   - **Given** one or more hidden environment columns, **Then** a button "Show all hidden columns ({N})" is displayed in the sub-header toolbar and clicking it restores all hidden columns.

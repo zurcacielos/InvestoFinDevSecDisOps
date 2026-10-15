@@ -8,6 +8,7 @@ import { formatTimeAgo, getCommitUrl, getPrUrl } from '../../../utils/pipelineUr
 import DeploymentStatusIndicator from './DeploymentStatusIndicator.vue';
 import PipelineAuthorBadge from '../PipelineAuthorBadge.vue';
 import RollbackRibbon from './RollbackRibbon.vue';
+import EmptyEnvironmentCell from './EmptyEnvironmentCell.vue';
 
 const props = defineProps<{
   row: PipelineMatrixRow;
@@ -225,8 +226,6 @@ const lagStatus = computed(() => {
     </div>
   </div>
 
-  <!-- Empty Environment Cell -->
-  <div v-else class="h-full flex items-center justify-center py-4 text-slate-300">
-    <span class="text-xs">&mdash;</span>
-  </div>
+  <!-- Empty Environment Cell with On-Demand Deep Scan -->
+  <EmptyEnvironmentCell v-else :row="row" :env="env" />
 </template>
