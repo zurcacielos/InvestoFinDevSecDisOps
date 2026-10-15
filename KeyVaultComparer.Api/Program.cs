@@ -10,8 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddOpenApi();
 
-// Register the global TokenCredential
-builder.Services.AddSingleton<TokenCredential>(sp => 
+// Register the base AzureCli/Default credential
+builder.Services.AddSingleton<DefaultAzureCredential>(sp => 
 {
     // Use DefaultAzureCredential, but exclude slow credentials like ManagedIdentity when running locally
     var options = new DefaultAzureCredentialOptions();
@@ -25,6 +25,15 @@ builder.Services.AddSingleton<TokenCredential>(sp =>
         options.ExcludeAzureDeveloperCliCredential = true;
     }
     return new DefaultAzureCredential(options);
+});
+
+// Register the dynamic TokenCredential that resolves Service Principal or DefaultAzureCredential
+builder.Services.AddSingleton<TokenCredential>(sp => 
+{
+    var secretManager = sp.GetRequiredService<SecretStoreManager>();
+    var appSettings = sp.GetRequiredService<AppSettingsService>();
+    var defaultCli = sp.GetRequiredService<DefaultAzureCredential>();
+    return new DynamicAzureCredential(secretManager, appSettings, defaultCli);
 });
 
 builder.Services.AddSingleton<KeyVaultService>();
@@ -405,9 +414,13 @@ app.MapGet("/api/settings", async (
     var activeProvider = await secretStoreManager.GetActiveStoreAsync(ct);
     bool hasAdoPat = await secretStoreManager.HasSecretAsync(SecretStoreManager.AdoPatKey, ct);
     bool hasGithubToken = await secretStoreManager.HasSecretAsync(SecretStoreManager.GithubTokenKey, ct);
+    bool hasAzureClientSecret = await secretStoreManager.HasSecretAsync(SecretStoreManager.AzureClientSecretKey, ct);
 
     return Results.Ok(new
     {
+        azureTenantId = settings.AzureTenantId ?? "",
+        azureClientId = settings.AzureClientId ?? "",
+        hasAzureClientSecret = hasAzureClientSecret,
         adoOrganization = settings.AdoOrganization ?? "",
         adoProject = settings.AdoProject ?? "",
         hasAdoPat = hasAdoPat,
@@ -435,6 +448,17 @@ app.MapPost("/api/settings", async (
         }
 
         var settings = await appSettingsService.GetSettingsAsync(ct);
+        if (req.AzureTenantId != null) settings.AzureTenantId = req.AzureTenantId;
+        if (req.AzureClientId != null) settings.AzureClientId = req.AzureClientId;
+        if (req.ClearAzureClientSecret)
+        {
+            await secretStoreManager.DeleteSecretAsync(SecretStoreManager.AzureClientSecretKey, ct);
+        }
+        else if (!string.IsNullOrWhiteSpace(req.AzureClientSecret))
+        {
+            await secretStoreManager.SetSecretAsync(SecretStoreManager.AzureClientSecretKey, req.AzureClientSecret.Trim(), ct);
+        }
+
         if (req.AdoOrganization != null) settings.AdoOrganization = req.AdoOrganization;
         if (req.AdoProject != null) settings.AdoProject = req.AdoProject;
         if (req.GithubBaseUrl != null) settings.GithubBaseUrl = req.GithubBaseUrl;
@@ -488,10 +512,48 @@ app.MapPost("/api/settings/test-github", async (
 })
 .WithName("TestGithubConnection");
 
+app.MapPost("/api/settings/test-azure", async (
+    [FromBody] TestAzureRequest req,
+    TokenCredential credential,
+    CancellationToken ct) =>
+{
+    try
+    {
+        TokenCredential testCred = credential;
+        if (!string.IsNullOrWhiteSpace(req.TenantId) && 
+            !string.IsNullOrWhiteSpace(req.ClientId) && 
+            !string.IsNullOrWhiteSpace(req.ClientSecret))
+        {
+            testCred = new Azure.Identity.ClientSecretCredential(req.TenantId.Trim(), req.ClientId.Trim(), req.ClientSecret.Trim());
+        }
+
+        var armClient = new Azure.ResourceManager.ArmClient(testCred);
+        var sub = await armClient.GetDefaultSubscriptionAsync(ct);
+        return Results.Ok(new 
+        { 
+            success = true, 
+            message = $"Connected to Azure subscription '{sub.Data.DisplayName}' ({sub.Data.SubscriptionId})." 
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Ok(new 
+        { 
+            success = false, 
+            message = $"Azure connection failed: {ex.Message}" 
+        });
+    }
+})
+.WithName("TestAzureConnection");
+
 app.Run();
 
 public record LogUrlRequest(string Url);
 public record UpdateSettingsDto(
+    string? AzureTenantId,
+    string? AzureClientId,
+    string? AzureClientSecret,
+    bool ClearAzureClientSecret,
     string? AdoOrganization,
     string? AdoProject,
     string? AdoPat,
@@ -502,5 +564,6 @@ public record UpdateSettingsDto(
     bool ClearGithubToken,
     string? StorageProvider
 );
+public record TestAzureRequest(string? TenantId, string? ClientId, string? ClientSecret);
 public record TestAdoRequest(string Organization, string Project, string? Pat);
 public record TestGithubRequest(string? BaseUrl, string? Organization, string? Token);

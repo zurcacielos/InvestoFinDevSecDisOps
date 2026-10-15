@@ -206,9 +206,10 @@ export const useVaultStore = defineStore('data', {
             errorMessage: result.errorMessage
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching names:', error);
-        alert('Failed to fetch secret names. Please try again.');
+        const authStore = useAuthStore();
+        authStore.setGlobalError(error.message || 'Failed to fetch secret names.');
       } finally {
         uiStateStore.setVaultsFetching(currentUris, false);
       }
@@ -303,9 +304,10 @@ export const useVaultStore = defineStore('data', {
       try {
         const tasks = this.vaultUris.map(uri => this.fetchValuesForVault(uri));
         await Promise.all(tasks);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching comparison:', error);
-        alert('Failed to fetch comparison data. Please try again.');
+        const authStore = useAuthStore();
+        authStore.setGlobalError(error.message || 'Failed to fetch comparison data.');
       } finally {
         uiStateStore.setGlobalLoading(false);
       }

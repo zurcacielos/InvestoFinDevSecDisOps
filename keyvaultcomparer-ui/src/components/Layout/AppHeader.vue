@@ -5,6 +5,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { useStagedStore } from '../../stores/stagedStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 
+type SettingsTab = 'azure-cloud' | 'azure-devops' | 'github' | 'security-storage' | 'ui-appearance';
+
 const props = defineProps<{
   modelValue: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops' | 'pipelines';
 }>();
@@ -12,7 +14,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops' | 'pipelines'): void;
   (e: 'show-help'): void;
-  (e: 'open-settings'): void;
+  (e: 'open-settings', tab?: SettingsTab): void;
 }>();
 
 const authStore = useAuthStore();
@@ -36,7 +38,7 @@ const toggleDemoMode = () => {
 
 <template>
   <div class="flex-shrink-0">
-    <!-- Azure Auth Required Top Banner -->
+    <!-- Azure Cloud Auth Required Top Banner -->
     <div 
       v-if="showAuthError" 
       class="bg-gradient-to-r from-rose-700 via-rose-600 to-rose-700 text-white px-3 py-1.5 text-xs sm:text-sm font-medium flex items-center justify-between shrink-0 shadow-md z-40 relative border-b border-rose-800 animate-fade-in"
@@ -46,18 +48,17 @@ const toggleDemoMode = () => {
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
         </svg>
         <span>
-          <strong class="font-bold tracking-wide">CANNOT CONNECT TO AZURE</strong> — Set the Personal Access Token in 
+          <strong class="font-bold tracking-wide">CANNOT CONNECT TO AZURE CLOUD</strong> — Run <code class="font-mono bg-rose-800/80 px-1 py-0.5 rounded text-[11px]">az login</code> in your terminal or configure Azure Service Principal credentials in 
           <button 
             type="button" 
-            @click="emit('open-settings')" 
+            @click="emit('open-settings', 'azure-cloud')" 
             class="underline font-bold text-white hover:text-rose-100 decoration-white hover:decoration-rose-200 focus:outline-none cursor-pointer inline-flex items-center gap-0.5 mx-1"
           >
             Settings
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
-          </button>
-          or authenticate locally via <code class="font-mono bg-rose-800/80 px-1 py-0.5 rounded text-[11px]">az login</code>.
+          </button>.
         </span>
       </div>
 
@@ -73,7 +74,7 @@ const toggleDemoMode = () => {
           Retry
         </button>
         <button 
-          @click="authStore.setShowAuthError(false)" 
+          @click="authStore.dismissCloudBanner()" 
           class="text-rose-200 hover:text-white p-1 rounded hover:bg-white/10 transition-colors focus:outline-none"
           title="Dismiss Banner"
         >
@@ -165,10 +166,20 @@ const toggleDemoMode = () => {
           <template v-if="profile && profile.email !== 'Unknown User'">
             <div 
               class="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-inner text-sm"
-              :title="profile.email"
+              :title="`Connected as ${profile.email} (${profile.subscriptionName})`"
             >
               {{ profile.initials }}
             </div>
+          </template>
+          <template v-else>
+            <button 
+              @click="emit('open-settings', 'azure-cloud')" 
+              class="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors"
+              title="Azure Cloud Disconnected — Click to configure credentials or run az login"
+            >
+              <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+              <span>Azure Cloud: Offline</span>
+            </button>
           </template>
         </div>
       </template>
@@ -188,8 +199,6 @@ const toggleDemoMode = () => {
       <template #staged>
         <slot name="staged"></slot>
       </template>
-
-
 
       <template #code>
         <slot name="code"></slot>

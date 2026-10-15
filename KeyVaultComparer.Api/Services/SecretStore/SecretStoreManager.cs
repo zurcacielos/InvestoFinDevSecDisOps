@@ -22,6 +22,7 @@ namespace KeyVaultComparer.Api.Services.SecretStore
 
         public const string AdoPatKey = "AdoPat";
         public const string GithubTokenKey = "GitHubToken";
+        public const string AzureClientSecretKey = "AzureClientSecret";
 
         public SecretStoreManager(IEnumerable<ISecureSecretStore> stores, AppSettingsService appSettingsService)
         {
@@ -125,7 +126,7 @@ namespace KeyVaultComparer.Api.Services.SecretStore
             if (currentStore.ProviderName != targetStore.ProviderName)
             {
                 // Migrate known secrets
-                var knownKeys = new[] { AdoPatKey, GithubTokenKey };
+                var knownKeys = new[] { AdoPatKey, GithubTokenKey, AzureClientSecretKey };
                 foreach (var k in knownKeys)
                 {
                     var val = await currentStore.GetSecretAsync(k, ct);

@@ -115,10 +115,16 @@ const showRegexHelpDialog = ref(false);
 const showQueryModal = ref(false);
 const showGrantAccessModal = ref(false);
 
+const targetSettingsTab = ref<'azure-cloud' | 'azure-devops' | 'github' | 'security-storage' | 'ui-appearance'>('azure-cloud');
+const openSettings = (tab?: 'azure-cloud' | 'azure-devops' | 'github' | 'security-storage' | 'ui-appearance') => {
+  if (tab) targetSettingsTab.value = tab;
+  showSettingsModal.value = true;
+};
+
 const handleGlobalKeydown = (e: KeyboardEvent) => {
   if ((e.ctrlKey || e.metaKey) && e.key === ',') {
     e.preventDefault();
-    showSettingsModal.value = !showSettingsModal.value;
+    openSettings('azure-cloud');
   } else if (e.key === 'Escape' && showSettingsModal.value) {
     showSettingsModal.value = false;
   }
@@ -412,9 +418,8 @@ const copyInspectionsMarkdown = async () => {
   }
   try {
     await navigator.clipboard.writeText(md);
-    alert('Markdown copied to clipboard!');
-  } catch (err) {
-    alert('Failed to copy: ' + err);
+  } catch (err: any) {
+    console.error('Failed to copy to clipboard:', err);
   }
 };
 
@@ -480,7 +485,7 @@ onUnmounted(() => {
 <template>
   <div class="h-screen w-screen flex flex-col bg-slate-50 text-slate-900 font-sans overflow-hidden">
     
-    <AppHeader v-model="currentTab" @show-help="showHelpDialog = true" @open-settings="showSettingsModal = true">
+    <AppHeader v-model="currentTab" @show-help="showHelpDialog = true" @open-settings="openSettings">
       <template #select-vaults>
         <VaultSelector @grant-access="showGrantAccessModal = true" />
       </template>
@@ -1040,7 +1045,7 @@ onUnmounted(() => {
     <QueryModal :show="showQueryModal" @close="showQueryModal = false" />
     <GrantAccessModal :show="showGrantAccessModal" @close="showGrantAccessModal = false" @download="downloadGrantScript" />
     <HelpModal :show="showHelpDialog" @close="showHelpDialog = false" />
-    <SettingsModal :show="showSettingsModal" @close="showSettingsModal = false" />
+    <SettingsModal :show="showSettingsModal" :initial-tab="targetSettingsTab" @close="showSettingsModal = false" />
     <PipelineYamlModal />
   </div>
 </template>

@@ -5,26 +5,21 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit) => 
   try {
     const response = await fetch(input, init);
     if (response.status === 401) {
-      authStore.setShowAuthError(true);
-      throw new Error('Azure Login Required');
+      authStore.setAzureCloudConnected(false);
+      throw new Error('Azure Authentication Required');
     }
     if (!response.ok) {
       const cloned = response.clone();
       const errorText = await cloned.text().catch(() => '');
-      authStore.setGlobalError(`Backend Error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`);
-      
-      // Auto-recovery for profile and subscriptions if a data call succeeds but auth state is broken
-      if (!authStore.profile || authStore.profile.email === 'Unknown User') {
-        if (input !== '/api/profile' && input !== '/api/subscriptions') {
-          setTimeout(() => {
-            authStore.connectToAzure();
-          }, 100);
-        }
+      const inputStr = typeof input === 'string' ? input : '';
+      if (!inputStr.includes('/api/profile') && !inputStr.includes('/api/subscriptions') && !inputStr.includes('/api/settings')) {
+        authStore.setGlobalError(`Backend Error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`);
       }
     }
     return response;
   } catch (e: any) {
-    if (e.message !== 'Azure Login Required') {
+    const inputStr = typeof input === 'string' ? input : '';
+    if (e.message !== 'Azure Authentication Required' && !inputStr.includes('/api/profile') && !inputStr.includes('/api/subscriptions') && !inputStr.includes('/api/settings')) {
       authStore.setGlobalError(`Network Error: ${e.message || 'Failed to connect to backend'}`);
     }
     throw e;
