@@ -99,6 +99,9 @@ The connection to Azure Cloud and external platforms is strictly centralized in 
 - **Visual Method Transparency**: Settings displays whether ADO is connected via:
   - `Azure SSO Identity (Recommended)` OR
   - `Personal Access Token (PAT Override)`
+- **Pipeline Discoverability & Parsing Heuristics**: The Global Settings dialog (under Azure DevOps) configures the pipeline execution heuristics:
+  - `Environment Parameter Name` (default: `Environment`): Parameter key defined in pipeline YAML representing the target deployment environment.
+  - `Operation Parameter Name` (default: `Operation`): Parameter key defined in pipeline YAML used to distinguish deploy/release runs from standard builds.
 
 ### 2.3 Secret Storage (Zero Plaintext)
 - All client secrets, PATs, and GitHub tokens are encrypted at rest using `SecretStoreManager`.
@@ -113,7 +116,7 @@ The application provides continuous delivery and deployment visibility across Az
 - **Ribbon 3-Row Architecture (`PipelineRibbonBar.vue`)**:
   - **Row 1 (Source & Catalog)**: Context label (**`ADO`**), `Org` and `Project` input fields, `Fetch / Re-fetch Pipelines` button, and pipeline search combobox. Cache status and relative timestamps are surfaced strictly via hover tooltips (`title`) on the button and combobox. The combobox manages an LRU buffer (up to 10 recently selected pipelines) persisted in `localStorage` under `adoRecentPipelineIds`. On open without a query, it renders a sticky `RECENT (N)` section, divider, and `ALL PIPELINES (N)` group; upon typing, it transitions seamlessly to a unified search results list with inline `Recent` recognition badges and recoverable empty states.
   - **Row 2 (Selected Entities / Dynamic Chips)**: Directly beneath the search input, displays `Matrix Rows:` with selected pipeline chips, external template YAML copy shortcuts, and removal triggers. The container expands dynamically as items are added without shifting subsequent control tiers.
-  - **Row 3 (Matrix Controls & Action Triggers)**: Positioned immediately adjacent to the grid surface. Houses the view mode toggle (**"Environment"** and **"Expanded"**), Scan depth selector (`15`, `25`, `50`, `100`), `Only Succeeded (✓)` toggle, and `Parametrization` settings button on the left, paired with the **"Refresh Matrix"** execution button and an always-visible **"Clear Cache"** action docked on the right that clears all selections, local storage, and server cache.
+  - **Row 3 (Matrix Controls & Action Triggers)**: Positioned immediately adjacent to the grid surface. Houses the view mode toggle (**"Environment"** and **"Expanded"**), Scan depth selector (`15`, `25`, `50`, `100`), `Only Succeeded (✓)` toggle, and **"Columns"** configuration button on the left (opening the Target Environments modal with column ordering and presets: Standard, Simple, Extended, and **Prod** `['prod', 'prod1']`), paired with the **"Refresh Matrix"** execution button and an always-visible **"Clear Cache"** action docked on the right that clears all selections, local storage, and server cache.
 - **Environment Matrix View**: Matrix mapping pipelines to target deployment environments (`dev`, `uat`, `stg`, `prd`, etc.).
 - **Expanded Stages (Hierarchical Run DAG) View**: Unfolds all executed stages in topological order (prerequisites to dependents) according to Azure DevOps YAML stage dependencies and timeline sequences.
 
@@ -127,7 +130,7 @@ The application provides continuous delivery and deployment visibility across Az
 - **Three Interchangeable Layout Modes**:
   - **Rows Mode (`rows`)**: Default view. Strict cross-environment row alignment. Enforces identical Y-positions for Version, Commit, Branch, and Time across all environment columns, facilitating rapid horizontal eye scanning.
   - **Cards Mode (`cards`)**: Compact active card view featuring prominent top-line version tags, active deployment metadata, and a docked compact $N-1$ previous run ribbon.
-  - **Columns Mode (`columns`)**: Temporal in-environment comparison. Splits each environment cell vertically into two sub-columns (Prior Run $N-1$ on the left, Active Run $N$ on the right) for side-by-side auditing without vertical scrolling.
+  - **Columns Mode (`columns`)**: Temporal in-environment comparison. Splits each environment cell vertically into two sub-columns (Prior Run $N-1$ on the left, Active Run $N$ on the right) for side-by-side auditing without vertical scrolling. The sub-header cleanly isolates the Active label from the run link `#<buildNumber>` with rigid flex constraints (`shrink-0`, max-width truncation, gap spacing) to eliminate visual collision or line wrapping.
 - **Environment Column Context Menu & Dynamic Column Hiding**:
   - Environment column headers (`<th>`) feature a right-click context menu matching the comparison grid pattern (`Hide this column`, `Hide Others`, `Show hidden columns`).
   - Right-clicking any deployment cell within an environment also provides column-hiding shortcuts in the shared context menu.

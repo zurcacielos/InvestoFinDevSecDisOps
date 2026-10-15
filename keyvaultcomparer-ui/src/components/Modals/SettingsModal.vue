@@ -46,6 +46,8 @@ const adoPat = ref('');
 const showAdoPat = ref(false);
 const hasAdoPat = ref(false);
 const clearAdoPat = ref(false);
+const adoEnvParamName = ref(localStorage.getItem('adoEnvParamName') || devopsDataStore.profileConfig.environmentParameterName || 'Environment');
+const adoOpParamName = ref(localStorage.getItem('adoOpParamName') || devopsDataStore.profileConfig.operationParameterName || 'Operation');
 
 // GitHub Form State
 const githubBaseUrl = ref('https://github.com');
@@ -198,6 +200,8 @@ const loadSettingsFromBackend = async () => {
     hasAdoPat.value = !!data.hasAdoPat;
     clearAdoPat.value = false;
     adoPat.value = '';
+    adoEnvParamName.value = localStorage.getItem('adoEnvParamName') || devopsDataStore.profileConfig.environmentParameterName || 'Environment';
+    adoOpParamName.value = localStorage.getItem('adoOpParamName') || devopsDataStore.profileConfig.operationParameterName || 'Operation';
 
     githubBaseUrl.value = data.githubBaseUrl || settingsStore.uiSettings.githubBaseUrl || 'https://github.com';
     githubOrganization.value = data.githubOrganization || settingsStore.uiSettings.githubOrg || '';
@@ -315,6 +319,10 @@ const handleSave = async () => {
     devopsDataStore.project = adoProject.value.trim();
     localStorage.setItem('adoOrg', adoOrganization.value.trim());
     localStorage.setItem('adoProject', adoProject.value.trim());
+    localStorage.setItem('adoEnvParamName', adoEnvParamName.value.trim() || 'Environment');
+    localStorage.setItem('adoOpParamName', adoOpParamName.value.trim() || 'Operation');
+    devopsDataStore.profileConfig.environmentParameterName = adoEnvParamName.value.trim() || 'Environment';
+    devopsDataStore.profileConfig.operationParameterName = adoOpParamName.value.trim() || 'Operation';
 
     settingsStore.uiSettings.githubBaseUrl = githubBaseUrl.value.trim();
     settingsStore.uiSettings.githubOrg = githubOrganization.value.trim();
@@ -454,7 +462,7 @@ const showAzureCloudSection = computed(() => {
 
 const showAdoSection = computed(() => {
   if (!searchQuery.value.trim()) return activeTab.value === 'azure-devops';
-  return matchesSearch('azure devops ado personal access token pat organization project build release pipeline sso');
+  return matchesSearch('azure devops ado personal access token pat organization project build release pipeline sso heuristics parsing parameter discoverability environment operation');
 });
 
 const showGithubSection = computed(() => {
@@ -1068,6 +1076,36 @@ const showUiSection = computed(() => {
               </div>
               <div v-if="clearAdoPat" class="text-[11px] text-rose-600 font-medium">
                 PAT marked for deletion. Will revert to Azure SSO on save.
+              </div>
+            </div>
+
+            <!-- Pipeline Discoverability & Parsing Heuristics -->
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <div>
+                <h5 class="text-xs font-bold text-slate-800">Pipeline Discoverability &amp; Parsing Heuristics</h5>
+                <p class="text-[11px] text-slate-500">Parameter keys used by ADO pipeline execution history to discover target deployment environments and release actions</p>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Environment Parameter Name</label>
+                  <input 
+                    v-model="adoEnvParamName" 
+                    type="text" 
+                    placeholder="e.g. Environment, env, targetEnvironment" 
+                    class="w-full text-xs font-mono bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                  />
+                  <span class="text-[10px] text-slate-400 mt-1 block">Parameter defined in pipeline YAML representing the target deployment environment</span>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Operation Parameter Name</label>
+                  <input 
+                    v-model="adoOpParamName" 
+                    type="text" 
+                    placeholder="e.g. Operation, action" 
+                    class="w-full text-xs font-mono bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                  />
+                  <span class="text-[10px] text-slate-400 mt-1 block">Parameter defined in pipeline YAML used to distinguish deploy / release runs</span>
+                </div>
               </div>
             </div>
           </section>
