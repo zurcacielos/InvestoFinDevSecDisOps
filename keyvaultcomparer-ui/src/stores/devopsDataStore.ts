@@ -118,6 +118,7 @@ export interface PipelineMatrixRow {
   environmentHistory?: Record<string, EnvironmentDeploymentInfo[]>;
   recentRuns?: PipelineRunInfo[];
   scannedRunsCount?: number;
+  hasReachedRunHistoryEnd?: boolean;
 }
 
 export interface ReleaseMatrixResponse {
@@ -391,6 +392,12 @@ export const useDevopsDataStore = defineStore('devopsData', {
 
     mergePipelineMatrixRows(existing: PipelineMatrixRow, incoming: PipelineMatrixRow): PipelineMatrixRow {
       const scannedRunsCount = Math.max(existing.scannedRunsCount || 0, incoming.scannedRunsCount || 0);
+      const hasReachedRunHistoryEnd = Boolean(
+        incoming.hasReachedRunHistoryEnd ||
+        existing.hasReachedRunHistoryEnd ||
+        (incoming.scannedRunsCount !== undefined && existing.scannedRunsCount !== undefined && incoming.scannedRunsCount > 0 && incoming.scannedRunsCount <= existing.scannedRunsCount) ||
+        (scannedRunsCount > 0 && scannedRunsCount < this.scanDepth)
+      );
 
       const mergedEnvHistory: Record<string, EnvironmentDeploymentInfo[]> = {};
       const allEnvKeys = new Set([
@@ -465,6 +472,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
         ...existing,
         ...incoming,
         scannedRunsCount,
+        hasReachedRunHistoryEnd,
         deployments: mergedStageDeployments,
         environmentDeployments: mergedEnvDeployments,
         environmentHistory: mergedEnvHistory,
@@ -794,16 +802,34 @@ export const useDevopsDataStore = defineStore('devopsData', {
       }
     },
 
+    canScanMore(row: PipelineMatrixRow): boolean {
+      if (row.hasReachedRunHistoryEnd) return false;
+      const runsCount = row.scannedRunsCount ?? row.recentRuns?.length ?? this.scanDepth;
+      if (row.scannedRunsCount !== undefined && row.scannedRunsCount > 0 && row.scannedRunsCount < this.scanDepth) {
+        return false;
+      }
+      if (runsCount >= 500) return false;
+      return true;
+    },
+
     async deepScanPipeline(pipelineId: number, additionalDepth: number = 50) {
       if (!this.organization || !this.project) return;
       if (this.deepScanningPipelineIds.includes(pipelineId)) return;
 
-      this.deepScanningPipelineIds.push(pipelineId);
-
       // Determine target scan depth
       const currentRow = this.cachedPipelineRows[pipelineId];
-      const currentRunsCount = currentRow?.recentRuns?.length || this.scanDepth;
-      const targetDepth = Math.min(Math.max(currentRunsCount + additionalDepth, this.scanDepth + additionalDepth), 200);
+      if (currentRow && !this.canScanMore(currentRow)) return;
+
+      const currentRunsCount = currentRow?.scannedRunsCount ?? currentRow?.recentRuns?.length ?? this.scanDepth;
+      const targetDepth = Math.min(Math.max(currentRunsCount + additionalDepth, this.scanDepth + additionalDepth), 500);
+      if (targetDepth <= currentRunsCount) {
+        if (currentRow) {
+          currentRow.hasReachedRunHistoryEnd = true;
+        }
+        return;
+      }
+
+      this.deepScanningPipelineIds.push(pipelineId);
 
       try {
         const url = `/api/devops/pipelines/${pipelineId}/deep-scan?organization=${encodeURIComponent(this.organization)}&project=${encodeURIComponent(this.project)}`;
@@ -825,9 +851,20 @@ export const useDevopsDataStore = defineStore('devopsData', {
         const updatedRow: PipelineMatrixRow = await res.json();
         if (updatedRow && updatedRow.pipelineId) {
           const existingRow = this.cachedPipelineRows[updatedRow.pipelineId];
-          this.cachedPipelineRows[updatedRow.pipelineId] = (existingRow && existingRow.scannedRunsCount)
+          const merged = (existingRow && existingRow.scannedRunsCount)
             ? this.mergePipelineMatrixRows(existingRow, updatedRow)
             : updatedRow;
+
+          if (existingRow && updatedRow.scannedRunsCount !== undefined && existingRow.scannedRunsCount !== undefined) {
+            if (updatedRow.scannedRunsCount <= existingRow.scannedRunsCount) {
+              merged.hasReachedRunHistoryEnd = true;
+            }
+          }
+          if (updatedRow.hasReachedRunHistoryEnd) {
+            merged.hasReachedRunHistoryEnd = true;
+          }
+
+          this.cachedPipelineRows[updatedRow.pipelineId] = merged;
           try {
             localStorage.setItem('adoCachedPipelineRows', JSON.stringify(this.cachedPipelineRows));
           } catch (e) {

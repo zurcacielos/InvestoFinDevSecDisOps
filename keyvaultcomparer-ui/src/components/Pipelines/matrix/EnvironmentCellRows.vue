@@ -40,8 +40,12 @@ const currentRunsCount = computed(() => {
   return props.row.scannedRunsCount ?? props.row.recentRuns?.length ?? devopsStore.scanDepth;
 });
 
+const canScanMore = computed(() => {
+  return devopsStore.canScanMore(props.row);
+});
+
 const nextDepth = computed(() => {
-  return Math.min(currentRunsCount.value + 50, 200);
+  return Math.min(currentRunsCount.value + 50, 500);
 });
 
 const handleDeepScan = () => {
@@ -268,10 +272,16 @@ const lagStatus = computed(() => {
         {{ formatTimeAgo(priorDep.deployedAt) }}
       </span>
       <div v-else class="flex items-center justify-between w-full text-[9px] text-slate-500">
-        <span class="italic text-slate-400 truncate" :title="`No prior deployment found in the last ${currentRunsCount} scanned runs for '${row.pipelineName}' on '${env}'`">
-          No prior in {{ currentRunsCount }} runs
+        <span 
+          class="italic text-slate-400 truncate" 
+          :title="canScanMore 
+            ? `No prior deployment found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan +50' to search older runs.` 
+            : `No prior deployment found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`"
+        >
+          No prior in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}
         </span>
         <button 
+          v-if="canScanMore"
           type="button"
           @click.stop="handleDeepScan"
           :disabled="isScanning"

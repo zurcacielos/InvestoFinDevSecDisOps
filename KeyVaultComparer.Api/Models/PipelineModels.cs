@@ -53,6 +53,7 @@ namespace KeyVaultComparer.Api.Models
         public Dictionary<string, List<EnvironmentDeploymentInfo>> EnvironmentHistory { get; set; } = new();
         public List<PipelineRunInfo> RecentRuns { get; set; } = new();
         public int ScannedRunsCount { get; set; }
+        public bool HasReachedRunHistoryEnd { get; set; }
     }
 
     public class PipelineYamlLink

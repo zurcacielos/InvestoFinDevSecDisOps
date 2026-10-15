@@ -24,9 +24,13 @@ const currentRunsCount = computed(() => {
   return props.row.scannedRunsCount ?? props.row.recentRuns?.length ?? devopsStore.scanDepth;
 });
 
+const canScanMore = computed(() => {
+  return devopsStore.canScanMore(props.row);
+});
+
 const nextDepth = computed(() => {
   if (isUnscanned.value) return devopsStore.scanDepth;
-  return Math.min(currentRunsCount.value + 50, 200);
+  return Math.min(currentRunsCount.value + 50, 500);
 });
 
 const handleScanAction = () => {
@@ -55,10 +59,19 @@ const handleScanAction = () => {
     class="h-full min-h-[48px] flex flex-col items-center justify-center py-2 px-1 text-slate-300 hover:bg-slate-50/70 rounded transition-colors group/empty"
     :title="isUnscanned 
       ? `Not yet scanned. Click to scan recent ${devopsStore.scanDepth} runs.` 
-      : `No deployment found in the last ${currentRunsCount} runs for '${row.pipelineName}' on '${env}'. Click 'Scan deeper' to search up to ${nextDepth} runs.`"
+      : (canScanMore 
+          ? `No deployment found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan deeper' to search up to ${nextDepth} runs.` 
+          : `No deployment found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`)"
   >
     <span class="text-xs text-slate-300 font-mono select-none leading-none">&mdash;</span>
+    <span 
+      v-if="!canScanMore && !isUnscanned"
+      class="text-[9px] text-slate-400 italic mt-1 select-none"
+    >
+      No run in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}
+    </span>
     <button 
+      v-else
       type="button"
       @click.stop="handleScanAction"
       class="text-[9px] font-medium text-blue-500 hover:text-blue-700 hover:underline transition-colors mt-1 cursor-pointer select-none"

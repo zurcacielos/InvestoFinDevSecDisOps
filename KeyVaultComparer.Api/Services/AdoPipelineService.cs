@@ -595,6 +595,7 @@ namespace KeyVaultComparer.Api.Services
                     if (buildsArray != null && buildsArray.Count > 0)
                     {
                         row.ScannedRunsCount = buildsArray.Count;
+                        row.HasReachedRunHistoryEnd = buildsArray.Count < scanDepth;
                         int buildPosition = 0;
                         foreach (var build in buildsArray)
                         {
