@@ -123,6 +123,10 @@ The application provides continuous delivery and deployment visibility across Az
 - **Pipeline Selection Decoupling**:
   - Selected pipeline chips are rendered in the ribbon even prior to fetching the full catalog of pipelines.
   - Catalog retrieval (`Fetch Pipelines`) is decoupled from matrix querying, allowing the user to select rows without triggering automatic refresh.
+- **Acceptance Criteria**:
+  - **Given** an environment matrix with multiple environments, **When** switching to "Rows" mode, **Then** all environment columns render Version on Row 1, Commit on Row 2, Branch on Row 3, and Date on Row 4 at matching Y-coordinates.
+  - **Given** an active deployment and a prior deployment, **When** "Columns" mode is enabled, **Then** the cell splits vertically showing Run $N$ on the left and Run $N-1$ on the right.
+  - **Given** the "Prior Run (N-1)" checkbox is toggled off, **Then** the previous run elements are hidden across all 3 visualization modes, collapsing row height.
 
 ### 3.3 Expanded Stages (Hierarchical Run DAG) Architecture
 - **Hierarchical Layout (Option A)**:
@@ -138,5 +142,18 @@ The application provides continuous delivery and deployment visibility across Az
 - **Global & Row-Level Controls**:
   - "Expand All" / "Collapse All" toggle in the sub-header bar.
   - Individual chevron toggle per pipeline.
+
+### 3.4 Architecture & Component Decomposition
+- **Frontend Matrix Components (`keyvaultcomparer-ui/src/components/Pipelines/matrix/`)**:
+  - `PipelineServiceColumn.vue`: Pinned column coordinating pipeline identification, AST actions, and repository deep-linking.
+  - `EnvironmentCellCards.vue`: Card-based cell with top-line version anchor and docked $N-1$ ribbon.
+  - `EnvironmentCellRows.vue`: Tabular cell enforcing uniform vertical spacing across all environments for straight horizontal version comparison.
+  - `EnvironmentCellColumns.vue`: Side-by-side temporal split comparing present vs past deployments within each environment.
+  - `RollbackRibbon.vue`: Reusable prior run delta component displaying return arrow, prior version, commit SHA, and time.
+  - `DeploymentStatusIndicator.vue`: Minimalist Azure-green status icon eliminating text noise.
+  - `pipelineUrlHelpers.ts`: Shared URL resolution logic for Azure DevOps builds, commits, PRs, and GitHub integration.
+- **State Management (`devopsDataStore.ts`)**:
+  - Centralizes `matrixLayoutMode` (`'cards' | 'rows' | 'columns'`), `viewMode` (`'environments' | 'stages'`), `scanDepth`, `onlySucceeded`, and `showRollbackTarget`, persisted in `localStorage`.
+
 
 
