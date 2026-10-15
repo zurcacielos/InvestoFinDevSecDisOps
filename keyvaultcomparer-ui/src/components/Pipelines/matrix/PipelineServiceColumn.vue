@@ -53,10 +53,8 @@ const cleanBranch = computed(() => {
           >
             {{ row.pipelineName }}
           </button>
-          <div class="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono mt-0.5">
-            <span>ID: {{ row.pipelineId }}</span>
-            <span v-if="row.yamlFilename" class="text-slate-300">&bull;</span>
-            <span v-if="row.yamlFilename" class="text-slate-400 truncate" :title="`YAML: ${row.yamlFilename}`">
+          <div v-if="row.yamlFilename" class="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono mt-0.5">
+            <span class="truncate" :title="`YAML: ${row.yamlFilename}`">
               {{ row.yamlFilename }}
             </span>
           </div>

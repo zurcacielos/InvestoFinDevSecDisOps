@@ -110,12 +110,16 @@ The connection to Azure Cloud and external platforms is strictly centralized in 
 The application provides continuous delivery and deployment visibility across Azure DevOps pipelines via the Pipelines view:
 
 ### 3.1 Views & Modes
-- **Target Environments View**: Matrix mapping pipelines to target deployment environments (`dev`, `uat`, `stg`, `prd`, etc.).
+- **Ribbon Unified Controls**:
+  - The view mode toggle is embedded directly within the ribbon bar (`PipelineRibbonBar.vue`), labeled simply **"Environment"** and **"Expanded"**, placed alongside the Scan depth selector (`15`, `25`, `50`, `100`), `Only Succeeded (✓)` toggle, and `Parametrization` settings button.
+  - A single **"Refresh Matrix"** action button is positioned at the bottom right of the ribbon bar, eliminating duplicate toolbar controls.
+  - Cache status and relative timestamps are surfaced strictly via hover tooltips (`title`) on the "Fetch / Re-fetch Pipelines" button and the pipeline search combobox, keeping the ribbon clean and free of inline badge clutter.
+- **Environment Matrix View**: Matrix mapping pipelines to target deployment environments (`dev`, `uat`, `stg`, `prd`, etc.).
 - **Expanded Stages (Hierarchical Run DAG) View**: Unfolds all executed stages in topological order (prerequisites to dependents) according to Azure DevOps YAML stage dependencies and timeline sequences.
 
 ### 3.2 Target Environments Matrix & Interchangeable Layout Modes
 - **Integrated Service / Pipeline Column**:
-  - The standalone `REPOSITORY` column is eliminated and merged into the sticky left `SERVICE / PIPELINE` column, displaying definition link, ID, YAML AST shortcuts, repository link, and default branch, recovering ~220px of horizontal viewport width.
+  - The standalone `REPOSITORY` column is eliminated and merged into the sticky left `SERVICE / PIPELINE` column, displaying the pipeline name, definition link, YAML AST shortcuts, repository link, and default branch. Raw pipeline IDs are omitted from display to maintain high information density without clutter.
 - **Minimalist Status & Progressive Disclosure**:
   - Replaces bulky "SUCCEEDED" pill badges with minimalist Azure-style circular indicators (`✓` green check, `✕` red cross, pulsing blue dot).
   - Compact author badges hide verbose names from the default cell view while retaining full user and trigger details in native hover tooltips.
@@ -128,23 +132,18 @@ The application provides continuous delivery and deployment visibility across Az
   - Right-clicking any deployment cell within an environment also provides column-hiding shortcuts in the shared context menu.
   - Whenever one or more environments are hidden, an interactive button `Show all hidden columns ({N})` is rendered in the sub-header controls bar, as well as an option in the context menu.
   - Column hidden state is persisted across reloads in `localStorage` under `adoHiddenEnvironments`.
-- **Redesigned Previous Run ($N-1$) Ribbon**:
-  - Replaces the bulky literal "ROLLBACK (N-1)" card with a minimalist docked ribbon displaying return arrow (`↺`), prior version/tag, commit SHA, and elapsed time with full date on hover.
-- **Scan Depth & Quality Filters**:
-  - Configurable scan depth selector in the toolbar (`15`, `25`, `50`, `100` recent runs per pipeline).
-  - `Only Succeeded (✓)` toggle to restrict deployment detection to successful pipeline runs.
-  - Dynamic `Apply Filters` button that highlights with pending indicator when filters are modified.
+- **Streamlined Previous Run ($N-1$) Deployment**:
+  - Prior deployments ($N-1$) in `EnvironmentCellRows.vue`, `EnvironmentCellColumns.vue`, and `RollbackRibbon.vue` do NOT display raw or abstract build/run numbers (`#...`).
+  - Prior runs display the version tag (`v...`) or commit SHA directly. Clicking this version tag navigates straight to that specific prior run in Azure DevOps.
 - **Pipeline Selection Decoupling & Session Preloading**:
   - Selected pipeline chips and definitions are persisted across sessions in `localStorage` under `adoCachedPipelines` and `adoCachedPipelineRows`.
-  - On application startup, if pipelines were previously fetched, the search combobox is immediately pre-filled and enabled (e.g. `Search 497 pipelines...`), and the fetch button is automatically labeled **"Re-fetch Pipelines"** with a subtle cache indicator (e.g., `Cached · 1d ago` with full timestamp on hover).
+  - On application startup, if pipelines were previously fetched, the search combobox is immediately pre-filled and enabled (e.g. `Search 497 pipelines...`), and the fetch button is automatically labeled **"Re-fetch Pipelines"** with cache details surfaced via hover tooltip.
   - On a fresh session with no prior cache, the button displays **"Fetch Pipelines"** and the search combobox is disabled with `Fetch pipelines first...`.
   - Matrix row names are preserved from session to session using cached row summaries and catalog metadata, preventing pipeline names from ever reverting to generic numeric placeholders (`Pipeline #<id>`).
-- **Interactive Previous Run ($N-1$) Tags**:
-  - The previous version tag (`v...`) and run pill (`#...`) in the $N-1$ ribbon and environment cells (`RollbackRibbon.vue`, `EnvironmentCellRows.vue`, `EnvironmentCellColumns.vue`) are interactive links. Clicking them navigates directly to the Azure DevOps build run in a new browser tab.
 - **Acceptance Criteria**:
   - **Given** an initial load or reset of the environment matrix, **Then** "Rows (Cross-Env)" is selected as the default layout mode.
-  - **Given** a user opens the application after a previous session where pipelines were retrieved, **Then** the combobox is active with the pipeline catalog count, the button shows "Re-fetch Pipelines", a relative timestamp hint indicates when it was last fetched, and selected matrix row chips render their full pipeline names.
-  - **Given** an environment cell with a prior deployment, **When** the user clicks the previous version tag (`v...`) or build number (`#...`), **Then** the previous run opens in Azure DevOps in a new tab.
+  - **Given** a user opens the application after a previous session where pipelines were retrieved, **Then** the combobox is active with the pipeline catalog count, the button shows "Re-fetch Pipelines", hover tooltips reveal cache status, and selected matrix row chips render their full pipeline names.
+  - **Given** an environment cell with a prior deployment, **When** the user clicks the previous version tag (`v...`), **Then** that previous run opens directly in Azure DevOps in a new tab without rendering an abstract build number.
   - **Given** an active deployment and a prior deployment, **When** "Columns" mode is enabled, **Then** the cell splits vertically showing Prior Run $N-1$ on the left and Active Run $N$ on the right.
   - **Given** an environment column header, **When** right-clicking on the header, **Then** a context menu appears with options to "Hide this column", "Hide Others", and if any columns are hidden, "Show hidden columns".
   - **Given** one or more hidden environment columns, **Then** a button "Show all hidden columns ({N})" is displayed in the sub-header toolbar and clicking it restores all hidden columns.

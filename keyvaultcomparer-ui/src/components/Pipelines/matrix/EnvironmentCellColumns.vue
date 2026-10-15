@@ -91,14 +91,6 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
           </svg>
           <span class="font-bold text-amber-900 text-[10px]">Prior</span>
         </div>
-        <button 
-          v-if="priorBuildUrl || priorDep.buildUrl"
-          @click.stop="openUrlInNewTab(priorBuildUrl || priorDep.buildUrl!)"
-          class="font-mono text-blue-600 hover:underline text-[10px] shrink-0"
-          :title="`Open Previous Run #${priorDep.buildNumber}`"
-        >
-          #{{ priorDep.buildNumber }}
-        </button>
       </div>
 
       <!-- Prior Version / Tag -->
