@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { useDevopsDataStore } from '../../stores/devopsDataStore';
 import type { PipelineMatrixRow, EnvironmentDeploymentInfo } from '../../stores/devopsDataStore';
 import PipelineServiceColumn from './matrix/PipelineServiceColumn.vue';
@@ -15,7 +15,8 @@ const emit = defineEmits<{
 }>();
 
 const environments = computed(() => {
-  return devopsStore.releaseMatrix?.environments || [];
+  const all = devopsStore.releaseMatrix?.environments || [];
+  return all.filter(env => !devopsStore.hiddenEnvironments.some(h => h.toLowerCase() === env.toLowerCase()));
 });
 
 const rows = computed(() => {
@@ -28,6 +29,57 @@ const getDeploymentsForEnv = (row: PipelineMatrixRow, env: string): EnvironmentD
   const current = row.environmentDeployments?.[env];
   return current ? [current] : [];
 };
+
+// Header Context Menu State
+const headerContextMenu = ref<{ show: boolean; x: number; y: number; env: string }>({
+  show: false,
+  x: 0,
+  y: 0,
+  env: ''
+});
+
+const handleHeaderContextMenuEsc = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') hideHeaderContextMenu();
+};
+
+const openHeaderContextMenu = (e: MouseEvent, env: string) => {
+  headerContextMenu.value = {
+    show: true,
+    x: e.clientX,
+    y: e.clientY,
+    env
+  };
+  setTimeout(() => {
+    window.addEventListener('click', hideHeaderContextMenu);
+    window.addEventListener('keydown', handleHeaderContextMenuEsc);
+  }, 0);
+};
+
+const hideHeaderContextMenu = () => {
+  headerContextMenu.value.show = false;
+  window.removeEventListener('click', hideHeaderContextMenu);
+  window.removeEventListener('keydown', handleHeaderContextMenuEsc);
+};
+
+const hideColumn = (env: string) => {
+  devopsStore.hideEnvironment(env);
+  hideHeaderContextMenu();
+};
+
+const hideOtherColumns = (env: string) => {
+  devopsStore.hideOtherEnvironments(env);
+  hideHeaderContextMenu();
+};
+
+const showAllColumns = () => {
+  devopsStore.showAllHiddenEnvironments();
+  hideHeaderContextMenu();
+};
+
+onUnmounted(() => {
+  window.removeEventListener('click', hideHeaderContextMenu);
+  window.removeEventListener('keydown', handleHeaderContextMenuEsc);
+});
 </script>
 
 <template>
@@ -51,7 +103,7 @@ const getDeploymentsForEnv = (row: PipelineMatrixRow, env: string): EnvironmentD
           <!-- Cards Mode -->
           <button 
             @click="devopsStore.setMatrixLayoutMode('cards')"
-            class="px-2.5 py-0.5 rounded-md flex items-center gap-1.5 transition-all"
+            class="px-2.5 py-0.5 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
             :class="devopsStore.matrixLayoutMode === 'cards' 
               ? 'bg-white text-slate-900 font-bold shadow-xs' 
               : 'text-slate-600 hover:text-slate-900'"
@@ -66,7 +118,7 @@ const getDeploymentsForEnv = (row: PipelineMatrixRow, env: string): EnvironmentD
           <!-- Rows Mode (Cross-Environment Comparison) -->
           <button 
             @click="devopsStore.setMatrixLayoutMode('rows')"
-            class="px-2.5 py-0.5 rounded-md flex items-center gap-1.5 transition-all"
+            class="px-2.5 py-0.5 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
             :class="devopsStore.matrixLayoutMode === 'rows' 
               ? 'bg-white text-slate-900 font-bold shadow-xs' 
               : 'text-slate-600 hover:text-slate-900'"
@@ -81,7 +133,7 @@ const getDeploymentsForEnv = (row: PipelineMatrixRow, env: string): EnvironmentD
           <!-- Columns Mode (Temporal In-Environment Comparison) -->
           <button 
             @click="devopsStore.setMatrixLayoutMode('columns')"
-            class="px-2.5 py-0.5 rounded-md flex items-center gap-1.5 transition-all"
+            class="px-2.5 py-0.5 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
             :class="devopsStore.matrixLayoutMode === 'columns' 
               ? 'bg-white text-slate-900 font-bold shadow-xs' 
               : 'text-slate-600 hover:text-slate-900'"
@@ -112,6 +164,20 @@ const getDeploymentsForEnv = (row: PipelineMatrixRow, env: string): EnvironmentD
           </svg>
           <span>Prior Run (N-1)</span>
         </label>
+
+        <!-- Show All Hidden Columns Button (if any environment is hidden) -->
+        <button 
+          v-if="devopsStore.hiddenEnvironments.length > 0"
+          @click="devopsStore.showAllHiddenEnvironments()"
+          class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer"
+          title="Restore all hidden environment columns"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <span>Show all hidden columns ({{ devopsStore.hiddenEnvironments.length }})</span>
+        </button>
       </div>
 
       <!-- Status Legend -->
@@ -142,8 +208,10 @@ const getDeploymentsForEnv = (row: PipelineMatrixRow, env: string): EnvironmentD
             <th 
               v-for="env in environments" 
               :key="env"
-              class="px-3 py-2 font-bold bg-slate-100 border-r border-slate-200 text-center"
+              class="px-3 py-2 font-bold bg-slate-100 border-r border-slate-200 text-center cursor-context-menu select-none hover:bg-slate-200/70 transition-colors"
               :class="devopsStore.matrixLayoutMode === 'columns' ? 'min-w-[270px]' : 'min-w-[210px]'"
+              @contextmenu.prevent="openHeaderContextMenu($event, env)"
+              :title="`Right-click to configure column options for ${env}`"
             >
               <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white border border-slate-200 shadow-2xs text-slate-800 font-mono font-bold text-xs uppercase">
                 <span class="w-2 h-2 rounded-full bg-blue-500"></span>
@@ -154,6 +222,28 @@ const getDeploymentsForEnv = (row: PipelineMatrixRow, env: string): EnvironmentD
         </thead>
 
         <tbody class="divide-y divide-slate-100 text-xs">
+          <!-- Fallback when all environments are hidden -->
+          <tr v-if="environments.length === 0">
+            <td :colspan="2" class="p-8 text-center bg-slate-50 text-slate-500">
+              <div class="flex flex-col items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                </svg>
+                <span class="text-sm font-medium text-slate-700">All environment columns are currently hidden</span>
+                <button 
+                  @click="devopsStore.showAllHiddenEnvironments()"
+                  class="mt-1 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  Show all hidden columns ({{ devopsStore.hiddenEnvironments.length }})
+                </button>
+              </div>
+            </td>
+          </tr>
+
           <tr 
             v-for="row in rows" 
             :key="row.pipelineId"
@@ -209,6 +299,38 @@ const getDeploymentsForEnv = (row: PipelineMatrixRow, env: string): EnvironmentD
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Environment Column Header Context Menu -->
+    <div 
+      v-if="headerContextMenu.show" 
+      :style="{ top: `${headerContextMenu.y}px`, left: `${headerContextMenu.x}px` }"
+      class="fixed z-50 bg-white border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.1),_0_0_1px_rgba(0,0,0,0.2)] rounded py-1 min-w-[170px] text-[13px] text-slate-800 select-none animate-in fade-in duration-75"
+      @click.stop
+    >
+      <div class="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-0.5">
+        Column: {{ headerContextMenu.env }}
+      </div>
+      <button 
+        @click="hideColumn(headerContextMenu.env)" 
+        class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group cursor-pointer"
+      >
+        <span>Hide this column</span>
+      </button>
+      <button 
+        @click="hideOtherColumns(headerContextMenu.env)" 
+        class="w-full text-left px-3 py-1.5 hover:bg-slate-100 flex items-center justify-between group cursor-pointer"
+      >
+        <span>Hide Others</span>
+      </button>
+      <div v-if="devopsStore.hiddenEnvironments.length > 0" class="h-px bg-slate-200 my-1"></div>
+      <button 
+        v-if="devopsStore.hiddenEnvironments.length > 0" 
+        @click="showAllColumns" 
+        class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-blue-600 font-medium flex items-center justify-between group cursor-pointer"
+      >
+        <span>Show hidden columns</span>
+      </button>
     </div>
   </div>
 </template>

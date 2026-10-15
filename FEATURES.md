@@ -111,9 +111,14 @@ The application provides continuous delivery and deployment visibility across Az
   - Replaces bulky "SUCCEEDED" pill badges with minimalist Azure-style circular indicators (`✓` green check, `✕` red cross, pulsing blue dot).
   - Compact author badges hide verbose names from the default cell view while retaining full user and trigger details in native hover tooltips.
 - **Three Interchangeable Layout Modes**:
-  - **Cards Mode (`cards`)**: Default optimized view featuring prominent top-line version tags, active deployment metadata, and a docked compact $N-1$ previous run ribbon.
-  - **Rows Mode (`rows`)**: Strict cross-environment row alignment. Enforces identical Y-positions for Version, Commit, Branch, and Time across all environment columns, facilitating rapid horizontal eye scanning.
-  - **Columns Mode (`columns`)**: Temporal in-environment comparison. Splits each environment cell vertically into two sub-columns (Active Run $N$ on the left, Prior Run $N-1$ on the right) for side-by-side auditing without vertical scrolling.
+  - **Rows Mode (`rows`)**: Default view. Strict cross-environment row alignment. Enforces identical Y-positions for Version, Commit, Branch, and Time across all environment columns, facilitating rapid horizontal eye scanning.
+  - **Cards Mode (`cards`)**: Compact active card view featuring prominent top-line version tags, active deployment metadata, and a docked compact $N-1$ previous run ribbon.
+  - **Columns Mode (`columns`)**: Temporal in-environment comparison. Splits each environment cell vertically into two sub-columns (Prior Run $N-1$ on the left, Active Run $N$ on the right) for side-by-side auditing without vertical scrolling.
+- **Environment Column Context Menu & Dynamic Column Hiding**:
+  - Environment column headers (`<th>`) feature a right-click context menu matching the comparison grid pattern (`Hide this column`, `Hide Others`, `Show hidden columns`).
+  - Right-clicking any deployment cell within an environment also provides column-hiding shortcuts in the shared context menu.
+  - Whenever one or more environments are hidden, an interactive button `Show all hidden columns ({N})` is rendered in the sub-header controls bar, as well as an option in the context menu.
+  - Column hidden state is persisted across reloads in `localStorage` under `adoHiddenEnvironments`.
 - **Redesigned Previous Run ($N-1$) Ribbon**:
   - Replaces the bulky literal "ROLLBACK (N-1)" card with a minimalist docked ribbon displaying return arrow (`↺`), prior version/tag, commit SHA, and elapsed time with full date on hover.
 - **Scan Depth & Quality Filters**:
@@ -124,8 +129,10 @@ The application provides continuous delivery and deployment visibility across Az
   - Selected pipeline chips are rendered in the ribbon even prior to fetching the full catalog of pipelines.
   - Catalog retrieval (`Fetch Pipelines`) is decoupled from matrix querying, allowing the user to select rows without triggering automatic refresh.
 - **Acceptance Criteria**:
-  - **Given** an environment matrix with multiple environments, **When** switching to "Rows" mode, **Then** all environment columns render Version on Row 1, Commit on Row 2, Branch on Row 3, and Date on Row 4 at matching Y-coordinates.
-  - **Given** an active deployment and a prior deployment, **When** "Columns" mode is enabled, **Then** the cell splits vertically showing Run $N$ on the left and Run $N-1$ on the right.
+  - **Given** an initial load or reset of the environment matrix, **Then** "Rows (Cross-Env)" is selected as the default layout mode.
+  - **Given** an active deployment and a prior deployment, **When** "Columns" mode is enabled, **Then** the cell splits vertically showing Prior Run $N-1$ on the left and Active Run $N$ on the right.
+  - **Given** an environment column header, **When** right-clicking on the header, **Then** a context menu appears with options to "Hide this column", "Hide Others", and if any columns are hidden, "Show hidden columns".
+  - **Given** one or more hidden environment columns, **Then** a button "Show all hidden columns ({N})" is displayed in the sub-header toolbar and clicking it restores all hidden columns.
   - **Given** the "Prior Run (N-1)" checkbox is toggled off, **Then** the previous run elements are hidden across all 3 visualization modes, collapsing row height.
 
 ### 3.3 Expanded Stages (Hierarchical Run DAG) Architecture
