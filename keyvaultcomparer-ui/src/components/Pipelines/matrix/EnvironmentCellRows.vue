@@ -31,6 +31,23 @@ const priorDep = computed<EnvironmentDeploymentInfo | null>(() => {
   return props.deployments.length > 1 ? props.deployments[1] : null;
 });
 
+const isScanning = computed(() => {
+  return devopsStore.deepScanningPipelineIds.includes(props.row.pipelineId) ||
+         devopsStore.isSinglePipelineRefreshing(props.row.pipelineId);
+});
+
+const currentRunsCount = computed(() => {
+  return props.row.scannedRunsCount ?? props.row.recentRuns?.length ?? devopsStore.scanDepth;
+});
+
+const nextDepth = computed(() => {
+  return Math.min(currentRunsCount.value + 50, 200);
+});
+
+const handleDeepScan = () => {
+  devopsStore.deepScanPipeline(props.row.pipelineId, 50);
+};
+
 const priorBuildUrl = computed(() => {
   if (!priorDep.value) return null;
   return getBuildUrl(
@@ -119,7 +136,7 @@ const lagStatus = computed(() => {
     <!-- Row 1: Strict Version / Tag & Run Link -->
     <div class="h-7 px-2 flex items-center justify-between gap-1 bg-slate-50/70">
       <div class="flex items-center gap-1.5 min-w-0">
-        <DeploymentStatusIndicator :status="activeDep.status" />
+        <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
         <span 
           v-if="activeDep.version"
           class="font-mono font-bold text-xs text-violet-700 truncate"
@@ -136,24 +153,15 @@ const lagStatus = computed(() => {
         </span>
       </div>
 
-      <!-- Run # & Scan Position Badge -->
-      <div class="flex items-center gap-1 shrink-0">
-        <button 
-          v-if="activeDep.buildUrl"
-          @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
-          class="text-[10px] font-mono text-blue-600 hover:underline shrink-0"
-          :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
-        >
-          #{{ activeDep.buildNumber }}
-        </button>
-        <span 
-          v-if="activeDep.scanPosition" 
-          class="text-[9px] font-mono font-semibold px-1 py-0.2 rounded bg-slate-100 text-slate-500 border border-slate-200 shrink-0" 
-          :title="`Discovered at build position #${activeDep.scanPosition} in recent runs scan window`"
-        >
-          p#{{ activeDep.scanPosition }}
-        </span>
-      </div>
+      <!-- Run # Link -->
+      <button 
+        v-if="activeDep.buildUrl"
+        @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
+        class="text-[10px] font-mono text-blue-600 hover:underline shrink-0"
+        :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
+      >
+        #{{ activeDep.buildNumber }}
+      </button>
     </div>
 
     <!-- Row 2: Strict Commit SHA & PR -->
@@ -228,7 +236,14 @@ const lagStatus = computed(() => {
       class="h-6 px-2 flex items-center justify-between gap-1 text-[9px] bg-amber-50/80 border-t border-amber-200/60"
     >
       <div v-if="priorDep" class="flex items-center gap-1 min-w-0">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          class="h-2.5 w-2.5 text-amber-600 shrink-0 cursor-help" 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+          :title="priorDep.scanPosition ? `Previous deployment return point · Scanned build position #${priorDep.scanPosition}` : 'Previous deployment return point'"
+        >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
         </svg>
         <button 
@@ -248,20 +263,28 @@ const lagStatus = computed(() => {
         >
           {{ priorDep.commitSha.substring(0, 7) }}
         </button>
-        <span 
-          v-if="priorDep.scanPosition" 
-          class="text-[8px] font-mono font-semibold px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200 shrink-0" 
-          :title="`Prior deployment discovered at build position #${priorDep.scanPosition}`"
-        >
-          p#{{ priorDep.scanPosition }}
-        </span>
       </div>
       <span v-if="priorDep" class="text-amber-800/80 font-mono shrink-0">
         {{ formatTimeAgo(priorDep.deployedAt) }}
       </span>
-      <span v-else class="text-slate-400 italic text-[9px] w-full text-center">
-        No prior version
-      </span>
+      <div v-else class="flex items-center justify-between w-full text-[9px] text-slate-500">
+        <span class="italic text-slate-400 truncate" :title="`No prior deployment found in the last ${currentRunsCount} scanned runs for '${row.pipelineName}' on '${env}'`">
+          No prior in {{ currentRunsCount }} runs
+        </span>
+        <button 
+          type="button"
+          @click.stop="handleDeepScan"
+          :disabled="isScanning"
+          class="font-semibold text-amber-700 hover:text-amber-900 hover:underline shrink-0 ml-1 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+          :title="`Search up to ${nextDepth} older runs for '${row.pipelineName}' in Azure DevOps`"
+        >
+          <svg v-if="isScanning" class="animate-spin h-2.5 w-2.5 text-amber-600" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>{{ isScanning ? 'Scanning...' : 'Scan +50' }}</span>
+        </button>
+      </div>
     </div>
   </div>
 

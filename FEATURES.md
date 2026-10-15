@@ -133,21 +133,25 @@ The application provides continuous delivery and deployment visibility across Az
   - Right-clicking any deployment cell within an environment also provides column-hiding shortcuts in the shared context menu.
   - Whenever one or more environments are hidden, an interactive button `Show all hidden columns ({N})` is rendered in the sub-header controls bar, as well as an option in the context menu.
   - Column hidden state is persisted across reloads in `localStorage` under `adoHiddenEnvironments`.
-- **Streamlined Previous Run ($N-1$) Deployment**:
+- **Streamlined Previous Run ($N-1$) Deployment & Recoverable State**:
   - Prior deployments ($N-1$) in `EnvironmentCellRows.vue`, `EnvironmentCellColumns.vue`, and `RollbackRibbon.vue` do NOT display raw or abstract build/run numbers (`#...`).
   - Prior runs display the version tag (`v...`) or commit SHA directly. Clicking this version tag navigates straight to that specific prior run in Azure DevOps.
+  - When an active deployment exists but no prior deployment ($N-1$) was found within the evaluated run window, the cell renders an informative empty state (`No prior in {N} runs`) paired with an actionable `Scan +50` button that triggers an on-demand deep scan for that pipeline.
 - **Pipeline Selection Decoupling & Manual Refresh Flow**:
   - Selected pipeline chips and definitions are persisted across sessions in `localStorage` under `adoCachedPipelines` and `adoCachedPipelineRows`.
   - On application startup, if pipelines were previously fetched, the search combobox is immediately pre-filled and enabled (e.g. `Search 497 pipelines...`), and the fetch button is automatically labeled **"Re-fetch Pipelines"** with cache details surfaced via hover tooltip.
   - Selecting a new pipeline or modifying the scan depth / only-succeeded filter never triggers an automated network query. Newly selected pipelines mount immediately with a placeholder row in the grid.
   - The **"Refresh Matrix"** button is styled with colored active borders, a ring, and an indicator pulse (`hasPendingChanges: true`) to inform the user that changes are pending manual execution.
   - Clicking "Refresh Matrix" passes `forceRefresh: true` to bypass server-side cache and re-scans all selected rows.
+- **Multi-Depth Run Merging & Row Cache Resilience (`mergePipelineMatrixRows`)**:
+  - When global matrix refresh (`fetchReleaseMatrix`) or single-pipeline refresh is executed at a lower scan depth (e.g. 25), any pipeline row that was previously deep-scanned to a higher depth (e.g. 50, 100, 200) merges incoming runs on top of its existing historical run catalog via `mergePipelineMatrixRows`.
+  - Preserves older environments and prior runs discovered in earlier deep runs instead of clobbering them, tracking the maximum explored scan depth (`scannedRunsCount`).
 - **Per-Pipeline Circular Refresh (`↻`)**:
   - Each pipeline row in both the cross-environment matrix (`PipelineServiceColumn.vue`) and hierarchical DAG view (`ExpandedStagesView.vue`) features a dedicated circular refresh button (`↻`).
   - Clicking this button refreshes only that specific pipeline row at the currently selected scan depth (`scanDepth`), rendering an inline spinning icon and updating its environments upon completion.
-- **Stage-Level Multi-Stage Pipeline Evaluation & Visible Scan Depth Tracking**:
+- **Stage-Level Multi-Stage Pipeline Evaluation & Hover Scan Depth Telemetry**:
   - ADO build exploration evaluates run results at the individual stage level rather than filtering at the top-level build endpoint, preventing multi-stage pipelines with downstream failures from hiding upstream environments.
-  - Discovered active ($N$) and prior ($N-1$) deployments track their exact 1-based run position in the scanned build window (`scanPosition`). This is prominently rendered as a visible `p#<N>` badge (e.g., `p#1`, `p#4`) alongside the build number and commit SHA across all cell modes, as well as in hover tooltips.
+  - Discovered active ($N$) and prior ($N-1$) deployments track their exact 1-based run position in the scanned build window (`scanPosition`), surfaced strictly within hover tooltips (on the active deployment status indicator and the rollback return arrow) to avoid on-screen text clutter.
 - **On-Demand Per-Pipeline Deep Scan (`EmptyEnvironmentCell.vue`)**:
   - Sparse environments where no deployment was found within the initial scan window (`scanDepth: 15/25/50`) display a recoverable empty state (`—` with an actionable `Scan deeper` or `Scan pipeline` link).
   - Hovering provides full context via native tooltip (`No deployment found in the last {N} runs for '{pipeline}' on '{env}'. Click 'Scan deeper' to search up to {N+50} runs.`).
