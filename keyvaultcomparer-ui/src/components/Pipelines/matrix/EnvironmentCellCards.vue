@@ -103,14 +103,14 @@ const lagStatus = computed(() => {
         <span 
           v-if="activeDep.version"
           class="font-mono font-bold text-xs text-violet-700 bg-violet-50/90 px-1.5 py-0.5 rounded border border-violet-200/80 truncate shadow-2xs"
-          :title="`Version/Tag: ${activeDep.version}`"
+          :title="`Version/Tag: ${activeDep.version}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           v{{ activeDep.version }}
         </span>
         <span 
           v-else-if="activeDep.commitSha"
           class="font-mono font-bold text-xs text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 truncate"
-          :title="`Commit: ${activeDep.commitSha}`"
+          :title="`Commit: ${activeDep.commitSha}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
         </span>
@@ -129,7 +129,7 @@ const lagStatus = computed(() => {
         v-if="activeDep.buildUrl"
         @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
         class="text-[11px] font-mono text-blue-600 hover:underline hover:text-blue-800 shrink-0"
-        :title="`Open Run #${activeDep.buildNumber} in Azure DevOps`"
+        :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
       >
         #{{ activeDep.buildNumber }}
       </button>

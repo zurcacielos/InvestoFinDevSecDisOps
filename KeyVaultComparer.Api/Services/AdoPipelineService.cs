@@ -19,12 +19,14 @@ namespace KeyVaultComparer.Api.Services
         private readonly AdoAuthService _adoAuthService;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly EncryptedCacheService _cacheService;
+        private readonly Microsoft.Extensions.Logging.ILogger<AdoPipelineService>? _logger;
 
-        public AdoPipelineService(AdoAuthService adoAuthService, IHttpClientFactory httpClientFactory, EncryptedCacheService cacheService)
+        public AdoPipelineService(AdoAuthService adoAuthService, IHttpClientFactory httpClientFactory, EncryptedCacheService cacheService, Microsoft.Extensions.Logging.ILogger<AdoPipelineService>? logger = null)
         {
             _adoAuthService = adoAuthService;
             _httpClientFactory = httpClientFactory;
             _cacheService = cacheService;
+            _logger = logger;
         }
 
         private async Task<AuthenticationHeaderValue> GetAdoAuthHeaderAsync(CancellationToken cancellationToken = default)
@@ -410,13 +412,14 @@ namespace KeyVaultComparer.Api.Services
             PipelineProfileConfig? profileConfig = null, 
             int scanDepth = 25,
             bool onlySucceeded = true,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool bypassCache = false)
         {
             profileConfig ??= new PipelineProfileConfig();
             var authHeader = await GetAdoAuthHeaderAsync(cancellationToken);
             var collectedEdges = new System.Collections.Concurrent.ConcurrentBag<(string From, string To)>();
 
-            var tasks = pipelineIds.Select(id => FetchPipelineRowAsync(organization, project, id, authHeader, profileConfig, collectedEdges, scanDepth, onlySucceeded, cancellationToken));
+            var tasks = pipelineIds.Select(id => FetchPipelineRowAsync(organization, project, id, authHeader, profileConfig, collectedEdges, scanDepth, onlySucceeded, cancellationToken, bypassCache: bypassCache));
             var rows = await Task.WhenAll(tasks);
 
             // 1. Gather all discovered stages for the Expanded Stages DAG view
@@ -581,8 +584,7 @@ namespace KeyVaultComparer.Api.Services
             // 3. Recent Builds (scanDepth builds to find deployments across environments)
             try
             {
-                var resultFilterQuery = onlySucceeded ? "&resultFilter=succeeded" : "";
-                var buildsUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={pipelineId}&$top={scanDepth}{resultFilterQuery}&queryOrder=finishTimeDescending&api-version=7.1";
+                var buildsUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/builds?definitions={pipelineId}&$top={scanDepth}&queryOrder=finishTimeDescending&api-version=7.1";
                 var buildsResp = await client.GetAsync(buildsUrl, cancellationToken);
                 if (buildsResp.IsSuccessStatusCode)
                 {
@@ -592,9 +594,12 @@ namespace KeyVaultComparer.Api.Services
 
                     if (buildsArray != null && buildsArray.Count > 0)
                     {
+                        row.ScannedRunsCount = buildsArray.Count;
+                        int buildPosition = 0;
                         foreach (var build in buildsArray)
                         {
                             if (build == null) continue;
+                            buildPosition++;
 
                             var buildId = build["id"]?.GetValue<int>() ?? 0;
                             var buildNumber = build["buildNumber"]?.ToString() ?? string.Empty;
@@ -715,6 +720,9 @@ namespace KeyVaultComparer.Api.Services
                             if (!string.IsNullOrWhiteSpace(envParam))
                             {
                                 var matchedTarget = profileConfig.Environments.FirstOrDefault(e => string.Equals(e, envParam.Trim(), StringComparison.OrdinalIgnoreCase)) ?? envParam.Trim();
+                                bool isParamSuccess = string.Equals(overallStatus, "succeeded", StringComparison.OrdinalIgnoreCase) ||
+                                                      string.Equals(overallStatus, "partiallySucceeded", StringComparison.OrdinalIgnoreCase);
+
                                 var envDep = new EnvironmentDeploymentInfo
                                 {
                                     Environment = matchedTarget,
@@ -731,10 +739,11 @@ namespace KeyVaultComparer.Api.Services
                                     BuildUrl = buildUrl,
                                     PrNumber = prNumber,
                                     Operation = opParam,
-                                    Version = tagParam
+                                    Version = tagParam,
+                                    ScanPosition = buildPosition
                                 };
 
-                                if (!row.EnvironmentDeployments.ContainsKey(matchedTarget))
+                                if (!row.EnvironmentDeployments.ContainsKey(matchedTarget) && (!onlySucceeded || isParamSuccess))
                                 {
                                     row.EnvironmentDeployments[matchedTarget] = envDep;
                                 }
@@ -743,7 +752,7 @@ namespace KeyVaultComparer.Api.Services
                                 {
                                     row.EnvironmentHistory[matchedTarget] = new List<EnvironmentDeploymentInfo>();
                                 }
-                                if (!row.EnvironmentHistory[matchedTarget].Any(d => d.BuildId == buildId))
+                                if (!row.EnvironmentHistory[matchedTarget].Any(d => d.BuildId == buildId) && (!onlySucceeded || isParamSuccess))
                                 {
                                     row.EnvironmentHistory[matchedTarget].Add(envDep);
                                 }
@@ -827,7 +836,10 @@ namespace KeyVaultComparer.Api.Services
                                         previousStageName = stageName;
 
                                         // Register in Expanded Stages Deployments (legacy summary fallback)
-                                        if (!row.Deployments.ContainsKey(stageName))
+                                        bool isStageSuccess = string.Equals(status, "succeeded", StringComparison.OrdinalIgnoreCase) ||
+                                                              string.Equals(status, "partiallySucceeded", StringComparison.OrdinalIgnoreCase);
+
+                                        if (!row.Deployments.ContainsKey(stageName) && (!onlySucceeded || isStageSuccess))
                                         {
                                             row.Deployments[stageName] = new StageDeploymentInfo
                                             {
@@ -876,10 +888,11 @@ namespace KeyVaultComparer.Api.Services
                                                 BuildUrl = buildUrl,
                                                 PrNumber = prNumber,
                                                 Operation = opParam,
-                                                Version = tagParam
+                                                Version = tagParam,
+                                                ScanPosition = buildPosition
                                             };
 
-                                            if (!row.EnvironmentDeployments.ContainsKey(matchedEnv))
+                                            if (!row.EnvironmentDeployments.ContainsKey(matchedEnv) && (!onlySucceeded || isStageSuccess))
                                             {
                                                 row.EnvironmentDeployments[matchedEnv] = stageEnvDep;
                                             }
@@ -888,7 +901,7 @@ namespace KeyVaultComparer.Api.Services
                                             {
                                                 row.EnvironmentHistory[matchedEnv] = new List<EnvironmentDeploymentInfo>();
                                             }
-                                            if (!row.EnvironmentHistory[matchedEnv].Any(d => d.BuildId == buildId))
+                                            if (!row.EnvironmentHistory[matchedEnv].Any(d => d.BuildId == buildId) && (!onlySucceeded || isStageSuccess))
                                             {
                                                 row.EnvironmentHistory[matchedEnv].Add(stageEnvDep);
                                             }
@@ -909,7 +922,10 @@ namespace KeyVaultComparer.Api.Services
                                     Order = 1
                                 };
 
-                                if (!row.Deployments.ContainsKey("Build"))
+                                bool isOverallSuccess = string.Equals(overallStatus, "succeeded", StringComparison.OrdinalIgnoreCase) ||
+                                                        string.Equals(overallStatus, "partiallySucceeded", StringComparison.OrdinalIgnoreCase);
+
+                                if (!row.Deployments.ContainsKey("Build") && (!onlySucceeded || isOverallSuccess))
                                 {
                                     row.Deployments["Build"] = new StageDeploymentInfo
                                     {
@@ -936,7 +952,10 @@ namespace KeyVaultComparer.Api.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Error fetching pipeline row for {PipelineId}", pipelineId);
+            }
 
             await _cacheService.SetAsync(rowCacheKey, row, "PipelineRuns", cancellationToken: cancellationToken);
             return row;

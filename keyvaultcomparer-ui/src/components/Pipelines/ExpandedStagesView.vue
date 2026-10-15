@@ -326,6 +326,25 @@ const toDeploymentInfo = (run: PipelineRunInfo, stageName?: string): StageDeploy
 
                   <!-- Action Buttons -->
                   <div class="flex items-center gap-1 shrink-0">
+                    <!-- Refresh Single Pipeline -->
+                    <button 
+                      @click.stop="devopsStore.refreshSinglePipeline(row.pipelineId)"
+                      class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                      :title="`Refresh '${row.pipelineName}' (Scan depth: ${devopsStore.scanDepth} runs)`"
+                      :disabled="devopsStore.isSinglePipelineRefreshing(row.pipelineId)"
+                    >
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        class="h-3.5 w-3.5" 
+                        :class="{'animate-spin text-blue-600': devopsStore.isSinglePipelineRefreshing(row.pipelineId)}"
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+
                     <!-- Open all GitHub Yaml -->
                     <button 
                       @click.stop="emit('open-all-yamls', row)"
