@@ -4,7 +4,7 @@ import type { EnvironmentDeploymentInfo, PipelineMatrixRow } from '../../../stor
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useDevopsDataStore } from '../../../stores/devopsDataStore';
 import { openUrlInNewTab } from '../../../utils/urlOpener';
-import { formatTimeAgo, getCommitUrl, getPrUrl } from '../../../utils/pipelineUrlHelpers';
+import { formatTimeAgo, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
 import DeploymentStatusIndicator from './DeploymentStatusIndicator.vue';
 import PipelineAuthorBadge from '../PipelineAuthorBadge.vue';
 
@@ -28,6 +28,16 @@ const activeDep = computed<EnvironmentDeploymentInfo | null>(() => {
 
 const priorDep = computed<EnvironmentDeploymentInfo | null>(() => {
   return props.deployments.length > 1 ? props.deployments[1] : null;
+});
+
+const priorBuildUrl = computed(() => {
+  if (!priorDep.value) return null;
+  return getBuildUrl(
+    devopsStore.organization,
+    devopsStore.project,
+    priorDep.value.buildId,
+    priorDep.value.buildUrl
+  );
 });
 
 const getCommitLink = (dep: EnvironmentDeploymentInfo | null) => {
@@ -82,8 +92,8 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
           <span class="font-bold text-amber-900 text-[10px]">Prior</span>
         </div>
         <button 
-          v-if="priorDep.buildUrl"
-          @click.stop="openUrlInNewTab(priorDep.buildUrl!)"
+          v-if="priorBuildUrl || priorDep.buildUrl"
+          @click.stop="openUrlInNewTab(priorBuildUrl || priorDep.buildUrl!)"
           class="font-mono text-blue-600 hover:underline text-[10px] shrink-0"
           :title="`Open Previous Run #${priorDep.buildNumber}`"
         >
@@ -93,13 +103,15 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
 
       <!-- Prior Version / Tag -->
       <div class="flex items-center gap-1 min-w-0 py-0.5">
-        <span 
+        <button 
           v-if="priorDep.version"
-          class="font-mono font-bold text-xs text-amber-950 bg-white/90 px-1.5 py-0.2 rounded border border-amber-200 truncate"
-          :title="`Previous Version/Tag: ${priorDep.version}`"
+          @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
+          class="font-mono font-bold text-xs text-amber-950 bg-white/90 px-1.5 py-0.2 rounded border border-amber-200 truncate transition-colors"
+          :class="priorBuildUrl ? 'hover:underline hover:text-amber-800 cursor-pointer' : 'cursor-default'"
+          :title="priorBuildUrl ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (v${priorDep.version})` : `Previous Version/Tag: ${priorDep.version}`"
         >
           v{{ priorDep.version }}
-        </span>
+        </button>
         <span 
           v-else-if="priorDep.commitSha"
           class="font-mono font-bold text-xs text-slate-700 bg-white px-1 py-0.2 rounded border border-slate-200 truncate"

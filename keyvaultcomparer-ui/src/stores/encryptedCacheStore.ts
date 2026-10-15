@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { useAzureConnectionStore } from './azureConnectionStore';
+import { useDevopsDataStore } from './devopsDataStore';
 
 export interface CacheCategoryStat {
   category: string;
@@ -108,6 +109,12 @@ export const useEncryptedCacheStore = defineStore('encryptedCache', {
         const message = data.message || (category 
           ? `Cache category "${category}" cleared.` 
           : 'All cached data cleared.');
+
+        if (!category || category === 'Pipelines') {
+          try {
+            useDevopsDataStore().clearLocalPipelinesCache();
+          } catch {}
+        }
 
         this.lastActionMessage = { type: 'success', text: message };
         await this.fetchStats();

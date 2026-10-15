@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useDevopsDataStore } from '../../stores/devopsDataStore';
+import { formatTimeAgo } from '../../utils/pipelineUrlHelpers';
 
 const devopsStore = useDevopsDataStore();
 
@@ -87,19 +88,35 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
         />
       </div>
 
-      <!-- Fetch Pipelines Button -->
+      <!-- Fetch / Re-fetch Pipelines Button -->
       <button 
         @click="devopsStore.fetchPipelines" 
         class="px-3 py-1.5 font-medium text-xs rounded-lg transition-colors shadow-sm flex items-center gap-1.5"
         :class="devopsStore.isPipelinesLoading ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
         :disabled="devopsStore.isPipelinesLoading || !devopsStore.organization || !devopsStore.project"
+        :title="devopsStore.pipelines.length > 0 ? 'Re-fetch all pipeline definitions from Azure DevOps' : 'Fetch pipeline definitions from Azure DevOps'"
       >
-        <svg v-if="devopsStore.isPipelinesLoading" class="animate-spin h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24">
+        <svg v-if="devopsStore.isPipelinesLoading" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        {{ devopsStore.isPipelinesLoading ? 'Fetching...' : 'Fetch Pipelines' }}
+        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        {{ devopsStore.isPipelinesLoading ? 'Fetching...' : (devopsStore.pipelines.length > 0 ? 'Re-fetch Pipelines' : 'Fetch Pipelines') }}
       </button>
+
+      <!-- Cache indicator / hint -->
+      <div 
+        v-if="devopsStore.pipelines.length > 0 && devopsStore.pipelinesLastFetched"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-[11px] text-slate-600 border border-slate-200 shadow-2xs"
+        :title="`Cached ${devopsStore.pipelines.length} pipelines from Azure DevOps\nLast fetched: ${new Date(devopsStore.pipelinesLastFetched).toLocaleString()}`"
+      >
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        <span class="font-medium text-slate-700">Cached</span>
+        <span class="text-slate-400">&bull;</span>
+        <span class="text-slate-500">{{ formatTimeAgo(devopsStore.pipelinesLastFetched) }}</span>
+      </div>
 
       <!-- Pipeline Search Combobox -->
       <div class="relative w-72">
@@ -111,11 +128,22 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
             type="text" 
             :placeholder="devopsStore.pipelines.length ? `Search ${devopsStore.pipelines.length} pipelines...` : 'Fetch pipelines first...'"
             :disabled="!devopsStore.pipelines.length"
-            class="w-full text-xs bg-slate-100 border border-slate-200 rounded-md pl-8 pr-3 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            class="w-full text-xs bg-slate-100 border border-slate-200 rounded-md pl-8 pr-7 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           />
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 absolute left-2.5 top-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 absolute left-2.5 top-1.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
+          <button 
+            v-if="devopsStore.pipelines.length"
+            type="button"
+            @mousedown.prevent="isDropdownOpen = !isDropdownOpen"
+            class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 transition-colors"
+            title="Toggle pipelines dropdown"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform" :class="{'rotate-180': isDropdownOpen}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
         </div>
 
         <!-- Combobox Dropdown Results -->

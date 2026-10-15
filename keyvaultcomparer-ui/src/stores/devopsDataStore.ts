@@ -150,19 +150,80 @@ export const useDevopsDataStore = defineStore('devopsData', {
       if (storedHidden) savedHiddenEnvs = JSON.parse(storedHidden);
     } catch {}
 
+    const currentOrg = localStorage.getItem('adoOrg') || '';
+    const currentProj = localStorage.getItem('adoProject') || '';
+    const savedPipelinesOrg = localStorage.getItem('adoPipelinesOrg') || '';
+    const savedPipelinesProject = localStorage.getItem('adoPipelinesProject') || '';
+
+    let savedPipelines: PipelineSummary[] = [];
+    const isMatchingScope = (!savedPipelinesOrg || savedPipelinesOrg.toLowerCase() === currentOrg.toLowerCase()) &&
+                            (!savedPipelinesProject || savedPipelinesProject.toLowerCase() === currentProj.toLowerCase());
+
+    if (isMatchingScope) {
+      try {
+        const stored = localStorage.getItem('adoCachedPipelines');
+        if (stored) savedPipelines = JSON.parse(stored);
+      } catch {}
+    }
+
+    let savedLastFetched: string | null = null;
+    if (savedPipelines.length > 0) {
+      savedLastFetched = localStorage.getItem('adoPipelinesLastFetched') || null;
+    }
+
+    let savedRows: Record<number, PipelineMatrixRow> = {};
+    try {
+      const stored = localStorage.getItem('adoCachedPipelineRows');
+      if (stored) savedRows = JSON.parse(stored);
+    } catch {}
+
+    let initialReleaseMatrix: ReleaseMatrixResponse | null = null;
+    if (savedPipelineIds.length > 0 && Object.keys(savedRows).length > 0) {
+      const activeRows = savedPipelineIds
+        .map(id => savedRows[id])
+        .filter((row): row is PipelineMatrixRow => !!row);
+
+      if (activeRows.length > 0) {
+        const envs = [...savedEnvs];
+        for (const row of activeRows) {
+          if (row.environmentDeployments) {
+            for (const envKey of Object.keys(row.environmentDeployments)) {
+              if (!envs.some(e => e.toLowerCase() === envKey.toLowerCase())) {
+                envs.push(envKey);
+              }
+            }
+          }
+        }
+        const activeStageSet = new Set<string>();
+        for (const row of activeRows) {
+          if (row.deployments) {
+            for (const stage of Object.keys(row.deployments)) {
+              activeStageSet.add(stage);
+            }
+          }
+        }
+        initialReleaseMatrix = {
+          environments: envs,
+          topoSortedStages: Array.from(activeStageSet),
+          rows: [...activeRows].sort((a, b) => a.pipelineName.localeCompare(b.pipelineName))
+        };
+      }
+    }
+
     return {
-      organization: localStorage.getItem('adoOrg') || '',
-      project: localStorage.getItem('adoProject') || '',
+      organization: currentOrg,
+      project: currentProj,
       variableGroups: [] as AdoVariableGroup[],
       selectedGroupIds: [] as number[],
       isLoading: false,
       error: '',
 
-      // Pipelines & Release Matrix State
-      pipelines: [] as PipelineSummary[],
+      // Pipelines & Release Matrix State (Persisted across sessions)
+      pipelines: savedPipelines as PipelineSummary[],
+      pipelinesLastFetched: savedLastFetched as string | null,
       selectedPipelineIds: savedPipelineIds,
-      releaseMatrix: null as ReleaseMatrixResponse | null,
-      cachedPipelineRows: {} as Record<number, PipelineMatrixRow>,
+      releaseMatrix: initialReleaseMatrix as ReleaseMatrixResponse | null,
+      cachedPipelineRows: savedRows as Record<number, PipelineMatrixRow>,
       cachedTopoSortedStages: [] as string[],
       cachedEnvironments: [] as string[],
       isPipelinesLoading: false,
@@ -294,6 +355,16 @@ export const useDevopsDataStore = defineStore('devopsData', {
         }
         const data = await res.json();
         this.pipelines = data || [];
+        this.pipelinesLastFetched = new Date().toISOString();
+
+        try {
+          localStorage.setItem('adoCachedPipelines', JSON.stringify(this.pipelines));
+          localStorage.setItem('adoPipelinesLastFetched', this.pipelinesLastFetched);
+          localStorage.setItem('adoPipelinesOrg', this.organization);
+          localStorage.setItem('adoPipelinesProject', this.project);
+        } catch (e) {
+          console.warn('Failed to save adoCachedPipelines to localStorage', e);
+        }
 
         // If we already have selected pipelines, compute locally from cache without triggering remote matrix refresh
         if (this.selectedPipelineIds.length > 0) {
@@ -427,6 +498,9 @@ export const useDevopsDataStore = defineStore('devopsData', {
       localStorage.setItem('adoTargetEnvs', JSON.stringify(newConfig.environments));
       // Invalidate row cache because environment extraction depends on profileConfig
       this.cachedPipelineRows = {};
+      try {
+        localStorage.removeItem('adoCachedPipelineRows');
+      } catch {}
       await this.fetchReleaseMatrix(undefined, true);
     },
 
@@ -481,6 +555,11 @@ export const useDevopsDataStore = defineStore('devopsData', {
         if (data.rows && data.rows.length > 0) {
           for (const row of data.rows) {
             this.cachedPipelineRows[row.pipelineId] = row;
+          }
+          try {
+            localStorage.setItem('adoCachedPipelineRows', JSON.stringify(this.cachedPipelineRows));
+          } catch (e) {
+            console.warn('Failed to save adoCachedPipelineRows to localStorage', e);
           }
         }
 
@@ -626,6 +705,18 @@ export const useDevopsDataStore = defineStore('devopsData', {
     setShowRollbackTarget(val: boolean) {
       this.showRollbackTarget = val;
       localStorage.setItem('adoShowRollbackTarget', val.toString());
+    },
+
+    clearLocalPipelinesCache() {
+      this.pipelines = [];
+      this.pipelinesLastFetched = null;
+      this.cachedPipelineRows = {};
+      this.releaseMatrix = null;
+      try {
+        localStorage.removeItem('adoCachedPipelines');
+        localStorage.removeItem('adoPipelinesLastFetched');
+        localStorage.removeItem('adoCachedPipelineRows');
+      } catch {}
     }
   },
   getters: {

@@ -134,11 +134,17 @@ The application provides continuous delivery and deployment visibility across Az
   - Configurable scan depth selector in the toolbar (`15`, `25`, `50`, `100` recent runs per pipeline).
   - `Only Succeeded (✓)` toggle to restrict deployment detection to successful pipeline runs.
   - Dynamic `Apply Filters` button that highlights with pending indicator when filters are modified.
-- **Pipeline Selection Decoupling**:
-  - Selected pipeline chips are rendered in the ribbon even prior to fetching the full catalog of pipelines.
-  - Catalog retrieval (`Fetch Pipelines`) is decoupled from matrix querying, allowing the user to select rows without triggering automatic refresh.
+- **Pipeline Selection Decoupling & Session Preloading**:
+  - Selected pipeline chips and definitions are persisted across sessions in `localStorage` under `adoCachedPipelines` and `adoCachedPipelineRows`.
+  - On application startup, if pipelines were previously fetched, the search combobox is immediately pre-filled and enabled (e.g. `Search 497 pipelines...`), and the fetch button is automatically labeled **"Re-fetch Pipelines"** with a subtle cache indicator (e.g., `Cached · 1d ago` with full timestamp on hover).
+  - On a fresh session with no prior cache, the button displays **"Fetch Pipelines"** and the search combobox is disabled with `Fetch pipelines first...`.
+  - Matrix row names are preserved from session to session using cached row summaries and catalog metadata, preventing pipeline names from ever reverting to generic numeric placeholders (`Pipeline #<id>`).
+- **Interactive Previous Run ($N-1$) Tags**:
+  - The previous version tag (`v...`) and run pill (`#...`) in the $N-1$ ribbon and environment cells (`RollbackRibbon.vue`, `EnvironmentCellRows.vue`, `EnvironmentCellColumns.vue`) are interactive links. Clicking them navigates directly to the Azure DevOps build run in a new browser tab.
 - **Acceptance Criteria**:
   - **Given** an initial load or reset of the environment matrix, **Then** "Rows (Cross-Env)" is selected as the default layout mode.
+  - **Given** a user opens the application after a previous session where pipelines were retrieved, **Then** the combobox is active with the pipeline catalog count, the button shows "Re-fetch Pipelines", a relative timestamp hint indicates when it was last fetched, and selected matrix row chips render their full pipeline names.
+  - **Given** an environment cell with a prior deployment, **When** the user clicks the previous version tag (`v...`) or build number (`#...`), **Then** the previous run opens in Azure DevOps in a new tab.
   - **Given** an active deployment and a prior deployment, **When** "Columns" mode is enabled, **Then** the cell splits vertically showing Prior Run $N-1$ on the left and Active Run $N$ on the right.
   - **Given** an environment column header, **When** right-clicking on the header, **Then** a context menu appears with options to "Hide this column", "Hide Others", and if any columns are hidden, "Show hidden columns".
   - **Given** one or more hidden environment columns, **Then** a button "Show all hidden columns ({N})" is displayed in the sub-header toolbar and clicking it restores all hidden columns.
