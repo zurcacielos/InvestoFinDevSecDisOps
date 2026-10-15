@@ -96,3 +96,27 @@ The connection to Azure Cloud and external platforms is strictly centralized in 
   - Windows: Windows Credential Manager (`Advapi32.dll` DPAPI).
   - Linux/Docker: AES-256-GCM authenticated encrypted file (`secrets.enc`).
 
+## 3. Azure DevOps Pipelines & Release Matrix
+
+The application provides continuous delivery and deployment visibility across Azure DevOps pipelines via the Pipelines view:
+
+### 3.1 Views & Modes
+- **Target Environments View**: Matrix mapping pipelines to target deployment environments (`dev`, `uat`, `stg`, `prd`, etc.).
+- **Expanded Stages (Hierarchical Run DAG) View**: Unfolds all executed stages in topological order (prerequisites to dependents) according to Azure DevOps YAML stage dependencies and timeline sequences.
+
+### 3.2 Expanded Stages (Hierarchical Run DAG) Architecture
+- **Hierarchical Layout (Option A)**:
+  - **Main Pipeline Row**: Displays pipeline name, ID, repository information, action shortcuts (View YAML, Copy Full YAML, Open GitHub/ADO YAMLs), a run count badge, and a summary status across stages.
+  - **Run Sub-Rows (1 row per build run)**: Expanding a pipeline unfolds its recent historical runs cleanly without inter-run stage collision.
+- **Factored Run-Level Metadata**:
+  - Run-level constants (Build # link to Azure DevOps, overall status badge, branch pill, commit SHA link, PR badge, author avatar badge via `PipelineAuthorBadge.vue`, and deployment timestamp) are factored directly into the left sticky columns.
+  - Eliminates visual noise and redundant repetition across the 20+ stage columns.
+- **Stage Cells**:
+  - Show focused stage status badges (`Succeeded`, `Failed`, `In Progress`, `Partial`, `Canceled`) only for stages that were executed during that specific run.
+  - When start and finish timestamps are available, display stage-level execution duration (e.g., `1m 24s`, `45s`).
+  - Stages not run in a specific build display an elegant, subtle dash (`—`).
+- **Global & Row-Level Controls**:
+  - "Expand All" / "Collapse All" toggle in the sub-header bar.
+  - Individual chevron toggle per pipeline.
+
+

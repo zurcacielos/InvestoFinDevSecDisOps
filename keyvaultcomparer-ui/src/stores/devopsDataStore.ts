@@ -77,6 +77,30 @@ export interface EnvironmentDeploymentInfo {
   version?: string;
 }
 
+export interface PipelineRunStageInfo {
+  stageName: string;
+  status: string;
+  startTime?: string;
+  finishTime?: string;
+  order?: number;
+}
+
+export interface PipelineRunInfo {
+  buildId: number;
+  buildNumber: string;
+  overallStatus: string;
+  branch?: string;
+  commitSha?: string;
+  author?: string;
+  authorImageUrl?: string;
+  triggerReason?: string;
+  isAutomated?: boolean;
+  deployedAt?: string;
+  buildUrl?: string;
+  prNumber?: string;
+  stages: Record<string, PipelineRunStageInfo>;
+}
+
 export interface PipelineProfileConfig {
   environmentParameterName: string;
   operationParameterName: string;
@@ -90,6 +114,7 @@ export interface PipelineMatrixRow {
   repository?: PipelineRepository;
   deployments: Record<string, StageDeploymentInfo>;
   environmentDeployments: Record<string, EnvironmentDeploymentInfo>;
+  recentRuns?: PipelineRunInfo[];
 }
 
 export interface ReleaseMatrixResponse {

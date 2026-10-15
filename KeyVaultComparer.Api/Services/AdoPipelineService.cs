@@ -684,6 +684,22 @@ namespace KeyVaultComparer.Api.Services
                                 }
                             }
 
+                            var runInfo = new PipelineRunInfo
+                            {
+                                BuildId = buildId,
+                                BuildNumber = buildNumber,
+                                OverallStatus = overallStatus,
+                                Branch = sourceBranch,
+                                CommitSha = sourceVersion,
+                                Author = author,
+                                AuthorImageUrl = authorImageUrl,
+                                TriggerReason = triggerReason,
+                                IsAutomated = isAutomated,
+                                DeployedAt = deployedAt,
+                                BuildUrl = buildUrl,
+                                PrNumber = prNumber
+                            };
+
                             // 4. Inspect Build Timeline for Stages
                             var timelineUrl = $"https://dev.azure.com/{organization}/{project}/_apis/build/builds/{buildId}/timeline?api-version=7.1";
                             var timelineResp = await client.GetAsync(timelineUrl, cancellationToken);
@@ -712,10 +728,31 @@ namespace KeyVaultComparer.Api.Services
                                         var status = rec?["result"]?.ToString() ?? rec?["state"]?.ToString() ?? "unknown";
 
                                         DateTime? stageTime = deployedAt;
-                                        if (DateTime.TryParse(rec?["finishTime"]?.ToString() ?? rec?["startTime"]?.ToString(), out var stageDt))
+                                        DateTime? stageStartTime = null;
+                                        if (DateTime.TryParse(rec?["startTime"]?.ToString(), out var sStart))
                                         {
-                                            stageTime = stageDt;
+                                            stageStartTime = sStart;
                                         }
+                                        DateTime? stageFinishTime = null;
+                                        if (DateTime.TryParse(rec?["finishTime"]?.ToString(), out var sFinish))
+                                        {
+                                            stageFinishTime = sFinish;
+                                            stageTime = sFinish;
+                                        }
+                                        else if (stageStartTime.HasValue)
+                                        {
+                                            stageTime = stageStartTime;
+                                        }
+
+                                        // Register in individual run's stages map
+                                        runInfo.Stages[stageName] = new PipelineRunStageInfo
+                                        {
+                                            StageName = stageName,
+                                            Status = status,
+                                            StartTime = stageStartTime,
+                                            FinishTime = stageFinishTime,
+                                            Order = rec?["order"]?.GetValue<int>()
+                                        };
 
                                         // Fallback sequence edge from timeline order if previous stage exists
                                         if (previousStageName != null && !string.Equals(previousStageName, stageName, StringComparison.OrdinalIgnoreCase))
@@ -724,7 +761,7 @@ namespace KeyVaultComparer.Api.Services
                                         }
                                         previousStageName = stageName;
 
-                                        // Register in Expanded Stages Deployments
+                                        // Register in Expanded Stages Deployments (legacy summary fallback)
                                         if (!row.Deployments.ContainsKey(stageName))
                                         {
                                             row.Deployments[stageName] = new StageDeploymentInfo
@@ -782,25 +819,40 @@ namespace KeyVaultComparer.Api.Services
                             }
 
                             // Fallback if pipeline has no "Stage" timeline records (e.g. single-job build run)
-                            if (!foundStage && !row.Deployments.ContainsKey("Build"))
+                            if (!foundStage)
                             {
-                                row.Deployments["Build"] = new StageDeploymentInfo
+                                runInfo.Stages["Build"] = new PipelineRunStageInfo
                                 {
                                     StageName = "Build",
                                     Status = overallStatus,
-                                    BuildId = buildId,
-                                    BuildNumber = buildNumber,
-                                    Branch = sourceBranch,
-                                    CommitSha = sourceVersion,
-                                    Author = author,
-                                    AuthorImageUrl = authorImageUrl,
-                                    TriggerReason = triggerReason,
-                                    IsAutomated = isAutomated,
-                                    DeployedAt = deployedAt,
-                                    BuildUrl = buildUrl,
-                                    PrNumber = prNumber
+                                    StartTime = deployedAt,
+                                    FinishTime = deployedAt,
+                                    Order = 1
                                 };
+
+                                if (!row.Deployments.ContainsKey("Build"))
+                                {
+                                    row.Deployments["Build"] = new StageDeploymentInfo
+                                    {
+                                        StageName = "Build",
+                                        Status = overallStatus,
+                                        BuildId = buildId,
+                                        BuildNumber = buildNumber,
+                                        Branch = sourceBranch,
+                                        CommitSha = sourceVersion,
+                                        Author = author,
+                                        AuthorImageUrl = authorImageUrl,
+                                        TriggerReason = triggerReason,
+                                        IsAutomated = isAutomated,
+                                        DeployedAt = deployedAt,
+                                        BuildUrl = buildUrl,
+                                        PrNumber = prNumber
+                                    };
+                                }
                             }
+
+                            // Add to RecentRuns list
+                            row.RecentRuns.Add(runInfo);
                         }
                     }
                 }
