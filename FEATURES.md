@@ -110,10 +110,10 @@ The connection to Azure Cloud and external platforms is strictly centralized in 
 The application provides continuous delivery and deployment visibility across Azure DevOps pipelines via the Pipelines view:
 
 ### 3.1 Views & Modes
-- **Ribbon Unified Controls**:
-  - The view mode toggle is embedded directly within the ribbon bar (`PipelineRibbonBar.vue`), labeled simply **"Environment"** and **"Expanded"**, placed alongside the Scan depth selector (`15`, `25`, `50`, `100`), `Only Succeeded (✓)` toggle, and `Parametrization` settings button.
-  - A single **"Refresh Matrix"** action button is positioned at the bottom right of the ribbon bar, eliminating duplicate toolbar controls.
-  - Cache status and relative timestamps are surfaced strictly via hover tooltips (`title`) on the "Fetch / Re-fetch Pipelines" button and the pipeline search combobox, keeping the ribbon clean and free of inline badge clutter.
+- **Ribbon 3-Row Architecture (`PipelineRibbonBar.vue`)**:
+  - **Row 1 (Source & Catalog)**: Context title, `Org` and `Project` input fields, `Fetch / Re-fetch Pipelines` button, and pipeline search combobox. Cache status and relative timestamps are surfaced strictly via hover tooltips (`title`) on the button and combobox.
+  - **Row 2 (Selected Entities / Dynamic Chips)**: Directly beneath the search input, displays `Matrix Rows:` with selected pipeline chips, external template YAML copy shortcuts, and removal triggers. The container expands dynamically as items are added without shifting subsequent control tiers.
+  - **Row 3 (Matrix Controls & Action Triggers)**: Positioned immediately adjacent to the grid surface. Houses the view mode toggle (**"Environment"** and **"Expanded"**), Scan depth selector (`15`, `25`, `50`, `100`), `Only Succeeded (✓)` toggle, and `Parametrization` settings button on the left, paired with the **"Refresh Matrix"** execution button and **"Clear All"** action docked on the right.
 - **Environment Matrix View**: Matrix mapping pipelines to target deployment environments (`dev`, `uat`, `stg`, `prd`, etc.).
 - **Expanded Stages (Hierarchical Run DAG) View**: Unfolds all executed stages in topological order (prerequisites to dependents) according to Azure DevOps YAML stage dependencies and timeline sequences.
 
