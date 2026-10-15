@@ -34,6 +34,10 @@ const toggleDemoMode = () => {
   settingsStore.uiSettings.demoMode = !settingsStore.uiSettings.demoMode;
   settingsStore.saveUiSettings();
 };
+
+const handleSignIn = async () => {
+  await authStore.loginInteractive();
+};
 </script>
 
 <template>
@@ -41,41 +45,48 @@ const toggleDemoMode = () => {
     <!-- Azure Cloud Auth Required Top Banner -->
     <div 
       v-if="showAuthError" 
-      class="bg-gradient-to-r from-rose-700 via-rose-600 to-rose-700 text-white px-3 py-1.5 text-xs sm:text-sm font-medium flex items-center justify-between shrink-0 shadow-md z-40 relative border-b border-rose-800 animate-fade-in"
+      class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-3 py-1.5 text-xs sm:text-sm font-medium flex items-center justify-between shrink-0 shadow-md z-40 relative border-b border-indigo-900/60 animate-fade-in"
     >
-      <div class="flex items-center gap-2 flex-wrap">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 text-rose-200 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 text-indigo-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
         </svg>
         <span>
-          <strong class="font-bold tracking-wide">CANNOT CONNECT TO AZURE CLOUD</strong> — Run <code class="font-mono bg-rose-800/80 px-1 py-0.5 rounded text-[11px]">az login</code> in your terminal or configure Azure Service Principal credentials in 
+          <strong class="font-bold text-white tracking-wide">Not connected to Azure Cloud.</strong>
+          Sign in with your corporate account or configure credentials in
           <button 
             type="button" 
             @click="emit('open-settings', 'azure-cloud')" 
-            class="underline font-bold text-white hover:text-rose-100 decoration-white hover:decoration-rose-200 focus:outline-none cursor-pointer inline-flex items-center gap-0.5 mx-1"
+            class="underline font-bold text-indigo-200 hover:text-white decoration-indigo-300 hover:decoration-white focus:outline-none cursor-pointer inline-flex items-center gap-0.5 mx-1"
           >
             Settings
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
           </button>.
         </span>
       </div>
 
-      <div class="flex items-center gap-3 shrink-0 ml-2">
+      <div class="flex items-center gap-2 shrink-0 ml-2">
         <button 
-          @click="authStore.retryAuth()" 
-          class="bg-white/15 hover:bg-white/25 text-white px-2.5 py-1 rounded text-xs font-semibold uppercase tracking-wider flex items-center gap-1 transition-colors"
-          title="Retry Connection"
+          @click="handleSignIn" 
+          :disabled="authStore.isCloudConnecting"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
+          title="Sign in with your corporate Microsoft account via browser"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          <svg v-if="authStore.isCloudConnecting" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          Retry
+          <svg v-else class="h-3.5 w-3.5" viewBox="0 0 23 23">
+            <path fill="#f25022" d="M1 1h10v10H1z"/>
+            <path fill="#00a4ef" d="M1 12h10v10H1z"/>
+            <path fill="#7fba00" d="M12 1h10v10H12z"/>
+            <path fill="#ffb900" d="M12 12h10v10H12z"/>
+          </svg>
+          {{ authStore.isCloudConnecting ? 'Signing in...' : 'Sign in with Microsoft' }}
         </button>
+
         <button 
           @click="authStore.dismissCloudBanner()" 
-          class="text-rose-200 hover:text-white p-1 rounded hover:bg-white/10 transition-colors focus:outline-none"
+          class="text-slate-400 hover:text-white p-1 rounded hover:bg-white/10 transition-colors focus:outline-none"
           title="Dismiss Banner"
         >
           <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -166,19 +177,19 @@ const toggleDemoMode = () => {
           <template v-if="profile && profile.email !== 'Unknown User'">
             <div 
               class="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-inner text-sm"
-              :title="`Connected as ${profile.email} (${profile.subscriptionName})`"
+              :title="`Connected as ${profile.email} (${profile.subscriptionName}) via ${authStore.cloudAuthMethod || 'Azure SSO'}`"
             >
               {{ profile.initials }}
             </div>
           </template>
           <template v-else>
             <button 
-              @click="emit('open-settings', 'azure-cloud')" 
-              class="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors"
-              title="Azure Cloud Disconnected — Click to configure credentials or run az login"
+              @click="handleSignIn" 
+              class="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-colors shadow-sm"
+              title="Sign in with your corporate Microsoft account"
             >
               <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-              <span>Azure Cloud: Offline</span>
+              <span>Azure: Disconnected</span>
             </button>
           </template>
         </div>

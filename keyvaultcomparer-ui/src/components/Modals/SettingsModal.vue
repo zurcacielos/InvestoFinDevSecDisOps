@@ -32,6 +32,7 @@ const azureClientSecret = ref('');
 const showAzureClientSecret = ref(false);
 const hasAzureClientSecret = ref(false);
 const clearAzureClientSecret = ref(false);
+const showAdvancedSp = ref(false);
 
 // Azure DevOps Form State
 const adoOrganization = ref('');
@@ -71,7 +72,7 @@ const isTestingAzure = ref(false);
 const azureTestResult = ref<{ success: boolean; message: string } | null>(null);
 
 const isTestingAdo = ref(false);
-const adoTestResult = ref<{ success: boolean; message: string } | null>(null);
+const adoTestResult = ref<{ success: boolean; message: string; authMethod?: string } | null>(null);
 
 const isTestingGithub = ref(false);
 const githubTestResult = ref<{ success: boolean; message: string } | null>(null);
@@ -87,6 +88,10 @@ const loadSettingsFromBackend = async () => {
     hasAzureClientSecret.value = !!data.hasAzureClientSecret;
     clearAzureClientSecret.value = false;
     azureClientSecret.value = '';
+
+    if (data.azureTenantId || data.azureClientId || data.hasAzureClientSecret) {
+      showAdvancedSp.value = true;
+    }
 
     adoOrganization.value = data.adoOrganization || devopsDataStore.organization || '';
     adoProject.value = data.adoProject || devopsDataStore.project || '';
@@ -133,6 +138,24 @@ onMounted(() => {
     loadSettingsFromBackend();
   }
 });
+
+const handleSignIn = async () => {
+  azureTestResult.value = null;
+  const res = await authStore.loginInteractive();
+  azureTestResult.value = {
+    success: res.success,
+    message: res.message
+  };
+};
+
+const handleSignOut = async () => {
+  azureTestResult.value = null;
+  await authStore.logout();
+  azureTestResult.value = {
+    success: true,
+    message: 'Signed out successfully.'
+  };
+};
 
 const handleSave = async () => {
   isSaving.value = true;
@@ -182,6 +205,9 @@ const handleSave = async () => {
 
     // Re-check Azure Cloud connection with newly saved credentials
     await authStore.retryAuth();
+    if (adoOrganization.value.trim()) {
+      await authStore.checkAdoConnection(adoOrganization.value.trim(), adoProject.value.trim());
+    }
 
     saveSuccess.value = true;
     await loadSettingsFromBackend();
@@ -246,8 +272,14 @@ const testAdoConnection = async () => {
     const data = await res.json();
     adoTestResult.value = {
       success: !!data.success,
-      message: data.message || (data.success ? 'Connected successfully' : 'Connection failed')
+      message: data.message || (data.success ? 'Connected successfully' : 'Connection failed'),
+      authMethod: data.authMethod
     };
+    if (data.success) {
+      authStore.azureDevOps.isConnected = true;
+      authStore.azureDevOps.authMethod = data.authMethod || 'AzureSSO';
+      authStore.azureDevOps.connectionMessage = data.message;
+    }
   } catch (err: any) {
     adoTestResult.value = {
       success: false,
@@ -297,12 +329,12 @@ const matchesSearch = (text: string) => {
 
 const showAzureCloudSection = computed(() => {
   if (!searchQuery.value.trim()) return activeTab.value === 'azure-cloud';
-  return matchesSearch('azure cloud key vault tenant client id secret service principal arm subscription');
+  return matchesSearch('azure cloud key vault tenant client id secret service principal arm subscription sso login');
 });
 
 const showAdoSection = computed(() => {
   if (!searchQuery.value.trim()) return activeTab.value === 'azure-devops';
-  return matchesSearch('azure devops ado personal access token pat organization project build release pipeline');
+  return matchesSearch('azure devops ado personal access token pat organization project build release pipeline sso');
 });
 
 const showGithubSection = computed(() => {
@@ -342,7 +374,7 @@ const showUiSection = computed(() => {
               <span class="font-bold text-slate-800 text-base">Settings</span>
               <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-slate-200/80 rounded border border-slate-300">Ctrl+,</kbd>
             </div>
-            <p class="text-xs text-slate-500">Configure credentials, tokens, endpoints and encrypted storage</p>
+            <p class="text-xs text-slate-500">Configure connection methods, SSO credentials, and encrypted storage</p>
           </div>
         </div>
 
@@ -356,7 +388,7 @@ const showUiSection = computed(() => {
           <input 
             v-model="searchQuery" 
             type="text" 
-            placeholder="Search settings (e.g. azure, pat, devops, github, storage)..." 
+            placeholder="Search settings (e.g. sso, pat, devops, github, storage)..." 
             class="w-full pl-9 pr-8 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-inner"
           />
           <button 
@@ -400,10 +432,14 @@ const showUiSection = computed(() => {
                 <span>Azure Cloud (Key Vaults)</span>
               </div>
               <span 
-                v-if="hasAzureClientSecret || authStore.isCloudConnected" 
-                class="w-2 h-2 rounded-full" 
-                :class="authStore.isCloudConnected ? 'bg-emerald-400' : 'bg-blue-400'"
-                :title="authStore.isCloudConnected ? 'Connected to Azure' : 'Credentials configured'"
+                v-if="authStore.isCloudConnected" 
+                class="w-2 h-2 rounded-full bg-emerald-400" 
+                title="Connected"
+              ></span>
+              <span 
+                v-else-if="hasAzureClientSecret" 
+                class="w-2 h-2 rounded-full bg-blue-400" 
+                title="Service Principal configured"
               ></span>
             </button>
 
@@ -420,9 +456,9 @@ const showUiSection = computed(() => {
                 <span>Azure DevOps (ADO)</span>
               </div>
               <span 
-                v-if="hasAdoPat" 
+                v-if="authStore.isAdoConnected" 
                 class="w-2 h-2 rounded-full bg-emerald-400" 
-                title="PAT Configured"
+                :title="authStore.adoAuthMethod === 'PAT' ? 'Connected via PAT' : 'Connected via Azure SSO'"
               ></span>
             </button>
 
@@ -497,137 +533,212 @@ const showUiSection = computed(() => {
                 <span class="w-2 h-2 rounded-full bg-blue-600"></span>
                 Azure Cloud (Key Vaults &amp; ARM) Authentication
               </h4>
-              <p class="text-xs text-slate-500 mt-0.5">Configure authentication for Azure Resource Manager, Key Vaults, and Subscriptions</p>
+              <p class="text-xs text-slate-500 mt-0.5">Manages identity and access to Azure Resource Manager and Key Vaults</p>
             </div>
 
-            <!-- Distinction Banner -->
-            <div class="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-start gap-2.5">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div class="space-y-1">
-                <span class="font-bold">Azure Cloud vs Azure DevOps:</span>
-                <p>
-                  Azure Key Vaults and Subscriptions authenticate to <strong>Azure Resource Manager (ARM)</strong> via Entra ID (Azure AD). They <em>cannot</em> use an Azure DevOps Personal Access Token (PAT).
-                </p>
-                <p class="text-[11px] text-blue-800">
-                  You can connect via local Azure CLI (<code class="bg-blue-100 px-1 py-0.5 rounded font-mono">az login</code>) or configure a <strong>Service Principal</strong> below.
-                </p>
-              </div>
-            </div>
-
-            <!-- Service Principal Inputs -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Tenant ID (Directory ID)</label>
-                <input 
-                  v-model="azureTenantId" 
-                  type="text" 
-                  placeholder="e.g. 00000000-0000-0000-0000-000000000000 or mytenant.onmicrosoft.com" 
-                  class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-                />
-                <span class="text-[10px] text-slate-400 mt-1 block">Azure Active Directory / Entra ID Tenant ID</span>
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Application (Client) ID</label>
-                <input 
-                  v-model="azureClientId" 
-                  type="text" 
-                  placeholder="e.g. 00000000-0000-0000-0000-000000000000" 
-                  class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-                />
-                <span class="text-[10px] text-slate-400 mt-1 block">App registration Client ID with Key Vault permissions</span>
-              </div>
-            </div>
-
-            <!-- Client Secret Input -->
-            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-              <div class="flex items-center justify-between">
+            <!-- Active Connection Status Card -->
+            <div 
+              class="p-4 rounded-xl border transition-all"
+              :class="authStore.isCloudConnected ? 'bg-emerald-50/70 border-emerald-200' : 'bg-slate-50 border-slate-200'"
+            >
+              <div class="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                  <label class="block text-xs font-bold text-slate-800">Client Secret (Password)</label>
-                  <p class="text-[11px] text-slate-500">Encrypted in your active secret store (DPAPI / AES-256-GCM)</p>
+                  <div class="flex items-center gap-2">
+                    <span 
+                      class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                      :class="authStore.isCloudConnected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'"
+                    >
+                      <span class="w-2 h-2 rounded-full" :class="authStore.isCloudConnected ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                      {{ authStore.isCloudConnected ? 'Connected to Azure Cloud' : 'Not Connected' }}
+                    </span>
+                    <span v-if="authStore.cloudAuthMethod" class="text-xs font-medium text-slate-500">
+                      Method: <strong class="text-slate-800 font-semibold">{{ authStore.cloudAuthMethod === 'ServicePrincipal' ? 'Service Principal (App ID & Secret)' : 'Azure SSO Identity (Interactive)' }}</strong>
+                    </span>
+                  </div>
+
+                  <!-- Details when connected -->
+                  <div v-if="authStore.isCloudConnected && authStore.profile" class="mt-2 text-xs text-slate-700 space-y-0.5">
+                    <div>User: <strong class="font-semibold text-slate-900">{{ authStore.profile.email }}</strong></div>
+                    <div>Default Subscription: <span class="font-medium text-slate-600">{{ authStore.profile.subscriptionName }}</span></div>
+                    <div>Available Subscriptions: <span class="font-medium text-slate-600">{{ authStore.subscriptions.length }}</span></div>
+                  </div>
+
+                  <!-- Guidance when disconnected -->
+                  <div v-else class="mt-2 text-xs text-slate-600">
+                    Sign in with your corporate account via browser. No Azure Administrator permissions are required.
+                  </div>
                 </div>
+
+                <!-- Primary Action Buttons -->
                 <div class="flex items-center gap-2">
-                  <span 
-                    v-if="hasAzureClientSecret && !clearAzureClientSecret" 
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"
+                  <button 
+                    v-if="!authStore.isCloudConnected"
+                    type="button"
+                    @click="handleSignIn"
+                    :disabled="authStore.isCloudConnecting"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
                   >
-                    <svg class="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    <svg v-if="authStore.isCloudConnecting" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Stored Encrypted
-                  </span>
-                  <span 
-                    v-else 
-                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-200 text-slate-600"
-                  >
-                    Not Configured
-                  </span>
+                    <svg v-else class="h-4 w-4" viewBox="0 0 23 23">
+                      <path fill="#f25022" d="M1 1h10v10H1z"/>
+                      <path fill="#00a4ef" d="M1 12h10v10H1z"/>
+                      <path fill="#7fba00" d="M12 1h10v10H12z"/>
+                      <path fill="#ffb900" d="M12 12h10v10H12z"/>
+                    </svg>
+                    <span>{{ authStore.isCloudConnecting ? 'Opening Browser SSO...' : 'Sign in with Microsoft' }}</span>
+                  </button>
+
+                  <template v-else>
+                    <button 
+                      type="button"
+                      @click="handleSignIn"
+                      :disabled="authStore.isCloudConnecting"
+                      class="px-3 py-1.5 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                      title="Switch account"
+                    >
+                      Switch Account
+                    </button>
+                    <button 
+                      type="button"
+                      @click="handleSignOut"
+                      class="px-3 py-1.5 border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold transition-colors"
+                      title="Sign out from Azure"
+                    >
+                      Sign Out
+                    </button>
+                  </template>
                 </div>
               </div>
 
-              <div class="relative flex items-center">
-                <input 
-                  v-model="azureClientSecret" 
-                  :type="showAzureClientSecret ? 'text' : 'password'" 
-                  :placeholder="hasAzureClientSecret && !clearAzureClientSecret ? '•••••••••••••••••••••••••••••••••••••••• (Leave blank to keep current)' : 'Paste your Client Secret here...'" 
-                  class="w-full text-xs font-mono bg-white border border-slate-300 rounded-lg pl-3 pr-20 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                />
-                <div class="absolute right-2 flex items-center gap-1">
-                  <button 
-                    type="button" 
-                    @click="showAzureClientSecret = !showAzureClientSecret" 
-                    class="text-slate-400 hover:text-slate-600 p-1 text-[11px] font-medium"
-                    :title="showAzureClientSecret ? 'Hide Secret' : 'Show Secret'"
-                  >
-                    {{ showAzureClientSecret ? 'Hide' : 'Show' }}
-                  </button>
-                  <button 
-                    v-if="hasAzureClientSecret && !clearAzureClientSecret" 
-                    type="button" 
-                    @click="clearAzureClientSecret = true; azureClientSecret = ''" 
-                    class="text-rose-600 hover:text-rose-800 p-1 text-[11px] font-semibold"
-                    title="Remove stored client secret"
-                  >
-                    Remove
-                  </button>
-                  <button 
-                    v-if="clearAzureClientSecret" 
-                    type="button" 
-                    @click="clearAzureClientSecret = false" 
-                    class="text-slate-500 hover:text-slate-700 p-1 text-[11px] font-medium"
-                  >
-                    Undo
-                  </button>
-                </div>
+              <!-- Test / Action result message -->
+              <div v-if="azureTestResult" class="mt-3 pt-2 border-t border-slate-200/60 text-xs flex items-center gap-1.5 font-medium" :class="azureTestResult.success ? 'text-emerald-700' : 'text-rose-700'">
+                <svg v-if="azureTestResult.success" class="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <svg v-else class="w-4 h-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span>{{ azureTestResult.message }}</span>
               </div>
-              <div v-if="clearAzureClientSecret" class="text-[11px] text-rose-600 font-medium">
-                Client secret marked for deletion. Click Save to confirm.
-              </div>
+            </div>
 
-              <!-- Test Azure Cloud Button & Feedback -->
-              <div class="flex items-center justify-between pt-1">
-                <button 
-                  type="button"
-                  @click="testAzureConnection" 
-                  :disabled="isTestingAzure" 
-                  class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 hover:border-slate-400 text-slate-700 bg-white hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+            <!-- Advanced / Service Principal Accordion -->
+            <div class="border border-slate-200 rounded-xl overflow-hidden">
+              <button 
+                type="button" 
+                @click="showAdvancedSp = !showAdvancedSp"
+                class="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-left transition-colors"
+              >
+                <div>
+                  <div class="text-xs font-bold text-slate-800 flex items-center gap-2">
+                    <span>Advanced: Automated Service Principal (Docker / CI / Headless)</span>
+                    <span v-if="hasAzureClientSecret" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">Active</span>
+                  </div>
+                  <div class="text-[11px] text-slate-500 mt-0.5">
+                    Only required for unattended runners or cross-tenant automation where browser login is unavailable
+                  </div>
+                </div>
+                <svg 
+                  class="w-4 h-4 text-slate-500 transition-transform" 
+                  :class="showAdvancedSp ? 'rotate-180' : ''" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
                 >
-                  <svg v-if="isTestingAzure" class="animate-spin h-3.5 w-3.5 text-slate-600" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>{{ isTestingAzure ? 'Testing Azure Connection...' : 'Test Azure Connection' }}</span>
-                </button>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-                <div v-if="azureTestResult" class="text-xs flex items-center gap-1.5 font-medium" :class="azureTestResult.success ? 'text-emerald-700' : 'text-rose-700'">
-                  <svg v-if="azureTestResult.success" class="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <svg v-else class="w-4 h-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  <span>{{ azureTestResult.message }}</span>
+              <div v-if="showAdvancedSp" class="p-4 space-y-4 bg-white border-t border-slate-200">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Tenant ID</label>
+                    <input 
+                      v-model="azureTenantId" 
+                      type="text" 
+                      placeholder="e.g. 00000000-0000-0000-0000-000000000000 or mytenant.onmicrosoft.com" 
+                      class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Application (Client) ID</label>
+                    <input 
+                      v-model="azureClientId" 
+                      type="text" 
+                      placeholder="e.g. 00000000-0000-0000-0000-000000000000" 
+                      class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <!-- Client Secret Input -->
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold text-slate-800">Client Secret (Password)</label>
+                    <div class="flex items-center gap-2">
+                      <span 
+                        v-if="hasAzureClientSecret && !clearAzureClientSecret" 
+                        class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800"
+                      >
+                        Stored Encrypted
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="relative flex items-center">
+                    <input 
+                      v-model="azureClientSecret" 
+                      :type="showAzureClientSecret ? 'text' : 'password'" 
+                      :placeholder="hasAzureClientSecret && !clearAzureClientSecret ? '•••••••••••••••••••••••••••••••••••••••• (Leave blank to keep current)' : 'Paste your Client Secret here...'" 
+                      class="w-full text-xs font-mono bg-white border border-slate-300 rounded-lg pl-3 pr-20 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                    />
+                    <div class="absolute right-2 flex items-center gap-1">
+                      <button 
+                        type="button" 
+                        @click="showAzureClientSecret = !showAzureClientSecret" 
+                        class="text-slate-400 hover:text-slate-600 p-1 text-[11px] font-medium"
+                      >
+                        {{ showAzureClientSecret ? 'Hide' : 'Show' }}
+                      </button>
+                      <button 
+                        v-if="hasAzureClientSecret && !clearAzureClientSecret" 
+                        type="button" 
+                        @click="clearAzureClientSecret = true; azureClientSecret = ''" 
+                        class="text-rose-600 hover:text-rose-800 p-1 text-[11px] font-semibold"
+                      >
+                        Remove
+                      </button>
+                      <button 
+                        v-if="clearAzureClientSecret" 
+                        type="button" 
+                        @click="clearAzureClientSecret = false" 
+                        class="text-slate-500 hover:text-slate-700 p-1 text-[11px] font-medium"
+                      >
+                        Undo
+                      </button>
+                    </div>
+                  </div>
+                  <div v-if="clearAzureClientSecret" class="text-[11px] text-rose-600 font-medium">
+                    Client secret marked for deletion. Click Save to confirm.
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-1">
+                  <button 
+                    type="button"
+                    @click="testAzureConnection" 
+                    :disabled="isTestingAzure" 
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 hover:border-slate-400 text-slate-700 bg-white hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+                  >
+                    <svg v-if="isTestingAzure" class="animate-spin h-3.5 w-3.5 text-slate-600" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>{{ isTestingAzure ? 'Testing Service Principal...' : 'Test Service Principal' }}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -643,13 +754,59 @@ const showUiSection = computed(() => {
               <p class="text-xs text-slate-500 mt-0.5">Used specifically for ADO Pipelines, Variable Groups, and Release Matrices</p>
             </div>
 
-            <!-- ADO PAT Notice -->
-            <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-start gap-2.5">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div class="space-y-1">
-                <span class="font-semibold">ADO Authentication:</span> An Azure DevOps Personal Access Token (PAT) is used exclusively for <code class="bg-indigo-100 px-1 py-0.5 rounded font-mono">dev.azure.com</code> REST APIs. If empty, ADO calls attempt token exchange with your local Azure CLI session.
+            <!-- ADO Connection Status Box -->
+            <div 
+              class="p-4 rounded-xl border transition-all"
+              :class="authStore.isAdoConnected ? 'bg-indigo-50/70 border-indigo-200' : 'bg-slate-50 border-slate-200'"
+            >
+              <div class="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span 
+                      class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                      :class="authStore.isAdoConnected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'"
+                    >
+                      <span class="w-2 h-2 rounded-full" :class="authStore.isAdoConnected ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                      {{ authStore.isAdoConnected ? 'Connected to Azure DevOps' : 'Not Connected' }}
+                    </span>
+                    <span class="text-xs font-medium text-slate-500">
+                      Method: <strong class="text-slate-800 font-semibold">{{ authStore.adoAuthMethod === 'PAT' ? 'Personal Access Token (PAT Override)' : 'Azure SSO Identity (Recommended)' }}</strong>
+                    </span>
+                  </div>
+
+                  <div v-if="authStore.azureDevOps.connectionMessage" class="mt-2 text-xs font-medium text-slate-700">
+                    {{ authStore.azureDevOps.connectionMessage }}
+                  </div>
+                  <div v-else class="mt-2 text-xs text-slate-500">
+                    ADO automatically uses your primary Azure SSO identity. Enter a PAT below only if your organization requires dedicated access.
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <button 
+                    type="button"
+                    @click="testAdoConnection" 
+                    :disabled="isTestingAdo || !adoOrganization" 
+                    class="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 hover:border-slate-400 text-slate-700 bg-white hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+                  >
+                    <svg v-if="isTestingAdo" class="animate-spin h-3.5 w-3.5 text-slate-600" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>{{ isTestingAdo ? 'Testing Connection...' : 'Test ADO Connection' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Test feedback -->
+              <div v-if="adoTestResult" class="mt-3 pt-2 border-t border-slate-200/60 text-xs flex items-center gap-1.5 font-medium" :class="adoTestResult.success ? 'text-emerald-700' : 'text-rose-700'">
+                <svg v-if="adoTestResult.success" class="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <svg v-else class="w-4 h-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span>{{ adoTestResult.message }}</span>
               </div>
             </div>
 
@@ -677,28 +834,25 @@ const showUiSection = computed(() => {
               </div>
             </div>
 
-            <!-- ADO PAT Input -->
+            <!-- ADO PAT Override Input -->
             <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
               <div class="flex items-center justify-between">
                 <div>
-                  <label class="block text-xs font-bold text-slate-800">Azure DevOps Personal Access Token (PAT)</label>
-                  <p class="text-[11px] text-slate-500">Scopes needed: Build (Read), Release (Read), Variable Groups (Read/Write)</p>
+                  <label class="block text-xs font-bold text-slate-800">Personal Access Token (PAT Override)</label>
+                  <p class="text-[11px] text-slate-500">Optional: Leave blank to use Azure SSO identity automatically</p>
                 </div>
                 <div class="flex items-center gap-2">
                   <span 
                     v-if="hasAdoPat && !clearAdoPat" 
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"
+                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800"
                   >
-                    <svg class="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Stored Encrypted
+                    PAT Stored Encrypted
                   </span>
                   <span 
                     v-else 
                     class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-200 text-slate-600"
                   >
-                    Not Configured
+                    Using Azure SSO Default
                   </span>
                 </div>
               </div>
@@ -707,7 +861,7 @@ const showUiSection = computed(() => {
                 <input 
                   v-model="adoPat" 
                   :type="showAdoPat ? 'text' : 'password'" 
-                  :placeholder="hasAdoPat && !clearAdoPat ? '•••••••••••••••••••••••••••••••••••••••• (Leave blank to keep current)' : 'Paste your ADO PAT here...'" 
+                  :placeholder="hasAdoPat && !clearAdoPat ? '•••••••••••••••••••••••••••••••••••••••• (Leave blank to keep current)' : 'Optional: Paste PAT here if Azure SSO lacks access...'" 
                   class="w-full text-xs font-mono bg-white border border-slate-300 rounded-lg pl-3 pr-20 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                 />
                 <div class="absolute right-2 flex items-center gap-1">
@@ -715,7 +869,6 @@ const showUiSection = computed(() => {
                     type="button" 
                     @click="showAdoPat = !showAdoPat" 
                     class="text-slate-400 hover:text-slate-600 p-1 text-[11px] font-medium"
-                    :title="showAdoPat ? 'Hide PAT' : 'Show PAT'"
                   >
                     {{ showAdoPat ? 'Hide' : 'Show' }}
                   </button>
@@ -724,7 +877,6 @@ const showUiSection = computed(() => {
                     type="button" 
                     @click="clearAdoPat = true; adoPat = ''" 
                     class="text-rose-600 hover:text-rose-800 p-1 text-[11px] font-semibold"
-                    title="Remove stored PAT"
                   >
                     Remove
                   </button>
@@ -739,33 +891,7 @@ const showUiSection = computed(() => {
                 </div>
               </div>
               <div v-if="clearAdoPat" class="text-[11px] text-rose-600 font-medium">
-                PAT marked for deletion. Click Save to confirm.
-              </div>
-
-              <!-- Test ADO Button & Feedback -->
-              <div class="flex items-center justify-between pt-1">
-                <button 
-                  type="button"
-                  @click="testAdoConnection" 
-                  :disabled="isTestingAdo || !adoOrganization" 
-                  class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 hover:border-slate-400 text-slate-700 bg-white hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
-                >
-                  <svg v-if="isTestingAdo" class="animate-spin h-3.5 w-3.5 text-slate-600" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>{{ isTestingAdo ? 'Testing Connection...' : 'Test Connection' }}</span>
-                </button>
-
-                <div v-if="adoTestResult" class="text-xs flex items-center gap-1.5 font-medium" :class="adoTestResult.success ? 'text-emerald-700' : 'text-rose-700'">
-                  <svg v-if="adoTestResult.success" class="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <svg v-else class="w-4 h-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  <span>{{ adoTestResult.message }}</span>
-                </div>
+                PAT marked for deletion. Will revert to Azure SSO on save.
               </div>
             </div>
           </section>

@@ -74,17 +74,21 @@ The connection to Azure Cloud and external platforms is strictly centralized in 
 
 ### 2.1 Azure Cloud Authentication (Key Vaults & Subscriptions)
 - **Scope**: Azure Resource Manager (`management.azure.com`) and Key Vault Data Plane (`vault.azure.net`).
-- **Mechanism**: Entra ID via `DynamicAzureCredential`.
-  - **Primary / Headless**: Service Principal configured in Settings (`AzureTenantId`, `AzureClientId`, and encrypted `AzureClientSecret`).
-  - **Local Fallback**: Local Azure CLI session (`az login`).
-- **Personal Access Token Policy**: An Azure DevOps Personal Access Token (PAT) CANNOT be used for Azure Cloud or Key Vaults.
-- **Visual Notification**: If Azure Cloud is unauthenticated, a non-blocking top banner informs the user:
-  `CANNOT CONNECT TO AZURE CLOUD — Run 'az login' in your terminal or configure Azure Service Principal credentials in Settings.` with a direct interactive link to the Azure Cloud settings tab.
-- **Status Indicator**: An interactive status badge in the header shows whether Azure Cloud is `Connected` (with user initials) or `Offline`.
+- **Primary Method (1-Click SSO)**: Interactive browser login via `POST /api/auth/login-interactive` (`DynamicAzureCredential`). Uses Microsoft's pre-consented public Client ID (`04b07795-8ddb-461a-bbee-02f9e1bf7b46`). Zero Azure Administrator rights or tenant app registrations required.
+- **Local Fallback**: Local Azure CLI session (`az login`).
+- **Automated / Headless Runner**: Service Principal configured in Settings (`AzureTenantId`, `AzureClientId`, and encrypted `AzureClientSecret`) for Docker or CI/CD pipelines.
+- **Visual Notification**: If Azure Cloud is disconnected, a non-blocking top banner displays a 1-click **"Sign in with Microsoft"** action and a link to Settings.
+- **Connection Method Transparency**: The UI explicitly shows the active connection method:
+  - `Azure SSO Identity (Interactive / az login)` OR
+  - `Service Principal (App ID & Secret)`
 
 ### 2.2 Azure DevOps Authentication (ADO Pipelines & Variable Groups)
 - **Scope**: Azure DevOps REST API (`dev.azure.com`).
-- **Mechanism**: Configured via `AdoOrganization`, `AdoProject`, and an encrypted Personal Access Token (`AdoPat`) using HTTP Basic Authentication. If empty, falls back to `az login` token acquisition.
+- **Default Method**: Automatically inherits the authenticated **Azure SSO Identity** (0 tokens required) via OAuth bearer token exchange (`499b84ac-1321-427f-aa17-267ca6975798`).
+- **Override Mechanism**: If the target ADO organization is cross-tenant or requires dedicated access, the user can configure a Personal Access Token (`AdoPat`).
+- **Visual Method Transparency**: Settings displays whether ADO is connected via:
+  - `Azure SSO Identity (Recommended)` OR
+  - `Personal Access Token (PAT Override)`
 
 ### 2.3 Secret Storage (Zero Plaintext)
 - All client secrets, PATs, and GitHub tokens are encrypted at rest using `SecretStoreManager`.

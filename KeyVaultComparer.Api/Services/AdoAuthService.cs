@@ -37,25 +37,40 @@ namespace KeyVaultComparer.Api.Services
             return new AuthenticationHeaderValue("Bearer", token.Token);
         }
 
-        public async Task<(bool Success, string Message)> TestAdoConnectionAsync(string organization, string project, string? explicitPat = null, CancellationToken ct = default)
+        public async Task<(bool Success, string Message, string AuthMethod)> TestAdoConnectionAsync(string organization, string project, string? explicitPat = null, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(organization))
             {
-                return (false, "Organization name cannot be empty.");
+                return (false, "Organization name cannot be empty.", "None");
             }
 
+            string authMethod = "AzureSSO";
             try
             {
                 using var client = _httpClientFactory.CreateClient();
                 
                 if (!string.IsNullOrWhiteSpace(explicitPat))
                 {
+                    authMethod = "PAT";
                     var basicToken = Convert.ToBase64String(Encoding.ASCII.GetBytes($":{explicitPat}"));
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicToken);
                 }
                 else
                 {
-                    client.DefaultRequestHeaders.Authorization = await GetAdoAuthHeaderAsync(ct);
+                    var storedPat = await _secretStoreManager.GetSecretAsync(SecretStoreManager.AdoPatKey, ct);
+                    if (!string.IsNullOrWhiteSpace(storedPat))
+                    {
+                        authMethod = "PAT";
+                        var basicToken = Convert.ToBase64String(Encoding.ASCII.GetBytes($":{storedPat}"));
+                        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicToken);
+                    }
+                    else
+                    {
+                        authMethod = "AzureSSO";
+                        var tokenContext = new TokenRequestContext(new[] { "499b84ac-1321-427f-aa17-267ca6975798/.default" });
+                        var token = await _credential.GetTokenAsync(tokenContext, ct);
+                        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+                    }
                 }
 
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -71,23 +86,24 @@ namespace KeyVaultComparer.Api.Services
                 {
                     if (content.TrimStart().StartsWith("<"))
                     {
-                        return (false, "ADO returned an HTML login page. Token or PAT lacks authorization for this organization.");
+                        return (false, "ADO returned an HTML login page. Your Azure SSO account or PAT lacks authorization for this organization.", authMethod);
                     }
 
                     var root = JsonNode.Parse(content);
                     string projName = root?["name"]?.ToString() ?? project;
+                    string methodLabel = authMethod == "PAT" ? "Personal Access Token (PAT)" : "Azure SSO Identity";
                     return (true, string.IsNullOrWhiteSpace(project) 
-                        ? $"Successfully connected to Azure DevOps organization '{organization}'." 
-                        : $"Successfully connected to project '{projName}' in '{organization}'.");
+                        ? $"Connected to Azure DevOps organization '{organization}' using {methodLabel}." 
+                        : $"Connected to project '{projName}' in '{organization}' using {methodLabel}.", authMethod);
                 }
                 else
                 {
-                    return (false, $"ADO API returned {resp.StatusCode}: {content.Substring(0, Math.Min(content.Length, 200))}");
+                    return (false, $"ADO API returned {resp.StatusCode}: {content.Substring(0, Math.Min(content.Length, 200))}", authMethod);
                 }
             }
             catch (Exception ex)
             {
-                return (false, $"Connection test failed: {ex.Message}");
+                return (false, $"Connection test failed: {ex.Message}", authMethod);
             }
         }
 

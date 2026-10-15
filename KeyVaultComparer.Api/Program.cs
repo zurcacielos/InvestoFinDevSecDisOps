@@ -415,15 +415,21 @@ app.MapGet("/api/settings", async (
     bool hasAdoPat = await secretStoreManager.HasSecretAsync(SecretStoreManager.AdoPatKey, ct);
     bool hasGithubToken = await secretStoreManager.HasSecretAsync(SecretStoreManager.GithubTokenKey, ct);
     bool hasAzureClientSecret = await secretStoreManager.HasSecretAsync(SecretStoreManager.AzureClientSecretKey, ct);
+    bool hasServicePrincipal = !string.IsNullOrWhiteSpace(settings.AzureTenantId) &&
+                               !string.IsNullOrWhiteSpace(settings.AzureClientId) &&
+                               hasAzureClientSecret;
 
     return Results.Ok(new
     {
         azureTenantId = settings.AzureTenantId ?? "",
         azureClientId = settings.AzureClientId ?? "",
         hasAzureClientSecret = hasAzureClientSecret,
+        hasServicePrincipal = hasServicePrincipal,
+        azureAuthMode = hasServicePrincipal ? "ServicePrincipal" : "InteractiveSSO",
         adoOrganization = settings.AdoOrganization ?? "",
         adoProject = settings.AdoProject ?? "",
         hasAdoPat = hasAdoPat,
+        adoAuthMode = hasAdoPat ? "PAT" : "AzureSSO",
         githubBaseUrl = string.IsNullOrWhiteSpace(settings.GithubBaseUrl) ? "https://github.com" : settings.GithubBaseUrl,
         githubOrganization = settings.GithubOrganization ?? "",
         hasGithubToken = hasGithubToken,
@@ -433,6 +439,43 @@ app.MapGet("/api/settings", async (
     });
 })
 .WithName("GetSettings");
+
+app.MapPost("/api/auth/login-interactive", async (
+    DynamicAzureCredential dynamicCred,
+    CancellationToken ct) =>
+{
+    try
+    {
+        var message = await dynamicCred.LoginInteractiveAsync(ct);
+        return Results.Ok(new { success = true, message });
+    }
+    catch (Exception ex)
+    {
+        return Results.Ok(new { success = false, message = ex.Message });
+    }
+})
+.WithName("LoginInteractive");
+
+app.MapPost("/api/auth/logout", async (CancellationToken ct) =>
+{
+    DynamicAzureCredential.ClearInteractiveCredential();
+    try
+    {
+        var psi = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "az",
+            Arguments = OperatingSystem.IsWindows() ? "/c az logout" : "logout",
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        using var proc = System.Diagnostics.Process.Start(psi);
+        if (proc != null) await proc.WaitForExitAsync(ct);
+    }
+    catch {}
+
+    return Results.Ok(new { success = true, message = "Logged out successfully." });
+})
+.WithName("Logout");
 
 app.MapPost("/api/settings", async (
     [FromBody] UpdateSettingsDto req,
@@ -497,8 +540,8 @@ app.MapPost("/api/settings/test-ado", async (
     AdoAuthService adoAuthService,
     CancellationToken ct) =>
 {
-    var (success, message) = await adoAuthService.TestAdoConnectionAsync(req.Organization, req.Project, req.Pat, ct);
-    return Results.Ok(new { success, message });
+    var (success, message, authMethod) = await adoAuthService.TestAdoConnectionAsync(req.Organization, req.Project, req.Pat, ct);
+    return Results.Ok(new { success, message, authMethod });
 })
 .WithName("TestAdoConnection");
 

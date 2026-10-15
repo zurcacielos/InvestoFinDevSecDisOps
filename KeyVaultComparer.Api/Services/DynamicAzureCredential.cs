@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Core;
@@ -12,6 +13,7 @@ namespace KeyVaultComparer.Api.Services
         private readonly SecretStoreManager _secretStoreManager;
         private readonly AppSettingsService _appSettingsService;
         private readonly TokenCredential _defaultCliCredential;
+        private static TokenCredential? _interactiveCredential;
 
         public DynamicAzureCredential(
             SecretStoreManager secretStoreManager,
@@ -21,6 +23,80 @@ namespace KeyVaultComparer.Api.Services
             _secretStoreManager = secretStoreManager;
             _appSettingsService = appSettingsService;
             _defaultCliCredential = defaultCliCredential;
+        }
+
+        public static void ClearInteractiveCredential()
+        {
+            _interactiveCredential = null;
+        }
+
+        public async Task<string> LoginInteractiveAsync(CancellationToken ct = default)
+        {
+            // 1. If Azure CLI is installed, az login is the gold standard for developer workstations
+            if (IsAzureCliAvailable())
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "az",
+                    Arguments = OperatingSystem.IsWindows() ? "/c az login" : "login",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+
+                using var proc = Process.Start(psi);
+                if (proc != null)
+                {
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts.CancelAfter(TimeSpan.FromMinutes(2));
+
+                    await proc.WaitForExitAsync(cts.Token);
+                    if (proc.ExitCode == 0)
+                    {
+                        return "Successfully authenticated via Azure CLI.";
+                    }
+                    else
+                    {
+                        var err = await proc.StandardError.ReadToEndAsync(ct);
+                        throw new Exception($"Azure CLI login exited with code {proc.ExitCode}: {err}");
+                    }
+                }
+            }
+
+            // 2. Fallback to in-process interactive browser login
+            var options = new InteractiveBrowserCredentialOptions
+            {
+                ClientId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46" // Standard Azure CLI public client ID
+            };
+            var interactive = new InteractiveBrowserCredential(options);
+            await interactive.GetTokenAsync(new TokenRequestContext(new[] { "https://management.azure.com/.default" }), ct);
+            _interactiveCredential = interactive;
+            return "Successfully authenticated via browser.";
+        }
+
+        private static bool IsAzureCliAvailable()
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = OperatingSystem.IsWindows() ? "where.exe" : "which",
+                    Arguments = "az",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                using var proc = Process.Start(psi);
+                if (proc != null)
+                {
+                    proc.WaitForExit();
+                    return proc.ExitCode == 0;
+                }
+            }
+            catch {}
+            return false;
         }
 
         public async Task<TokenCredential> ResolveCredentialAsync(CancellationToken ct = default)
@@ -35,6 +111,11 @@ namespace KeyVaultComparer.Api.Services
                 !string.IsNullOrWhiteSpace(clientSecret))
             {
                 return new ClientSecretCredential(tenantId.Trim(), clientId.Trim(), clientSecret.Trim());
+            }
+
+            if (_interactiveCredential != null)
+            {
+                return _interactiveCredential;
             }
 
             return _defaultCliCredential;
