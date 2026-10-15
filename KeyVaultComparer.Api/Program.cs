@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Azure.Core;
 using Azure.Identity;
 using KeyVaultComparer.Api.Models;
@@ -462,10 +463,109 @@ app.MapGet("/api/settings", async (
         cachePipelinesTtlMinutes = settings.CachePipelinesTtlMinutes,
         cachePipelineRunsTtlMinutes = settings.CachePipelineRunsTtlMinutes,
         cacheVaultKeysTtlMinutes = settings.CacheVaultKeysTtlMinutes,
-        cacheVariableGroupsTtlMinutes = settings.CacheVariableGroupsTtlMinutes
+        cacheVariableGroupsTtlMinutes = settings.CacheVariableGroupsTtlMinutes,
+        azureAuthTimeoutSeconds = settings.AzureAuthTimeoutSeconds
     });
 })
 .WithName("GetSettings");
+
+app.MapGet("/api/auth/status", async (
+    [FromServices] TokenCredential credential,
+    [FromServices] AppSettingsService appSettingsService,
+    [FromServices] EncryptedCacheService cacheService,
+    CancellationToken ct) =>
+{
+    var settings = await appSettingsService.GetSettingsAsync(ct);
+    int timeoutSec = settings.AzureAuthTimeoutSeconds > 0 ? settings.AzureAuthTimeoutSeconds : 4;
+
+    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+    timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSec));
+
+    try
+    {
+        var tokenContext = new TokenRequestContext(new[] { "https://management.azure.com/.default" });
+        var token = await credential.GetTokenAsync(tokenContext, timeoutCts.Token);
+
+        if (string.IsNullOrWhiteSpace(token.Token))
+        {
+            return Results.Ok(new 
+            { 
+                isConnected = false, 
+                state = "disconnected", 
+                reason = "NoTokenReturned" 
+            });
+        }
+
+        string email = "Authenticated User";
+        string initials = "AU";
+        string tenantId = "";
+
+        try
+        {
+            var parts = token.Token.Split('.');
+            if (parts.Length >= 2)
+            {
+                var payloadStr = parts[1].Replace('-', '+').Replace('_', '/');
+                switch (payloadStr.Length % 4)
+                {
+                    case 2: payloadStr += "=="; break;
+                    case 3: payloadStr += "="; break;
+                }
+                var bytes = Convert.FromBase64String(payloadStr);
+                using var doc = JsonDocument.Parse(bytes);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("upn", out var u)) email = u.GetString() ?? email;
+                else if (root.TryGetProperty("email", out var e)) email = e.GetString() ?? email;
+                else if (root.TryGetProperty("unique_name", out var un)) email = un.GetString() ?? email;
+                if (root.TryGetProperty("tid", out var t)) tenantId = t.GetString() ?? "";
+
+                var partsEmail = email.Split('@')[0].Split(new[] { '.', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                if (partsEmail.Length >= 2)
+                {
+                    initials = $"{char.ToUpper(partsEmail[0][0])}{char.ToUpper(partsEmail[1][0])}";
+                }
+                else if (partsEmail.Length == 1 && partsEmail[0].Length >= 2)
+                {
+                    initials = partsEmail[0].Substring(0, 2).ToUpper();
+                }
+            }
+        }
+        catch {}
+
+        // Pre-warm encrypted cache session key asynchronously in RAM
+        _ = Task.Run(async () =>
+        {
+            try { await cacheService.GetOrCreateSessionKeyAsync(CancellationToken.None); } catch {}
+        });
+
+        bool hasServicePrincipal = !string.IsNullOrWhiteSpace(settings.AzureTenantId) && 
+                                   !string.IsNullOrWhiteSpace(settings.AzureClientId);
+
+        return Results.Ok(new
+        {
+            isConnected = true,
+            state = "connected",
+            authMethod = hasServicePrincipal ? "ServicePrincipal" : "InteractiveSSO",
+            profile = new
+            {
+                email,
+                initials,
+                subscriptionName = "Azure Cloud Active",
+                tenantId
+            }
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Ok(new
+        {
+            isConnected = false,
+            state = "disconnected",
+            reason = ex.Message
+        });
+    }
+})
+.WithName("GetAuthStatus");
 
 app.MapPost("/api/auth/login-interactive", async (
     [FromServices] DynamicAzureCredential dynamicCred,
@@ -585,6 +685,7 @@ app.MapPost("/api/settings", async (
         if (req.CachePipelineRunsTtlMinutes.HasValue) settings.CachePipelineRunsTtlMinutes = req.CachePipelineRunsTtlMinutes.Value;
         if (req.CacheVaultKeysTtlMinutes.HasValue) settings.CacheVaultKeysTtlMinutes = req.CacheVaultKeysTtlMinutes.Value;
         if (req.CacheVariableGroupsTtlMinutes.HasValue) settings.CacheVariableGroupsTtlMinutes = req.CacheVariableGroupsTtlMinutes.Value;
+        if (req.AzureAuthTimeoutSeconds.HasValue) settings.AzureAuthTimeoutSeconds = req.AzureAuthTimeoutSeconds.Value;
 
         await appSettingsService.SaveSettingsAsync(settings, ct);
 
@@ -691,7 +792,8 @@ public record UpdateSettingsDto(
     int? CachePipelinesTtlMinutes = null,
     int? CachePipelineRunsTtlMinutes = null,
     int? CacheVaultKeysTtlMinutes = null,
-    int? CacheVariableGroupsTtlMinutes = null
+    int? CacheVariableGroupsTtlMinutes = null,
+    int? AzureAuthTimeoutSeconds = null
 );
 public record TestAzureRequest(string? TenantId, string? ClientId, string? ClientSecret);
 public record TestAdoRequest(string Organization, string Project, string? Pat);

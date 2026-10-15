@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useDevopsDataStore } from '../../stores/devopsDataStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useAzureConnectionStore } from '../../stores/azureConnectionStore';
 import CurrentUserAvatar from '../Layout/CurrentUserAvatar.vue';
 
 type SectionTab = 'azure-cloud' | 'azure-devops' | 'github' | 'security-storage' | 'cache' | 'ui-appearance';
@@ -21,6 +22,9 @@ const emit = defineEmits<{
 const settingsStore = useSettingsStore();
 const devopsDataStore = useDevopsDataStore();
 const authStore = useAuthStore();
+const azureConnectionStore = useAzureConnectionStore();
+
+const azureAuthTimeoutSeconds = ref(4);
 
 // Navigation Tabs
 const activeTab = ref<SectionTab>(props.initialTab || 'azure-cloud');
@@ -98,6 +102,10 @@ const formatBytes = (bytes: number): string => {
 };
 
 const fetchCacheStats = async () => {
+  if (!azureConnectionStore.canAccessEncryptedCache) {
+    cacheStats.value = null;
+    return;
+  }
   isLoadingCacheStats.value = true;
   try {
     const res = await fetch('/api/cache/stats');
@@ -193,6 +201,8 @@ const loadSettingsFromBackend = async () => {
     cachePipelineRunsTtlMinutes.value = data.cachePipelineRunsTtlMinutes ?? 30;
     cacheVaultKeysTtlMinutes.value = data.cacheVaultKeysTtlMinutes ?? 120;
     cacheVariableGroupsTtlMinutes.value = data.cacheVariableGroupsTtlMinutes ?? 60;
+    azureAuthTimeoutSeconds.value = data.azureAuthTimeoutSeconds ?? 4;
+    azureConnectionStore.setTimeoutSeconds(azureAuthTimeoutSeconds.value);
     fetchCacheStats();
   } catch (err: any) {
     console.warn('Could not load backend settings:', err);
@@ -272,7 +282,8 @@ const handleSave = async () => {
       cachePipelinesTtlMinutes: Number(cachePipelinesTtlMinutes.value) || 60,
       cachePipelineRunsTtlMinutes: Number(cachePipelineRunsTtlMinutes.value) || 30,
       cacheVaultKeysTtlMinutes: Number(cacheVaultKeysTtlMinutes.value) || 120,
-      cacheVariableGroupsTtlMinutes: Number(cacheVariableGroupsTtlMinutes.value) || 60
+      cacheVariableGroupsTtlMinutes: Number(cacheVariableGroupsTtlMinutes.value) || 60,
+      azureAuthTimeoutSeconds: Number(azureAuthTimeoutSeconds.value) || 4
     };
 
     const res = await fetch('/api/settings', {
@@ -754,6 +765,26 @@ const showUiSection = computed(() => {
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
                 <span>{{ azureTestResult.message }}</span>
+              </div>
+            </div>
+
+            <!-- Fast Connection & Timeout Card -->
+            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-4">
+              <div class="space-y-0.5">
+                <label class="text-xs font-bold text-slate-800 block">Fast Probe Timeout</label>
+                <div class="text-[11px] text-slate-500">
+                  Maximum time the startup state machine waits when checking Azure credentials before displaying the sign-in prompt (default: 4s).
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <input 
+                  v-model.number="azureAuthTimeoutSeconds" 
+                  type="number" 
+                  min="1" 
+                  max="30" 
+                  class="w-20 text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right font-semibold"
+                />
+                <span class="text-xs text-slate-500 font-medium">sec</span>
               </div>
             </div>
 

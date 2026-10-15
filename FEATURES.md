@@ -74,10 +74,19 @@ The connection to Azure Cloud and external platforms is strictly centralized in 
 
 ### 2.1 Azure Cloud Authentication (Key Vaults & Subscriptions)
 - **Scope**: Azure Resource Manager (`management.azure.com`) and Key Vault Data Plane (`vault.azure.net`).
+- **State Machine Architecture (`azureConnectionStore.ts`)**:
+  - The application connection lifecycle strictly follows a deterministic 5-state state machine:
+    - `'disconnected'`: Unauthenticated. No background or active Azure/Key Vault requests are dispatched; encrypted cache reads are disabled.
+    - `'checking'`: Fast non-blocking single-probe (`GET /api/auth/status`) during startup or reconnection.
+    - `'login_prompt'`: Prompting state. Displays the non-blocking top banner with a 1-click **"Sign in with Microsoft"** action immediately on boot.
+    - `'logging_in'`: Interactive browser login in progress.
+    - `'connected'`: Authenticated. Token validated, cache session key unsealed, profile loaded, and cloud operations authorized.
+- **Fast Single-Probe Startup**:
+  - Cold boot issues exactly ONE fast probe (`GET /api/auth/status`) with configurable timeout (`azureAuthTimeoutSeconds`, default: 4s).
+  - Eliminates multi-request 30-second cold boot hangs by deferring subscriptions, profile photo resolution, and Key Vault inventory until connection is confirmed.
 - **Primary Method (1-Click SSO)**: Interactive browser login via `POST /api/auth/login-interactive` (`DynamicAzureCredential`). Uses Microsoft's pre-consented public Client ID (`04b07795-8ddb-461a-bbee-02f9e1bf7b46`). Zero Azure Administrator rights or tenant app registrations required.
 - **Local Fallback**: Local Azure CLI session (`az login`).
 - **Automated / Headless Runner**: Service Principal configured in Settings (`AzureTenantId`, `AzureClientId`, and encrypted `AzureClientSecret`) for Docker or CI/CD pipelines.
-- **Visual Notification**: If Azure Cloud is disconnected, a non-blocking top banner displays a 1-click **"Sign in with Microsoft"** action and a link to Settings.
 - **Connection Method Transparency**: The UI explicitly shows the active connection method:
   - `Azure SSO Identity (Interactive / az login)` OR
   - `Service Principal (App ID & Secret)`

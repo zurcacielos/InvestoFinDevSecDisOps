@@ -116,8 +116,9 @@ namespace KeyVaultComparer.Api.Services.Cache
                     return null;
                 }
 
-                // 1. IKM from Azure Token
-                byte[] ikm = SHA256.HashData(Encoding.UTF8.GetBytes(token.Token));
+                // 1. IKM derived from verified immutable Azure Entra user identity (TenantId + ObjectId)
+                string identityKey = ExtractIdentityKeyFromJwt(token.Token) ?? "AuthenticatedAzureUser";
+                byte[] ikm = SHA256.HashData(Encoding.UTF8.GetBytes(identityKey));
 
                 // 2. Salt derived from Windows DPAPI for machine/user boundary
                 byte[] salt;
@@ -159,6 +160,42 @@ namespace KeyVaultComparer.Api.Services.Cache
             finally
             {
                 _keyLock.Release();
+            }
+        }
+
+        private static string? ExtractIdentityKeyFromJwt(string jwtToken)
+        {
+            try
+            {
+                var parts = jwtToken.Split('.');
+                if (parts.Length < 2) return null;
+
+                var payloadStr = parts[1].Replace('-', '+').Replace('_', '/');
+                switch (payloadStr.Length % 4)
+                {
+                    case 2: payloadStr += "=="; break;
+                    case 3: payloadStr += "="; break;
+                }
+
+                var payloadBytes = Convert.FromBase64String(payloadStr);
+                using var doc = JsonDocument.Parse(payloadBytes);
+                var root = doc.RootElement;
+
+                string? tid = root.TryGetProperty("tid", out var t) ? t.GetString() : null;
+                string? oid = root.TryGetProperty("oid", out var o) ? o.GetString() : null;
+                string? sub = root.TryGetProperty("sub", out var s) ? s.GetString() : null;
+                string? upn = root.TryGetProperty("upn", out var u) ? u.GetString() : null;
+                string? email = root.TryGetProperty("email", out var e) ? e.GetString() : null;
+                string? appid = root.TryGetProperty("appid", out var a) ? a.GetString() : null;
+
+                string userIdentifier = oid ?? sub ?? upn ?? email ?? appid ?? "default_user";
+                string tenantIdentifier = tid ?? "default_tenant";
+
+                return $"{tenantIdentifier}:{userIdentifier}";
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -230,7 +267,16 @@ namespace KeyVaultComparer.Api.Services.Cache
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[EncryptedCacheService] Failed to decrypt cache on disk (key mismatch or corrupt): {ex.Message}");
+                    Console.WriteLine($"[EncryptedCacheService] Note: Existing cache file could not be decrypted ({ex.Message}). Starting with fresh cache.");
+                    try
+                    {
+                        if (File.Exists(_cacheFilePath))
+                        {
+                            File.Delete(_cacheFilePath);
+                        }
+                    }
+                    catch {}
+                    _inMemoryCache.Clear();
                 }
             }
             finally
