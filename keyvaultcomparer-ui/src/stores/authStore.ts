@@ -210,7 +210,11 @@ export const useAuthStore = defineStore('auth', {
       this.azureCloud.isConnecting = true;
       this.azureCloud.error = null;
       try {
-        const res = await fetch('/api/auth/login-interactive', { method: 'POST' });
+        const res = await fetch('/api/auth/login-interactive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}'
+        });
         const data = await res.json();
         if (data.success) {
           await this.retryAuth();
@@ -229,7 +233,11 @@ export const useAuthStore = defineStore('auth', {
 
     async logout(): Promise<void> {
       try {
-        await fetch('/api/auth/logout', { method: 'POST' });
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}'
+        });
       } catch {}
       this.disconnectFromAzure();
       this.azureDevOps.isConnected = null;
