@@ -97,16 +97,16 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
 <template>
   <div 
     v-if="activeDep"
-    class="flex rounded-lg bg-white border border-slate-200/90 shadow-2xs divide-x divide-slate-200 overflow-hidden text-xs select-none hover:border-blue-300 transition-all min-w-[280px]"
+    class="flex w-full h-full divide-x divide-slate-200 text-xs select-none min-w-[280px]"
   >
     <!-- Left Column: Prior Run (N-1) (Side-by-Side) -->
     <div 
       v-if="priorDep"
       @contextmenu.stop="emit('open-context-menu', $event, row, priorDep, env)"
-      class="flex-1 p-2 flex flex-col gap-1 min-w-0 bg-amber-50/40"
+      class="flex-1 p-2 flex flex-col gap-1 min-w-0 bg-amber-50/30"
     >
-      <!-- Sub-header: Prior Icon & Run -->
-      <div class="flex items-center justify-between gap-1 text-[10px] pb-1 border-b border-amber-200/50">
+      <!-- Sub-header: Prior Icon & Run Link -->
+      <div class="flex items-center justify-between gap-1 text-[10px] pb-1 border-b border-amber-200/60 whitespace-nowrap">
         <div class="flex items-center gap-1 min-w-0">
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -134,7 +134,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         </button>
       </div>
 
-      <!-- Prior Version / Tag & Branch -->
+      <!-- Line 2: Prior Version / Tag -->
       <div class="flex items-center gap-1 min-w-0 py-0.5 whitespace-nowrap">
         <button 
           v-if="priorDep.version"
@@ -152,43 +152,46 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         >
           {{ priorDep.commitSha.substring(0, 7) }}
         </span>
-
-        <!-- Prior Deployed Branch Badge -->
-        <span 
-          v-if="getCleanBranch(priorDep)" 
-          class="inline-flex items-center gap-0.5 text-[9px] font-mono px-1 py-0.2 rounded bg-white/90 text-amber-900 border border-amber-200/70 max-w-[85px] truncate"
-          :title="`Previous Branch: ${priorDep.branch}`"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-2 w-2 text-amber-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="18" cy="6" r="3"></circle>
-            <circle cx="6" cy="18" r="3"></circle>
-            <path d="M18 9a9 9 0 0 1-9 9"></path>
-          </svg>
-          <span class="truncate">{{ getCleanBranch(priorDep) }}</span>
-        </span>
+        <span v-else class="text-slate-300 font-mono text-xs">-</span>
       </div>
 
-      <!-- Prior Commit & PR -->
-      <div class="flex items-center gap-1 text-[10px] whitespace-nowrap">
-        <button 
-          v-if="priorDep.commitSha"
-          @click.stop="getCommitLink(priorDep) ? openUrlInNewTab(getCommitLink(priorDep)!) : null"
-          class="font-mono text-indigo-700 hover:underline"
-          :title="`Previous Commit: ${priorDep.commitSha}`"
-        >
-          {{ priorDep.commitSha.substring(0, 7) }}
-        </button>
+      <!-- Line 3: Prior Commit SHA & PR (SHA on one line) -->
+      <div class="flex items-center justify-between gap-1 text-[10px] whitespace-nowrap min-w-0">
+        <div class="flex items-center gap-1 min-w-0">
+          <span class="text-slate-400 font-mono text-[9px]">SHA:</span>
+          <button 
+            v-if="priorDep.commitSha"
+            @click.stop="getCommitLink(priorDep) ? openUrlInNewTab(getCommitLink(priorDep)!) : null"
+            class="font-mono text-indigo-700 hover:underline truncate"
+            :title="`Previous Commit: ${priorDep.commitSha}`"
+          >
+            {{ priorDep.commitSha.substring(0, 7) }}
+          </button>
+          <span v-else class="text-slate-300">-</span>
+        </div>
         <button 
           v-if="priorDep.prNumber"
           @click.stop="getPrLink(priorDep) ? openUrlInNewTab(getPrLink(priorDep)!) : null"
-          class="font-semibold px-1 py-0.2 rounded bg-violet-100 text-violet-800 hover:underline border border-violet-200 text-[9px]"
+          class="font-semibold px-1 py-0.2 rounded bg-violet-100 text-violet-800 hover:underline border border-violet-200 text-[9px] shrink-0"
           :title="`Previous Pull Request #${priorDep.prNumber}`"
         >
           PR #{{ priorDep.prNumber }}
         </button>
       </div>
 
-      <!-- Prior Time & Author -->
+      <!-- Line 4: Prior Branch on its own line with branch icon -->
+      <div class="flex items-center gap-1 text-[10px] text-amber-950 min-w-0 whitespace-nowrap">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-amber-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="6" r="3"></circle>
+          <circle cx="6" cy="18" r="3"></circle>
+          <path d="M18 9a9 9 0 0 1-9 9"></path>
+        </svg>
+        <span class="truncate font-medium" :title="`Previous Branch: ${priorDep.branch}`">
+          {{ getCleanBranch(priorDep) || '-' }}
+        </span>
+      </div>
+
+      <!-- Line 5: Prior Time & Author -->
       <div class="flex items-center justify-between text-[10px] text-slate-400 mt-auto pt-1 border-t border-amber-200/50 whitespace-nowrap">
         <span class="text-[9px] font-mono text-amber-800/80" :title="priorDep.deployedAt">
           {{ formatTimeAgo(priorDep.deployedAt) }}
@@ -206,39 +209,35 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
     <!-- If No Prior Run -->
     <div 
       v-else
-      class="flex-1 p-2 flex flex-col items-center justify-center text-center bg-slate-50/20 min-w-0"
+      class="flex-1 p-2 flex flex-col items-center justify-center text-center bg-slate-50/30 min-w-0 gap-1"
+      :title="canScanMore 
+        ? `No prior run found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan +50' to search older runs.` 
+        : `No prior run found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`"
     >
-      <div 
-        class="w-full h-full min-h-[96px] border border-dashed border-amber-300/80 rounded-lg bg-white p-2.5 flex flex-col items-center justify-center gap-1 text-center transition-colors shadow-2xs"
-        :title="canScanMore 
-          ? `No prior run found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan +50' to search older runs.` 
-          : `No prior run found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`"
-      >
-        <div class="flex items-center gap-1.5 text-slate-400 text-[10px]">
-          <span class="text-amber-500 font-bold font-mono text-xs select-none">&mdash;</span>
-          <span class="font-medium text-slate-600">No prior run</span>
-        </div>
-        <span class="text-[9px] text-slate-400 italic">
-          in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}
-        </span>
-        <button 
-          v-if="canScanMore"
-          type="button"
-          @click.stop="handleDeepScan"
-          :disabled="isScanning"
-          class="mt-1 px-2 py-0.5 rounded text-[9px] font-semibold text-blue-600 bg-blue-50/60 hover:bg-blue-100/80 border border-blue-200/70 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
-          :title="`Search up to ${nextDepth} older runs for '${row.pipelineName}' in Azure DevOps`"
-        >
-          <svg v-if="!isScanning" class="w-2.5 h-2.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
-          </svg>
-          <svg v-else class="animate-spin h-2.5 w-2.5 text-blue-600" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span>{{ isScanning ? 'Scanning...' : 'Scan +50' }}</span>
-        </button>
+      <div class="flex items-center gap-1.5 text-slate-400 text-[10px]">
+        <span class="text-amber-500 font-bold font-mono text-xs select-none">&mdash;</span>
+        <span class="font-medium text-slate-500">No prior run</span>
       </div>
+      <span class="text-[9px] text-slate-400 italic">
+        in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}
+      </span>
+      <button 
+        v-if="canScanMore"
+        type="button"
+        @click.stop="handleDeepScan"
+        :disabled="isScanning"
+        class="mt-1 px-2 py-0.5 rounded text-[9px] font-semibold text-blue-600 bg-blue-50/60 hover:bg-blue-100/80 border border-blue-200/70 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer whitespace-nowrap"
+        :title="`Search up to ${nextDepth} older runs for '${row.pipelineName}' in Azure DevOps`"
+      >
+        <svg v-if="!isScanning" class="w-2.5 h-2.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+        </svg>
+        <svg v-else class="animate-spin h-2.5 w-2.5 text-blue-600" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>{{ isScanning ? 'Scanning...' : 'Scan +50' }}</span>
+      </button>
     </div>
 
     <!-- Right Column: Current Active Run (N) -->
@@ -246,7 +245,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       @contextmenu.stop="emit('open-context-menu', $event, row, activeDep, env)"
       class="flex-1 p-2 flex flex-col gap-1 min-w-0 bg-white"
     >
-      <!-- Sub-header: Current Status & Run -->
+      <!-- Sub-header: Current Status & Run Link -->
       <div class="flex items-center justify-between gap-1.5 text-[10px] pb-1 border-b border-slate-100 min-w-0 whitespace-nowrap">
         <div class="flex items-center gap-1 shrink-0">
           <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
@@ -266,7 +265,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         </button>
       </div>
 
-      <!-- Version / Tag Anchor -->
+      <!-- Line 2: Version / Tag Anchor -->
       <div class="flex items-center gap-1 min-w-0 py-0.5 whitespace-nowrap">
         <span 
           v-if="activeDep.version"
@@ -282,33 +281,46 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         >
           {{ activeDep.commitSha.substring(0, 7) }}
         </span>
+        <span v-else class="text-slate-300 font-mono text-xs">-</span>
       </div>
 
-      <!-- Commit & Branch -->
-      <div class="flex items-center gap-1 text-[10px] whitespace-nowrap">
-        <button 
-          v-if="activeDep.commitSha"
-          @click.stop="getCommitLink(activeDep) ? openUrlInNewTab(getCommitLink(activeDep)!) : null"
-          class="font-mono text-indigo-700 hover:underline"
-          :title="`Commit: ${activeDep.commitSha}`"
-        >
-          {{ activeDep.commitSha.substring(0, 7) }}
-        </button>
+      <!-- Line 3: Commit SHA & PR (SHA on one line) -->
+      <div class="flex items-center justify-between gap-1 text-[10px] whitespace-nowrap min-w-0">
+        <div class="flex items-center gap-1 min-w-0">
+          <span class="text-slate-400 font-mono text-[9px]">SHA:</span>
+          <button 
+            v-if="activeDep.commitSha"
+            @click.stop="getCommitLink(activeDep) ? openUrlInNewTab(getCommitLink(activeDep)!) : null"
+            class="font-mono text-indigo-700 hover:underline truncate"
+            :title="`Commit: ${activeDep.commitSha}`"
+          >
+            {{ activeDep.commitSha.substring(0, 7) }}
+          </button>
+          <span v-else class="text-slate-300">-</span>
+        </div>
         <button 
           v-if="activeDep.prNumber"
           @click.stop="getPrLink(activeDep) ? openUrlInNewTab(getPrLink(activeDep)!) : null"
-          class="font-semibold px-1 py-0.2 rounded bg-violet-100 text-violet-800 hover:underline border border-violet-200 text-[9px]"
+          class="font-semibold px-1 py-0.2 rounded bg-violet-100 text-violet-800 hover:underline border border-violet-200 text-[9px] shrink-0"
           :title="`Pull Request #${activeDep.prNumber}`"
         >
           PR #{{ activeDep.prNumber }}
         </button>
-        <span v-if="getCleanBranch(activeDep)" class="text-slate-300">&bull;</span>
-        <span v-if="getCleanBranch(activeDep)" class="text-slate-600 truncate max-w-[80px]" :title="`Branch: ${activeDep.branch}`">
-          {{ getCleanBranch(activeDep) }}
+      </div>
+
+      <!-- Line 4: Active Branch on its own line with branch icon -->
+      <div class="flex items-center gap-1 text-[10px] text-slate-700 min-w-0 whitespace-nowrap">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="6" r="3"></circle>
+          <circle cx="6" cy="18" r="3"></circle>
+          <path d="M18 9a9 9 0 0 1-9 9"></path>
+        </svg>
+        <span class="truncate font-medium" :title="`Branch: ${activeDep.branch}`">
+          {{ getCleanBranch(activeDep) || '-' }}
         </span>
       </div>
 
-      <!-- Time & Author -->
+      <!-- Line 5: Active Time & Author -->
       <div class="flex items-center justify-between text-[10px] text-slate-400 mt-auto pt-1 border-t border-slate-100 whitespace-nowrap">
         <span class="text-[9px] font-mono text-slate-500" :title="activeDep.deployedAt">
           {{ formatTimeAgo(activeDep.deployedAt) }}

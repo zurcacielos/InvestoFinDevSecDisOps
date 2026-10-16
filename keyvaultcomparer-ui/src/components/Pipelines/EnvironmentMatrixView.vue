@@ -295,13 +295,14 @@ onUnmounted(() => {
           </tr>
 
           <tr 
-            v-for="row in rows" 
+            v-for="(row, rowIdx) in rows" 
             :key="row.pipelineId"
             class="hover:bg-slate-50/70 transition-colors border-b border-slate-200"
           >
             <!-- 1. Pinned Service & Repository Integrated Column -->
             <PipelineServiceColumn 
               :row="row"
+              :is-subsequent-row="rowIdx > 0"
               @open-context-menu="(e, r, c, env) => emit('open-context-menu', e, r, c, env)"
               @open-all-yamls="(r) => emit('open-all-yamls', r)"
             />
@@ -312,7 +313,9 @@ onUnmounted(() => {
               :key="env"
               class="border-r border-slate-200 select-none align-top"
               :class="[
-                devopsStore.matrixLayoutMode === 'rows' ? 'p-0' : 'px-2.5 py-2',
+                (devopsStore.matrixLayoutMode === 'rows' || devopsStore.matrixLayoutMode === 'columns') 
+                  ? (rowIdx > 0 ? 'pt-1 p-0' : 'p-0')
+                  : (rowIdx > 0 ? 'px-2.5 pt-3 pb-2' : 'px-2.5 py-2'),
                 getDeploymentsForEnv(row, env).length ? 'bg-white' : 'bg-slate-50/40',
                 devopsStore.matrixLayoutMode === 'columns' 
                   ? 'w-[300px] min-w-[280px] max-w-[340px]' 
@@ -353,7 +356,10 @@ onUnmounted(() => {
             </td>
 
             <!-- Spacer cell to absorb remaining width -->
-            <td class="bg-slate-50/20 border-b border-slate-200 p-0"></td>
+            <td 
+              class="bg-slate-50/20 border-b border-slate-200 p-0"
+              :class="rowIdx > 0 ? 'pt-1' : ''"
+            ></td>
           </tr>
         </tbody>
       </table>
