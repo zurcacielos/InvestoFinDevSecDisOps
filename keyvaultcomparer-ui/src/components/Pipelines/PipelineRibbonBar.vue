@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useDevopsDataStore } from '../../stores/devopsDataStore';
 import { formatTimeAgo } from '../../utils/pipelineUrlHelpers';
 
 const devopsStore = useDevopsDataStore();
+
+onMounted(() => {
+  devopsStore.fetchBackendSettings();
+});
 
 const searchQuery = ref('');
 const isDropdownOpen = ref(false);
@@ -18,7 +22,7 @@ const filteredPipelines = computed(() => {
   if (q) {
     list = list.filter(p => {
       const nameMatch = p.name.toLowerCase().includes(q);
-      const cleanMatch = devopsStore.cleanPipelineName(p.name).toLowerCase().includes(q);
+      const cleanMatch = devopsStore.cleanPipelineName(p.name, p.repository?.name).toLowerCase().includes(q);
       const repoMatch = p.repository?.name?.toLowerCase().includes(q);
       const pathMatch = p.path?.toLowerCase().includes(q);
       return nameMatch || cleanMatch || repoMatch || pathMatch;
@@ -169,7 +173,7 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
               >
                 <div class="flex flex-col min-w-0 pr-2">
                   <div class="flex items-center gap-1.5 min-w-0">
-                    <span class="text-slate-800 truncate font-medium">{{ devopsStore.cleanPipelineName(p.name) }}</span>
+                    <span class="text-slate-800 truncate font-medium">{{ devopsStore.cleanPipelineName(p.name, p.repository?.name) }}</span>
                     <span v-if="p.runCount !== undefined && p.runCount !== null" class="text-[10px] text-slate-400 font-mono shrink-0">
                       ({{ p.runCount }} {{ p.runCount === 1 ? 'run' : 'runs' }})
                     </span>
@@ -216,7 +220,7 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
               >
                 <div class="flex flex-col min-w-0 pr-2">
                   <div class="flex items-center gap-1.5 min-w-0">
-                    <span class="text-slate-800 truncate font-medium">{{ devopsStore.cleanPipelineName(p.name) }}</span>
+                    <span class="text-slate-800 truncate font-medium">{{ devopsStore.cleanPipelineName(p.name, p.repository?.name) }}</span>
                     <span v-if="p.runCount !== undefined && p.runCount !== null" class="text-[10px] text-slate-400 font-mono shrink-0">
                       ({{ p.runCount }} {{ p.runCount === 1 ? 'run' : 'runs' }})
                     </span>
@@ -249,7 +253,7 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
               >
                 <div class="flex flex-col min-w-0 pr-2">
                   <div class="flex items-center gap-1.5 min-w-0">
-                    <span class="text-slate-800 truncate font-medium">{{ devopsStore.cleanPipelineName(p.name) }}</span>
+                    <span class="text-slate-800 truncate font-medium">{{ devopsStore.cleanPipelineName(p.name, p.repository?.name) }}</span>
                     <span v-if="p.runCount !== undefined && p.runCount !== null" class="text-[10px] text-slate-400 font-mono shrink-0">
                       ({{ p.runCount }} {{ p.runCount === 1 ? 'run' : 'runs' }})
                     </span>
@@ -313,7 +317,7 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
         :key="p.id"
         class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs"
       >
-        <span class="font-medium" :title="p.name">{{ devopsStore.cleanPipelineName(p.name) }}</span>
+        <span class="font-medium" :title="p.name">{{ devopsStore.cleanPipelineName(p.name, p.repository?.name) }}</span>
 
         <!-- Quick Copy YAML context button -->
         <button 

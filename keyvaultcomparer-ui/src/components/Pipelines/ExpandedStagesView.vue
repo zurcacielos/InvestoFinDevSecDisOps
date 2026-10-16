@@ -360,7 +360,7 @@ const toDeploymentInfo = (run: PipelineRunInfo, stageName?: string): StageDeploy
                           class="font-bold text-slate-900 hover:text-blue-600 hover:underline text-left text-xs leading-snug break-words"
                           :title="`Open Pipeline ${row.pipelineName} in Azure DevOps`"
                         >
-                          {{ devopsStore.cleanPipelineName(row.pipelineName) }}
+                          {{ devopsStore.cleanPipelineName(row.pipelineName, row.repository?.name) }}
                         </button>
                         
                         <!-- Runs Count Badge -->
