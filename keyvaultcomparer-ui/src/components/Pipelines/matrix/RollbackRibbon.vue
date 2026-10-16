@@ -58,6 +58,11 @@ const formattedFullDate = computed(() => {
   const d = new Date(props.deployment.deployedAt);
   return d.toLocaleString();
 });
+
+const cleanBranch = computed(() => {
+  if (!props.deployment.branch) return '';
+  return props.deployment.branch.replace(/^refs\/heads\//, '');
+});
 </script>
 
 <template>
@@ -66,7 +71,7 @@ const formattedFullDate = computed(() => {
     class="flex items-center justify-between gap-1.5 px-2 py-1 rounded bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200/70 text-[10px] text-amber-900 transition-colors shadow-2xs select-none"
     :title="`Previous run #${deployment.buildNumber} deployed ${formattedFullDate}`"
   >
-    <!-- Left: Return Icon + Previous Version / Commit -->
+    <!-- Left: Return Icon + Previous Version / Commit / Branch -->
     <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
       <svg 
         xmlns="http://www.w3.org/2000/svg" 
@@ -89,6 +94,20 @@ const formattedFullDate = computed(() => {
       >
         v{{ deployment.version }}
       </button>
+
+      <!-- Previous Branch Badge -->
+      <span 
+        v-if="cleanBranch"
+        class="inline-flex items-center gap-0.5 text-[9px] font-mono px-1 py-0.2 rounded bg-white/90 text-amber-900 border border-amber-200/70 max-w-[85px] truncate"
+        :title="`Previous Branch: ${deployment.branch}`"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-2 w-2 text-amber-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="6" r="3"></circle>
+          <circle cx="6" cy="18" r="3"></circle>
+          <path d="M18 9a9 9 0 0 1-9 9"></path>
+        </svg>
+        <span class="truncate">{{ cleanBranch }}</span>
+      </span>
 
       <!-- Previous Commit Link -->
       <button 
