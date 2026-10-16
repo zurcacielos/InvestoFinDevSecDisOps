@@ -55,7 +55,7 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
     <!-- Row 1: Context Title & Top Actions / Catalog Fetch -->
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
-        <span class="font-bold text-slate-800 text-sm">Azure DevOps Pipelines &amp; Release Matrix</span>
+        <span class="font-bold text-slate-800 text-sm">ADO</span>
         
         <!-- Organization -->
         <div class="flex items-center gap-1.5">
