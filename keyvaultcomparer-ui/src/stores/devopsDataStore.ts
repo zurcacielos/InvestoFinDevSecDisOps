@@ -392,15 +392,31 @@ export const useDevopsDataStore = defineStore('devopsData', {
 
     mergePipelineMatrixRows(existing: PipelineMatrixRow, incoming: PipelineMatrixRow): PipelineMatrixRow {
       // 1. Merge recent runs without duplicates and sort chronologically descending
+      const incomingRuns = incoming.recentRuns || [];
+      const existingRuns = existing.recentRuns || [];
+      const hasOverlap = incomingRuns.length === 0 || existingRuns.length === 0 ||
+        incomingRuns.some(inRun => existingRuns.some(exRun => exRun.buildId === inRun.buildId));
+
+      if (!hasOverlap && incomingRuns.length > 0 && existingRuns.length > 0) {
+        // Disjoint gap detected: incoming runs are strictly newer than existing runs without overlap.
+        // Schedule an immediate bridge fetch for this pipeline to close the gap.
+        const neededAdditional = Math.min(incomingRuns.length, 500 - (existing.scannedRunsCount || 0));
+        if (neededAdditional > 0 && !this.deepScanningPipelineIds.includes(incoming.pipelineId)) {
+          setTimeout(() => {
+            this.deepScanPipeline(incoming.pipelineId, neededAdditional);
+          }, 150);
+        }
+      }
+
       const mergedRuns: PipelineRunInfo[] = [];
       const seenRunBuildIds = new Set<number>();
-      for (const run of incoming.recentRuns || []) {
+      for (const run of incomingRuns) {
         if (!seenRunBuildIds.has(run.buildId)) {
           seenRunBuildIds.add(run.buildId);
           mergedRuns.push(run);
         }
       }
-      for (const run of existing.recentRuns || []) {
+      for (const run of existingRuns) {
         if (!seenRunBuildIds.has(run.buildId)) {
           seenRunBuildIds.add(run.buildId);
           mergedRuns.push(run);
@@ -584,13 +600,15 @@ export const useDevopsDataStore = defineStore('devopsData', {
       this.singleRefreshingPipelineIds.push(pipelineId);
 
       try {
+        const cached = this.cachedPipelineRows[pipelineId];
+        const targetDepth = Math.max(cached?.scannedRunsCount || 0, this.scanDepth);
         const url = `/api/devops/pipelines/${pipelineId}/deep-scan?organization=${encodeURIComponent(this.organization)}&project=${encodeURIComponent(this.project)}`;
         const res = await apiFetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             profileConfig: this.profileConfig,
-            scanDepth: this.scanDepth,
+            scanDepth: targetDepth,
             onlySucceeded: this.onlySucceeded
           })
         });
@@ -770,6 +788,15 @@ export const useDevopsDataStore = defineStore('devopsData', {
       this.isMatrixLoading = true;
       this.matrixError = '';
 
+      // Build per-pipeline scan depths preserving deep-scanned histories
+      const pipelineScanDepths: Record<number, number> = {};
+      for (const id of targetIds) {
+        const cached = this.cachedPipelineRows[id];
+        if (cached && (cached.scannedRunsCount || 0) > this.scanDepth) {
+          pipelineScanDepths[id] = cached.scannedRunsCount!;
+        }
+      }
+
       try {
         const url = `/api/devops/pipelines/matrix?organization=${encodeURIComponent(this.organization)}&project=${encodeURIComponent(this.project)}`;
         const res = await apiFetch(url, {
@@ -779,6 +806,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
             pipelineIds: targetIds,
             profileConfig: this.profileConfig,
             scanDepth: this.scanDepth,
+            pipelineScanDepths: Object.keys(pipelineScanDepths).length > 0 ? pipelineScanDepths : undefined,
             onlySucceeded: this.onlySucceeded,
             forceRefresh: forceRefresh
           })

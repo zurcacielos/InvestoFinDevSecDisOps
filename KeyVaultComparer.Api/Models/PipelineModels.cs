@@ -115,6 +115,7 @@ namespace KeyVaultComparer.Api.Models
         public List<int> PipelineIds { get; set; } = new();
         public PipelineProfileConfig? ProfileConfig { get; set; }
         public int ScanDepth { get; set; } = 25;
+        public Dictionary<int, int>? PipelineScanDepths { get; set; }
         public bool OnlySucceeded { get; set; } = true;
         public bool ForceRefresh { get; set; } = false;
     }
