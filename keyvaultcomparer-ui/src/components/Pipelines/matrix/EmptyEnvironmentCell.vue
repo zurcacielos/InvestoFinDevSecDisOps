@@ -66,7 +66,7 @@ const handleScanAction = () => {
     <span class="text-xs text-slate-300 font-mono select-none leading-none">&mdash;</span>
     <span 
       v-if="!canScanMore && !isUnscanned"
-      class="text-[9px] text-slate-400 italic mt-1 select-none"
+      class="text-[9px] text-slate-400 italic mt-1 select-none whitespace-nowrap"
     >
       No run in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}
     </span>
@@ -74,7 +74,7 @@ const handleScanAction = () => {
       v-else
       type="button"
       @click.stop="handleScanAction"
-      class="text-[9px] font-medium text-blue-500 hover:text-blue-700 hover:underline transition-colors mt-1 cursor-pointer select-none"
+      class="text-[9px] font-medium text-blue-500 hover:text-blue-700 hover:underline transition-colors mt-1 cursor-pointer select-none whitespace-nowrap"
       :title="isUnscanned 
         ? `Scan recent ${devopsStore.scanDepth} runs for ${row.pipelineName}` 
         : `Search up to ${nextDepth} older runs for ${row.pipelineName} in Azure DevOps`"

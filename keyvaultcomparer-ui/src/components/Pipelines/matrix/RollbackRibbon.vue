@@ -68,11 +68,11 @@ const cleanBranch = computed(() => {
 <template>
   <div 
     @contextmenu.stop="emit('open-context-menu', $event, row, deployment, env)"
-    class="flex items-center justify-between gap-1.5 px-2 py-1 rounded bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200/70 text-[10px] text-amber-900 transition-colors shadow-2xs select-none"
+    class="flex items-center justify-between gap-1.5 px-2 py-1 rounded bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200/70 text-[10px] text-amber-900 transition-colors shadow-2xs select-none whitespace-nowrap"
     :title="`Previous run #${deployment.buildNumber} deployed ${formattedFullDate}`"
   >
     <!-- Left: Return Icon + Previous Version / Commit / Branch -->
-    <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+    <div class="flex items-center gap-1.5 min-w-0 flex-nowrap whitespace-nowrap">
       <svg 
         xmlns="http://www.w3.org/2000/svg" 
         class="h-3 w-3 text-amber-600 shrink-0" 

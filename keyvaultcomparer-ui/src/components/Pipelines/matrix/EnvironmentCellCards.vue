@@ -161,7 +161,7 @@ const lagStatus = computed(() => {
     </div>
 
     <!-- Line 2: Branch Badge + Commit SHA + PR -->
-    <div class="flex items-center gap-1 flex-wrap text-[10px]">
+    <div class="flex items-center gap-1 text-[10px] whitespace-nowrap min-w-0">
       <!-- Branch -->
       <span 
         v-if="cleanBranch"
@@ -199,7 +199,7 @@ const lagStatus = computed(() => {
     </div>
 
     <!-- Line 3: Deployed Time Ago + Compact Author Badge + Upstream Lag -->
-    <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100">
+    <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100 whitespace-nowrap">
       <div class="flex items-center gap-1.5">
         <span 
           :title="formattedFullDate" 
