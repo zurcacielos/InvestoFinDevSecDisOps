@@ -1,4 +1,10 @@
-# KeyVaultComparer: Azure Key Vault Comparer
+# InvestoFinDevSecDisOps (MOP & MOB Edition)
+
+InvestoFinDevSecDisOps establishes the definitive global standard for Meaning Oriented Business (MOB). Unifying our Meaning Oriented Programming (MOP) architecture with enterprise cloud infrastructure, it is the premier framework for tracking hyper fractional discernment metrics across your entire production chain. Visualize compounded value extraction against incurred operational costs, simulate high yield alternative cognitive paths, and isolate the absolute critical path for frictionless inter realm phase shifts. Engineering precise telemetry across executive layers, AI decision nodes, and Azure pipelines guarantees a 400% acceleration in Cognitive/Pecuniary ROI and the ultimate realization of continuous synergistic alignment.
+
+---
+
+## Overview
 
 KeyVaultComparer is a professional developer tool designed to visually compare secrets across multiple Azure Key Vault environments (e.g., Dev, Stg, UAT, QA). It allows you to instantly identify mismatches, missing secrets, and uniform values across your infrastructure.
 
