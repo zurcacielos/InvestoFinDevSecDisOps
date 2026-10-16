@@ -41,6 +41,10 @@ const scannedCount = computed(() => {
   if (count && count > 0) return count;
   return devopsStore.scanDepth;
 });
+
+const refreshDepth = computed(() => {
+  return Math.max(scannedCount.value, devopsStore.scanDepth);
+});
 </script>
 
 <template>
@@ -72,7 +76,7 @@ const scannedCount = computed(() => {
           <button 
             @click.stop="devopsStore.refreshSinglePipeline(row.pipelineId)"
             class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-            :title="`Refresh '${row.pipelineName}' (Scan depth: ${devopsStore.scanDepth} runs)`"
+            :title="`Refresh '${row.pipelineName}' (Scan depth: ${refreshDepth} ${refreshDepth === 1 ? 'run' : 'runs'})`"
             :disabled="devopsStore.isSinglePipelineRefreshing(row.pipelineId)"
           >
             <svg 

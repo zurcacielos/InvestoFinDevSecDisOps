@@ -50,7 +50,7 @@ const applyPreset = (preset: 'standard' | 'simple' | 'extended' | 'prod') => {
   } else if (preset === 'extended') {
     environmentsList.value = ['dev', 'qa', 'uat', 'uat1', 'uat2', 'stg', 'preprod', 'prd'];
   } else if (preset === 'prod') {
-    environmentsList.value = ['prod', 'prod1'];
+    environmentsList.value = ['prd', 'prd1'];
   }
 };
 
