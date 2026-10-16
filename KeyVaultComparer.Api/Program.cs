@@ -287,6 +287,27 @@ app.MapPost("/api/devops/pipelines/matrix", async ([FromQuery] string organizati
 })
 .WithName("GetReleaseMatrix");
 
+app.MapPost("/api/devops/pipelines/{pipelineId:int}/deep-scan", async (
+    int pipelineId, 
+    [FromQuery] string organization, 
+    [FromQuery] string project, 
+    [FromBody] PipelineDeepScanRequest request, 
+    AdoPipelineService pipelineService, 
+    CancellationToken ct) =>
+{
+    try
+    {
+        var scanDepth = request?.ScanDepth > 0 ? request.ScanDepth : 50;
+        var row = await pipelineService.DeepScanPipelineRowAsync(organization, project, pipelineId, request?.ProfileConfig, scanDepth, request?.OnlySucceeded ?? true, ct);
+        return Results.Ok(row);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.WithName("DeepScanPipeline");
+
 app.MapPost("/api/devops/pipelines/{pipelineId:int}/preview-yaml", async (int pipelineId, [FromQuery] string organization, [FromQuery] string project, AdoPipelineService pipelineService, CancellationToken ct) =>
 {
     try

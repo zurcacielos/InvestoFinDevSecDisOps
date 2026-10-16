@@ -7,6 +7,7 @@ import { openUrlInNewTab } from '../../../utils/urlOpener';
 import { formatTimeAgo, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
 import DeploymentStatusIndicator from './DeploymentStatusIndicator.vue';
 import PipelineAuthorBadge from '../PipelineAuthorBadge.vue';
+import EmptyEnvironmentCell from './EmptyEnvironmentCell.vue';
 
 const props = defineProps<{
   row: PipelineMatrixRow;
@@ -247,8 +248,6 @@ const lagStatus = computed(() => {
     </div>
   </div>
 
-  <!-- Empty State -->
-  <div v-else class="h-full flex items-center justify-center py-4 text-slate-300">
-    <span class="text-xs">&mdash;</span>
-  </div>
+  <!-- Empty State with On-Demand Deep Scan -->
+  <EmptyEnvironmentCell v-else :row="row" :env="env" />
 </template>

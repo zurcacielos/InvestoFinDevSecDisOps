@@ -115,6 +115,13 @@ namespace KeyVaultComparer.Api.Models
         public bool OnlySucceeded { get; set; } = true;
     }
 
+    public class PipelineDeepScanRequest
+    {
+        public PipelineProfileConfig? ProfileConfig { get; set; }
+        public int ScanDepth { get; set; } = 50;
+        public bool OnlySucceeded { get; set; } = true;
+    }
+
     public class PipelineRunStageInfo
     {
         public string StageName { get; set; } = string.Empty;

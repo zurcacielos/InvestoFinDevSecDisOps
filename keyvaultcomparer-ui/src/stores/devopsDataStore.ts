@@ -231,6 +231,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
       pipelinesError: '',
       matrixError: '',
       copyingYamlPipelineId: null as number | null,
+      deepScanningPipelineIds: [] as number[],
 
       // Dual Display Mode ('environments' = Release Matrix, 'stages' = DAG Expanded)
       viewMode: savedViewMode as 'environments' | 'stages',
@@ -587,6 +588,51 @@ export const useDevopsDataStore = defineStore('devopsData', {
         this.matrixError = err.message || 'Error fetching release matrix';
       } finally {
         this.isMatrixLoading = false;
+      }
+    },
+
+    async deepScanPipeline(pipelineId: number, additionalDepth: number = 50) {
+      if (!this.organization || !this.project) return;
+      if (this.deepScanningPipelineIds.includes(pipelineId)) return;
+
+      this.deepScanningPipelineIds.push(pipelineId);
+
+      // Determine target scan depth
+      const currentRow = this.cachedPipelineRows[pipelineId];
+      const currentRunsCount = currentRow?.recentRuns?.length || this.scanDepth;
+      const targetDepth = Math.min(Math.max(currentRunsCount + additionalDepth, this.scanDepth + additionalDepth), 200);
+
+      try {
+        const url = `/api/devops/pipelines/${pipelineId}/deep-scan?organization=${encodeURIComponent(this.organization)}&project=${encodeURIComponent(this.project)}`;
+        const res = await apiFetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profileConfig: this.profileConfig,
+            scanDepth: targetDepth,
+            onlySucceeded: this.onlySucceeded
+          })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.error || errData?.details || 'Failed to deep scan pipeline');
+        }
+
+        const updatedRow: PipelineMatrixRow = await res.json();
+        if (updatedRow && updatedRow.pipelineId) {
+          this.cachedPipelineRows[updatedRow.pipelineId] = updatedRow;
+          try {
+            localStorage.setItem('adoCachedPipelineRows', JSON.stringify(this.cachedPipelineRows));
+          } catch (e) {
+            console.warn('Failed to save adoCachedPipelineRows to localStorage', e);
+          }
+          this.computeReleaseMatrix();
+        }
+      } catch (err: any) {
+        console.error(`Deep scan failed for pipeline ${pipelineId}:`, err);
+      } finally {
+        this.deepScanningPipelineIds = this.deepScanningPipelineIds.filter(id => id !== pipelineId);
       }
     },
 

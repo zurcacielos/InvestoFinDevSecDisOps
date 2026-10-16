@@ -449,6 +449,32 @@ namespace KeyVaultComparer.Api.Services
             };
         }
 
+        public async Task<PipelineMatrixRow> DeepScanPipelineRowAsync(
+            string organization,
+            string project,
+            int pipelineId,
+            PipelineProfileConfig? profileConfig,
+            int scanDepth,
+            bool onlySucceeded,
+            CancellationToken cancellationToken = default)
+        {
+            profileConfig ??= new PipelineProfileConfig();
+            var authHeader = await GetAdoAuthHeaderAsync(cancellationToken);
+            var collectedEdges = new System.Collections.Concurrent.ConcurrentBag<(string From, string To)>();
+
+            return await FetchPipelineRowAsync(
+                organization, 
+                project, 
+                pipelineId, 
+                authHeader, 
+                profileConfig, 
+                collectedEdges, 
+                scanDepth, 
+                onlySucceeded, 
+                cancellationToken, 
+                bypassCache: true);
+        }
+
         private async Task<PipelineMatrixRow> FetchPipelineRowAsync(
             string organization, 
             string project, 
@@ -458,13 +484,17 @@ namespace KeyVaultComparer.Api.Services
             System.Collections.Concurrent.ConcurrentBag<(string From, string To)> collectedEdges,
             int scanDepth,
             bool onlySucceeded,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool bypassCache = false)
         {
             string rowCacheKey = $"pipeline_row:{organization.ToLower()}:{project.ToLower()}:{pipelineId}:{scanDepth}:{onlySucceeded}";
-            var cachedRow = await _cacheService.GetAsync<PipelineMatrixRow>(rowCacheKey, "PipelineRuns", cancellationToken);
-            if (cachedRow != null)
+            if (!bypassCache)
             {
-                return cachedRow;
+                var cachedRow = await _cacheService.GetAsync<PipelineMatrixRow>(rowCacheKey, "PipelineRuns", cancellationToken);
+                if (cachedRow != null)
+                {
+                    return cachedRow;
+                }
             }
 
             using var client = _httpClientFactory.CreateClient();
