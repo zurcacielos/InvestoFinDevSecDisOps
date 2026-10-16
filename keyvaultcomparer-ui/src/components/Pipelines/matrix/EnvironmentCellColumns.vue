@@ -101,13 +101,14 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
           @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
           class="font-mono font-bold text-xs text-amber-950 bg-white/90 px-1.5 py-0.2 rounded border border-amber-200 truncate transition-colors"
           :class="priorBuildUrl ? 'hover:underline hover:text-amber-800 cursor-pointer' : 'cursor-default'"
-          :title="priorBuildUrl ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (v${priorDep.version})` : `Previous Version/Tag: ${priorDep.version}`"
+          :title="priorBuildUrl ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (v${priorDep.version})${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}` : `Previous Version/Tag: ${priorDep.version}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
         >
           v{{ priorDep.version }}
         </button>
         <span 
           v-else-if="priorDep.commitSha"
           class="font-mono font-bold text-xs text-slate-700 bg-white px-1 py-0.2 rounded border border-slate-200 truncate"
+          :title="`Previous Commit: ${priorDep.commitSha}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
         >
           {{ priorDep.commitSha.substring(0, 7) }}
         </span>
@@ -175,7 +176,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
           v-if="activeDep.buildUrl"
           @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
           class="font-mono text-blue-600 hover:underline text-[10px] shrink-0"
-          :title="`Open Run #${activeDep.buildNumber}`"
+          :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
         >
           #{{ activeDep.buildNumber }}
         </button>
@@ -186,13 +187,14 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         <span 
           v-if="activeDep.version"
           class="font-mono font-bold text-xs text-violet-700 bg-violet-50 px-1.5 py-0.2 rounded border border-violet-200 truncate"
-          :title="`Version/Tag: ${activeDep.version}`"
+          :title="`Version/Tag: ${activeDep.version}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           v{{ activeDep.version }}
         </span>
         <span 
           v-else-if="activeDep.commitSha"
           class="font-mono font-bold text-xs text-slate-700 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 truncate"
+          :title="`Commit: ${activeDep.commitSha}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
         </span>

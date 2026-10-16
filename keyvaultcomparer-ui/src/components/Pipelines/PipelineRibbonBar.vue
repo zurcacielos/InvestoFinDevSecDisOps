@@ -35,9 +35,7 @@ const handleBlur = () => {
 };
 
 const handleFilterChange = () => {
-  if (devopsStore.selectedPipelineIds.length > 0) {
-    devopsStore.fetchReleaseMatrix(undefined, true);
-  }
+  devopsStore.hasPendingChanges = true;
 };
 
 const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
@@ -290,14 +288,20 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
       <div class="flex items-center gap-2 ml-auto">
         <button 
           @click="devopsStore.fetchReleaseMatrix(undefined, true)"
-          class="px-3 py-1 font-semibold text-xs rounded-lg transition-colors shadow-2xs flex items-center gap-1.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+          class="px-3 py-1 text-xs rounded-lg transition-all shadow-2xs flex items-center gap-1.5"
+          :class="devopsStore.hasPendingChanges 
+            ? 'border-2 border-blue-500 ring-2 ring-blue-300 bg-blue-50 text-blue-700 font-bold' 
+            : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold'"
           :disabled="devopsStore.isMatrixLoading || devopsStore.selectedPipelineIds.length === 0"
-          :title="devopsStore.selectedPipelineIds.length ? 'Refresh matrix deployments from Azure DevOps' : 'Select at least one pipeline to fetch matrix'"
+          :title="devopsStore.hasPendingChanges 
+            ? 'Pending changes detected: click to refresh matrix from Azure DevOps' 
+            : (devopsStore.selectedPipelineIds.length ? 'Refresh matrix deployments from Azure DevOps' : 'Select at least one pipeline to fetch matrix')"
         >
+          <span v-if="devopsStore.hasPendingChanges && !devopsStore.isMatrixLoading" class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
-            class="h-3.5 w-3.5 text-slate-500" 
-            :class="{'animate-spin text-blue-600': devopsStore.isMatrixLoading}" 
+            class="h-3.5 w-3.5" 
+            :class="devopsStore.isMatrixLoading ? 'animate-spin text-blue-600' : (devopsStore.hasPendingChanges ? 'text-blue-600' : 'text-slate-500')" 
             fill="none" 
             viewBox="0 0 24 24" 
             stroke="currentColor"

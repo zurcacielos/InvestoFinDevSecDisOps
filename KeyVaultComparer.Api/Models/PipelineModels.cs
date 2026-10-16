@@ -52,6 +52,7 @@ namespace KeyVaultComparer.Api.Models
         public Dictionary<string, EnvironmentDeploymentInfo> EnvironmentDeployments { get; set; } = new();
         public Dictionary<string, List<EnvironmentDeploymentInfo>> EnvironmentHistory { get; set; } = new();
         public List<PipelineRunInfo> RecentRuns { get; set; } = new();
+        public int ScannedRunsCount { get; set; }
     }
 
     public class PipelineYamlLink
@@ -105,6 +106,7 @@ namespace KeyVaultComparer.Api.Models
         public string? PrNumber { get; set; }
         public string? Operation { get; set; }
         public string? Version { get; set; }
+        public int? ScanPosition { get; set; }
     }
 
     public class ReleaseMatrixRequest
@@ -113,6 +115,7 @@ namespace KeyVaultComparer.Api.Models
         public PipelineProfileConfig? ProfileConfig { get; set; }
         public int ScanDepth { get; set; } = 25;
         public bool OnlySucceeded { get; set; } = true;
+        public bool ForceRefresh { get; set; } = false;
     }
 
     public class PipelineDeepScanRequest

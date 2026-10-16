@@ -75,6 +75,7 @@ export interface EnvironmentDeploymentInfo {
   prNumber?: string;
   operation?: string;
   version?: string;
+  scanPosition?: number;
 }
 
 export interface PipelineRunStageInfo {
@@ -116,6 +117,7 @@ export interface PipelineMatrixRow {
   environmentDeployments: Record<string, EnvironmentDeploymentInfo>;
   environmentHistory?: Record<string, EnvironmentDeploymentInfo[]>;
   recentRuns?: PipelineRunInfo[];
+  scannedRunsCount?: number;
 }
 
 export interface ReleaseMatrixResponse {
@@ -232,6 +234,8 @@ export const useDevopsDataStore = defineStore('devopsData', {
       matrixError: '',
       copyingYamlPipelineId: null as number | null,
       deepScanningPipelineIds: [] as number[],
+      singleRefreshingPipelineIds: [] as number[],
+      hasPendingChanges: false,
 
       // Dual Display Mode ('environments' = Release Matrix, 'stages' = DAG Expanded)
       viewMode: savedViewMode as 'environments' | 'stages',
@@ -439,6 +443,58 @@ export const useDevopsDataStore = defineStore('devopsData', {
       };
     },
 
+    isSinglePipelineRefreshing(pipelineId: number): boolean {
+      return this.singleRefreshingPipelineIds.includes(pipelineId);
+    },
+
+    async refreshSinglePipeline(pipelineId: number) {
+      if (!this.organization || !this.project) return;
+      if (this.singleRefreshingPipelineIds.includes(pipelineId)) return;
+
+      this.singleRefreshingPipelineIds.push(pipelineId);
+
+      try {
+        const url = `/api/devops/pipelines/${pipelineId}/deep-scan?organization=${encodeURIComponent(this.organization)}&project=${encodeURIComponent(this.project)}`;
+        const res = await apiFetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profileConfig: this.profileConfig,
+            scanDepth: this.scanDepth,
+            onlySucceeded: this.onlySucceeded
+          })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.error || errData?.details || 'Failed to refresh pipeline');
+        }
+
+        const updatedRow: PipelineMatrixRow = await res.json();
+        if (updatedRow && updatedRow.pipelineId) {
+          this.cachedPipelineRows[updatedRow.pipelineId] = updatedRow;
+          try {
+            localStorage.setItem('adoCachedPipelineRows', JSON.stringify(this.cachedPipelineRows));
+          } catch (e) {
+            console.warn('Failed to save adoCachedPipelineRows to localStorage', e);
+          }
+          this.computeReleaseMatrix();
+        }
+
+        const anyUnscanned = this.selectedPipelineIds.some(id => {
+          const r = this.cachedPipelineRows[id];
+          return !r || !r.scannedRunsCount || r.scannedRunsCount === 0;
+        });
+        if (!anyUnscanned) {
+          this.hasPendingChanges = false;
+        }
+      } catch (err: any) {
+        console.error(`Single pipeline refresh failed for pipeline ${pipelineId}:`, err);
+      } finally {
+        this.singleRefreshingPipelineIds = this.singleRefreshingPipelineIds.filter(id => id !== pipelineId);
+      }
+    },
+
     async selectPipeline(pipelineId: number) {
       if (!this.selectedPipelineIds.includes(pipelineId)) {
         this.selectedPipelineIds.push(pipelineId);
@@ -450,8 +506,20 @@ export const useDevopsDataStore = defineStore('devopsData', {
           return;
         }
 
-        // Only fetch the newly added pipeline from server
-        await this.fetchReleaseMatrix([pipelineId]);
+        // Create placeholder row immediately so it appears in the grid/chips with no auto-network call
+        const summary = this.pipelines.find(p => p.id === pipelineId);
+        this.cachedPipelineRows[pipelineId] = {
+          pipelineId,
+          pipelineName: summary?.name || `Pipeline #${pipelineId}`,
+          repository: summary?.repository,
+          deployments: {},
+          environmentDeployments: {},
+          environmentHistory: {},
+          recentRuns: [],
+          scannedRunsCount: 0
+        };
+        this.hasPendingChanges = true;
+        this.computeReleaseMatrix();
       }
     },
 
@@ -462,6 +530,9 @@ export const useDevopsDataStore = defineStore('devopsData', {
         this.saveSelectedPipelineIds();
         // Compute in-memory with zero network overhead
         this.computeReleaseMatrix();
+        if (this.selectedPipelineIds.length === 0) {
+          this.hasPendingChanges = false;
+        }
       }
     },
 
@@ -469,6 +540,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
       this.selectedPipelineIds = [];
       this.saveSelectedPipelineIds();
       this.releaseMatrix = null;
+      this.hasPendingChanges = false;
     },
 
     async togglePipelineSelection(pipelineId: number) {
@@ -541,7 +613,8 @@ export const useDevopsDataStore = defineStore('devopsData', {
             pipelineIds: targetIds,
             profileConfig: this.profileConfig,
             scanDepth: this.scanDepth,
-            onlySucceeded: this.onlySucceeded
+            onlySucceeded: this.onlySucceeded,
+            forceRefresh: forceRefresh
           })
         });
 
@@ -584,6 +657,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
 
         // Recompute the release matrix for all currently selected pipeline IDs
         this.computeReleaseMatrix();
+        this.hasPendingChanges = false;
       } catch (err: any) {
         this.matrixError = err.message || 'Error fetching release matrix';
       } finally {
@@ -741,11 +815,13 @@ export const useDevopsDataStore = defineStore('devopsData', {
     setScanDepth(val: number) {
       this.scanDepth = val;
       localStorage.setItem('adoScanDepth', val.toString());
+      this.hasPendingChanges = true;
     },
 
     setOnlySucceeded(val: boolean) {
       this.onlySucceeded = val;
       localStorage.setItem('adoOnlySucceeded', val.toString());
+      this.hasPendingChanges = true;
     },
 
     setShowRollbackTarget(val: boolean) {

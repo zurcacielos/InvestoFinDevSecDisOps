@@ -88,7 +88,8 @@ const cleanBranch = computed(() => {
 const formattedFullDate = computed(() => {
   if (!activeDep.value?.deployedAt) return '';
   const d = new Date(activeDep.value.deployedAt);
-  return d.toLocaleString();
+  const pos = activeDep.value.scanPosition ? ` · Scanned Run #${activeDep.value.scanPosition}` : '';
+  return `${d.toLocaleString()}${pos}`;
 });
 
 const lagStatus = computed(() => {
@@ -122,14 +123,14 @@ const lagStatus = computed(() => {
         <span 
           v-if="activeDep.version"
           class="font-mono font-bold text-xs text-violet-700 truncate"
-          :title="`Version/Tag: ${activeDep.version}`"
+          :title="`Version/Tag: ${activeDep.version}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           v{{ activeDep.version }}
         </span>
         <span 
           v-else-if="activeDep.commitSha"
           class="font-mono font-bold text-xs text-slate-700 truncate"
-          :title="`Commit: ${activeDep.commitSha}`"
+          :title="`Commit: ${activeDep.commitSha}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
         </span>
@@ -140,7 +141,7 @@ const lagStatus = computed(() => {
         v-if="activeDep.buildUrl"
         @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
         class="text-[10px] font-mono text-blue-600 hover:underline shrink-0"
-        :title="`Open Run #${activeDep.buildNumber} in Azure DevOps`"
+        :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
       >
         #{{ activeDep.buildNumber }}
       </button>
@@ -226,7 +227,7 @@ const lagStatus = computed(() => {
           @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
           class="font-mono font-bold text-amber-950 truncate transition-colors"
           :class="priorBuildUrl ? 'hover:underline hover:text-amber-800 cursor-pointer' : 'cursor-default'"
-          :title="priorBuildUrl ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (v${priorDep.version})` : `Previous Version: v${priorDep.version}`"
+          :title="priorBuildUrl ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (v${priorDep.version})${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}` : `Previous Version: v${priorDep.version}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
         >
           v{{ priorDep.version }}
         </button>
@@ -234,7 +235,7 @@ const lagStatus = computed(() => {
           v-else-if="priorDep.commitSha"
           @click.stop="priorCommitUrl ? openUrlInNewTab(priorCommitUrl) : null"
           class="font-mono text-indigo-700 hover:underline truncate"
-          :title="`Previous Commit: ${priorDep.commitSha}`"
+          :title="`Previous Commit: ${priorDep.commitSha}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
         >
           {{ priorDep.commitSha.substring(0, 7) }}
         </button>

@@ -135,13 +135,20 @@ The application provides continuous delivery and deployment visibility across Az
 - **Streamlined Previous Run ($N-1$) Deployment**:
   - Prior deployments ($N-1$) in `EnvironmentCellRows.vue`, `EnvironmentCellColumns.vue`, and `RollbackRibbon.vue` do NOT display raw or abstract build/run numbers (`#...`).
   - Prior runs display the version tag (`v...`) or commit SHA directly. Clicking this version tag navigates straight to that specific prior run in Azure DevOps.
-- **Pipeline Selection Decoupling & Session Preloading**:
+- **Pipeline Selection Decoupling & Manual Refresh Flow**:
   - Selected pipeline chips and definitions are persisted across sessions in `localStorage` under `adoCachedPipelines` and `adoCachedPipelineRows`.
   - On application startup, if pipelines were previously fetched, the search combobox is immediately pre-filled and enabled (e.g. `Search 497 pipelines...`), and the fetch button is automatically labeled **"Re-fetch Pipelines"** with cache details surfaced via hover tooltip.
-  - On a fresh session with no prior cache, the button displays **"Fetch Pipelines"** and the search combobox is disabled with `Fetch pipelines first...`.
-  - Matrix row names are preserved from session to session using cached row summaries and catalog metadata, preventing pipeline names from ever reverting to generic numeric placeholders (`Pipeline #<id>`).
+  - Selecting a new pipeline or modifying the scan depth / only-succeeded filter never triggers an automated network query. Newly selected pipelines mount immediately with a placeholder row in the grid.
+  - The **"Refresh Matrix"** button is styled with colored active borders, a ring, and an indicator pulse (`hasPendingChanges: true`) to inform the user that changes are pending manual execution.
+  - Clicking "Refresh Matrix" passes `forceRefresh: true` to bypass server-side cache and re-scans all selected rows.
+- **Per-Pipeline Circular Refresh (`↻`)**:
+  - Each pipeline row in both the cross-environment matrix (`PipelineServiceColumn.vue`) and hierarchical DAG view (`ExpandedStagesView.vue`) features a dedicated circular refresh button (`↻`).
+  - Clicking this button refreshes only that specific pipeline row at the currently selected scan depth (`scanDepth`), rendering an inline spinning icon and updating its environments upon completion.
+- **Stage-Level Multi-Stage Pipeline Evaluation & Scan Depth Tracking**:
+  - ADO build exploration evaluates run results at the individual stage level rather than filtering at the top-level build endpoint, preventing multi-stage pipelines with downstream failures from hiding upstream environments.
+  - Discovered active ($N$) and prior ($N-1$) deployments track their exact 1-based run position in the scanned build window (`scanPosition`), displayed via hover tooltips for run telemetry.
 - **On-Demand Per-Pipeline Deep Scan (`EmptyEnvironmentCell.vue`)**:
-  - Sparse environments where no deployment was found within the initial scan window (`scanDepth: 15/25/50`) display a recoverable empty state (`—` with an actionable `Scan deeper` link).
+  - Sparse environments where no deployment was found within the initial scan window (`scanDepth: 15/25/50`) display a recoverable empty state (`—` with an actionable `Scan deeper` or `Scan pipeline` link).
   - Hovering provides full context via native tooltip (`No deployment found in the last {N} runs for '{pipeline}' on '{env}'. Click 'Scan deeper' to search up to {N+50} runs.`).
   - Clicking `Scan deeper` triggers an isolated, non-blocking single-pipeline query (`POST /api/devops/pipelines/{id}/deep-scan`) without reloading or freezing the rest of the matrix.
   - Replaces the dash with an inline micro-spinner (`Scanning +50...`).
@@ -149,6 +156,8 @@ The application provides continuous delivery and deployment visibility across Az
 - **Acceptance Criteria**:
   - **Given** an initial load or reset of the environment matrix, **Then** "Rows (Cross-Env)" is selected as the default layout mode.
   - **Given** a user opens the application after a previous session where pipelines were retrieved, **Then** the combobox is active with the pipeline catalog count, the button shows "Re-fetch Pipelines", hover tooltips reveal cache status, and selected matrix row chips render their full pipeline names.
+  - **Given** a newly selected pipeline, **When** chosen from the combobox, **Then** it mounts immediately in the grid without an automated network fetch, and the "Refresh Matrix" button displays colored active borders and a pending indicator.
+  - **Given** an individual pipeline row, **When** clicking its circular refresh button (`↻`), **Then** only that row is queried and refreshed against Azure DevOps at the current scan depth.
   - **Given** an environment cell with a prior deployment, **When** the user clicks the previous version tag (`v...`), **Then** that previous run opens directly in Azure DevOps in a new tab without rendering an abstract build number.
   - **Given** an environment cell with no deployment found within the current scan depth, **When** the cell is viewed, **Then** it renders a dash (`—`) and a "Scan deeper" link with an explanatory tooltip.
   - **Given** the user clicks "Scan deeper", **Then** only that specific pipeline executes a deep scan for up to 50 additional runs, displaying an inline micro-spinner and hydrating all discovered environments in-place without triggering a global matrix reload.
