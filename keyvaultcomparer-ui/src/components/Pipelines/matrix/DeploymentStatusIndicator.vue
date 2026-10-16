@@ -4,15 +4,20 @@ import { computed } from 'vue';
 const props = defineProps<{
   status?: string;
   showLabel?: boolean;
+  scanPosition?: number;
 }>();
 
 const normalized = computed(() => (props.status || 'unknown').toLowerCase());
+const tooltipText = computed(() => {
+  const base = `Status: ${props.status || 'Unknown'}`;
+  return props.scanPosition ? `${base} · Scanned build position #${props.scanPosition}` : base;
+});
 </script>
 
 <template>
   <div 
     class="inline-flex items-center gap-1 select-none shrink-0" 
-    :title="`Status: ${props.status || 'Unknown'}`"
+    :title="tooltipText"
   >
     <!-- Succeeded (Azure-style Green Circle Check) -->
     <span 

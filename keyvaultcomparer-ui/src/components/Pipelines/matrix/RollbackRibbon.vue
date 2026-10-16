@@ -68,7 +68,14 @@ const formattedFullDate = computed(() => {
   >
     <!-- Left: Return Icon + Previous Version / Commit -->
     <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        class="h-3 w-3 text-amber-600 shrink-0 cursor-help" 
+        fill="none" 
+        viewBox="0 0 24 24" 
+        stroke="currentColor"
+        :title="deployment.scanPosition ? `Previous deployment return point · Scanned build position #${deployment.scanPosition}` : 'Previous deployment return point'"
+      >
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
       </svg>
 

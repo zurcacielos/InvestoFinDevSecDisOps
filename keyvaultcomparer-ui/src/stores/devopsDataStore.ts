@@ -389,6 +389,89 @@ export const useDevopsDataStore = defineStore('devopsData', {
       }
     },
 
+    mergePipelineMatrixRows(existing: PipelineMatrixRow, incoming: PipelineMatrixRow): PipelineMatrixRow {
+      const scannedRunsCount = Math.max(existing.scannedRunsCount || 0, incoming.scannedRunsCount || 0);
+
+      const mergedEnvHistory: Record<string, EnvironmentDeploymentInfo[]> = {};
+      const allEnvKeys = new Set([
+        ...Object.keys(existing.environmentHistory || {}),
+        ...Object.keys(incoming.environmentHistory || {}),
+        ...Object.keys(existing.environmentDeployments || {}),
+        ...Object.keys(incoming.environmentDeployments || {})
+      ]);
+
+      for (const env of allEnvKeys) {
+        const incomingList = incoming.environmentHistory?.[env] || 
+          (incoming.environmentDeployments?.[env] ? [incoming.environmentDeployments[env]] : []);
+        const existingList = existing.environmentHistory?.[env] || 
+          (existing.environmentDeployments?.[env] ? [existing.environmentDeployments[env]] : []);
+
+        const combined: EnvironmentDeploymentInfo[] = [];
+        const seenBuildIds = new Set<number>();
+
+        for (const dep of incomingList) {
+          if (!seenBuildIds.has(dep.buildId)) {
+            seenBuildIds.add(dep.buildId);
+            combined.push(dep);
+          }
+        }
+        for (const dep of existingList) {
+          if (!seenBuildIds.has(dep.buildId)) {
+            seenBuildIds.add(dep.buildId);
+            combined.push(dep);
+          }
+        }
+
+        combined.sort((a, b) => {
+          if (a.deployedAt && b.deployedAt) {
+            return new Date(b.deployedAt).getTime() - new Date(a.deployedAt).getTime();
+          }
+          return (b.buildId || 0) - (a.buildId || 0);
+        });
+
+        if (combined.length > 0) {
+          mergedEnvHistory[env] = combined;
+        }
+      }
+
+      const mergedEnvDeployments: Record<string, EnvironmentDeploymentInfo> = {};
+      for (const env of Object.keys(mergedEnvHistory)) {
+        if (mergedEnvHistory[env].length > 0) {
+          mergedEnvDeployments[env] = mergedEnvHistory[env][0];
+        }
+      }
+
+      const mergedStageDeployments: Record<string, StageDeploymentInfo> = {
+        ...(existing.deployments || {}),
+        ...(incoming.deployments || {})
+      };
+
+      const mergedRuns: PipelineRunInfo[] = [];
+      const seenRunBuildIds = new Set<number>();
+      for (const run of incoming.recentRuns || []) {
+        if (!seenRunBuildIds.has(run.buildId)) {
+          seenRunBuildIds.add(run.buildId);
+          mergedRuns.push(run);
+        }
+      }
+      for (const run of existing.recentRuns || []) {
+        if (!seenRunBuildIds.has(run.buildId)) {
+          seenRunBuildIds.add(run.buildId);
+          mergedRuns.push(run);
+        }
+      }
+
+      return {
+        ...existing,
+        ...incoming,
+        scannedRunsCount,
+        deployments: mergedStageDeployments,
+        environmentDeployments: mergedEnvDeployments,
+        environmentHistory: mergedEnvHistory,
+        recentRuns: mergedRuns
+      };
+    },
+
     computeReleaseMatrix() {
       if (this.selectedPipelineIds.length === 0) {
         this.releaseMatrix = null;
@@ -479,7 +562,10 @@ export const useDevopsDataStore = defineStore('devopsData', {
 
         const updatedRow: PipelineMatrixRow = await res.json();
         if (updatedRow && updatedRow.pipelineId) {
-          this.cachedPipelineRows[updatedRow.pipelineId] = updatedRow;
+          const existingRow = this.cachedPipelineRows[updatedRow.pipelineId];
+          this.cachedPipelineRows[updatedRow.pipelineId] = (existingRow && existingRow.scannedRunsCount)
+            ? this.mergePipelineMatrixRows(existingRow, updatedRow)
+            : updatedRow;
           try {
             localStorage.setItem('adoCachedPipelineRows', JSON.stringify(this.cachedPipelineRows));
           } catch (e) {
@@ -668,7 +754,10 @@ export const useDevopsDataStore = defineStore('devopsData', {
         // Cache newly fetched rows in the store
         if (data.rows && data.rows.length > 0) {
           for (const row of data.rows) {
-            this.cachedPipelineRows[row.pipelineId] = row;
+            const existingRow = this.cachedPipelineRows[row.pipelineId];
+            this.cachedPipelineRows[row.pipelineId] = (existingRow && existingRow.scannedRunsCount)
+              ? this.mergePipelineMatrixRows(existingRow, row)
+              : row;
           }
           try {
             localStorage.setItem('adoCachedPipelineRows', JSON.stringify(this.cachedPipelineRows));
@@ -735,7 +824,10 @@ export const useDevopsDataStore = defineStore('devopsData', {
 
         const updatedRow: PipelineMatrixRow = await res.json();
         if (updatedRow && updatedRow.pipelineId) {
-          this.cachedPipelineRows[updatedRow.pipelineId] = updatedRow;
+          const existingRow = this.cachedPipelineRows[updatedRow.pipelineId];
+          this.cachedPipelineRows[updatedRow.pipelineId] = (existingRow && existingRow.scannedRunsCount)
+            ? this.mergePipelineMatrixRows(existingRow, updatedRow)
+            : updatedRow;
           try {
             localStorage.setItem('adoCachedPipelineRows', JSON.stringify(this.cachedPipelineRows));
           } catch (e) {
