@@ -84,6 +84,7 @@ export function getPrUrl(
 export function formatTimeAgo(iso?: string): string {
   if (!iso) return '';
   const date = new Date(iso);
+  if (isNaN(date.getTime())) return '';
   const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
   if (diffSec < 60) return 'just now';
   const diffMin = Math.floor(diffSec / 60);
@@ -93,3 +94,17 @@ export function formatTimeAgo(iso?: string): string {
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays}d ago`;
 }
+
+export function getBuildUrl(
+  organization?: string,
+  project?: string,
+  buildId?: number,
+  fallbackUrl?: string
+): string | null {
+  if (fallbackUrl) return fallbackUrl;
+  if (organization && project && buildId) {
+    return `https://dev.azure.com/${organization}/${project}/_build/results?buildId=${buildId}`;
+  }
+  return null;
+}
+

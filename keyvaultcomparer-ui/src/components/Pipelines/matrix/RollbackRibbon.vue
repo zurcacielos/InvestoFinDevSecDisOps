@@ -4,7 +4,7 @@ import type { EnvironmentDeploymentInfo, PipelineMatrixRow } from '../../../stor
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useDevopsDataStore } from '../../../stores/devopsDataStore';
 import { openUrlInNewTab } from '../../../utils/urlOpener';
-import { formatTimeAgo, getCommitUrl, getPrUrl } from '../../../utils/pipelineUrlHelpers';
+import { formatTimeAgo, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
 import PipelineAuthorBadge from '../PipelineAuthorBadge.vue';
 
 const props = defineProps<{
@@ -19,6 +19,15 @@ const emit = defineEmits<{
 
 const settingsStore = useSettingsStore();
 const devopsStore = useDevopsDataStore();
+
+const priorBuildUrl = computed(() => {
+  return getBuildUrl(
+    devopsStore.organization,
+    devopsStore.project,
+    props.deployment.buildId,
+    props.deployment.buildUrl
+  );
+});
 
 const commitUrl = computed(() => {
   return getCommitUrl(
@@ -63,14 +72,26 @@ const formattedFullDate = computed(() => {
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
       </svg>
 
-      <!-- Previous Version Tag -->
-      <span 
+      <!-- Previous Version Tag (Clickable to open previous run in Azure DevOps) -->
+      <button 
         v-if="deployment.version"
-        class="font-mono font-bold text-amber-950 truncate"
-        :title="`Previous Version/Tag: ${deployment.version}`"
+        @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
+        class="font-mono font-bold text-amber-950 truncate px-1 py-0.2 rounded bg-white/70 border border-amber-200/70 transition-colors"
+        :class="priorBuildUrl ? 'hover:underline hover:text-amber-800 hover:bg-amber-100 cursor-pointer' : 'cursor-default'"
+        :title="priorBuildUrl ? `Open Previous Run #${deployment.buildNumber} in Azure DevOps (Tag: v${deployment.version})` : `Previous Version/Tag: v${deployment.version}`"
       >
         v{{ deployment.version }}
-      </span>
+      </button>
+
+      <!-- Previous Run # Link -->
+      <button 
+        v-if="deployment.buildNumber"
+        @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
+        class="font-mono text-[9px] text-amber-800/90 font-semibold hover:text-amber-950 hover:underline shrink-0"
+        :title="`Open Previous Run #${deployment.buildNumber} in Azure DevOps`"
+      >
+        #{{ deployment.buildNumber }}
+      </button>
 
       <!-- Previous Commit Link -->
       <button 

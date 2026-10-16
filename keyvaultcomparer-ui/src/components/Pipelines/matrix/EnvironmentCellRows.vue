@@ -4,7 +4,7 @@ import type { EnvironmentDeploymentInfo, PipelineMatrixRow } from '../../../stor
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useDevopsDataStore } from '../../../stores/devopsDataStore';
 import { openUrlInNewTab } from '../../../utils/urlOpener';
-import { formatTimeAgo, getCommitUrl, getPrUrl } from '../../../utils/pipelineUrlHelpers';
+import { formatTimeAgo, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
 import DeploymentStatusIndicator from './DeploymentStatusIndicator.vue';
 import PipelineAuthorBadge from '../PipelineAuthorBadge.vue';
 
@@ -28,6 +28,16 @@ const activeDep = computed<EnvironmentDeploymentInfo | null>(() => {
 
 const priorDep = computed<EnvironmentDeploymentInfo | null>(() => {
   return props.deployments.length > 1 ? props.deployments[1] : null;
+});
+
+const priorBuildUrl = computed(() => {
+  if (!priorDep.value) return null;
+  return getBuildUrl(
+    devopsStore.organization,
+    devopsStore.project,
+    priorDep.value.buildId,
+    priorDep.value.buildUrl
+  );
 });
 
 const commitUrl = computed(() => {
@@ -210,15 +220,32 @@ const lagStatus = computed(() => {
         <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
         </svg>
-        <span v-if="priorDep.version" class="font-mono font-bold text-amber-950 truncate">
+        <button 
+          v-if="priorDep.version"
+          @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
+          class="font-mono font-bold text-amber-950 truncate transition-colors"
+          :class="priorBuildUrl ? 'hover:underline hover:text-amber-800 cursor-pointer' : 'cursor-default'"
+          :title="priorBuildUrl ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (v${priorDep.version})` : `Previous Version: v${priorDep.version}`"
+        >
           v{{ priorDep.version }}
-        </span>
+        </button>
         <button 
           v-else-if="priorDep.commitSha"
           @click.stop="priorCommitUrl ? openUrlInNewTab(priorCommitUrl) : null"
           class="font-mono text-indigo-700 hover:underline truncate"
+          :title="`Previous Commit: ${priorDep.commitSha}`"
         >
           {{ priorDep.commitSha.substring(0, 7) }}
+        </button>
+
+        <!-- Prior Run # link -->
+        <button 
+          v-if="priorDep.buildNumber"
+          @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
+          class="font-mono text-[9px] text-amber-800/90 font-semibold hover:text-amber-950 hover:underline shrink-0"
+          :title="`Open Previous Run #${priorDep.buildNumber} in Azure DevOps`"
+        >
+          #{{ priorDep.buildNumber }}
         </button>
       </div>
       <span v-if="priorDep" class="text-amber-800/80 font-mono shrink-0">
