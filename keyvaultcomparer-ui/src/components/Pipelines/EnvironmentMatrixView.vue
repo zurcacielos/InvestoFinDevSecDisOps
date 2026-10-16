@@ -301,8 +301,9 @@ onUnmounted(() => {
             <td 
               v-for="(env, envIdx) in environments" 
               :key="env"
-              class="px-2.5 py-2 border-r border-slate-200 select-none align-top"
+              class="border-r border-slate-200 select-none align-top"
               :class="[
+                devopsStore.matrixLayoutMode === 'rows' ? 'p-0' : 'px-2.5 py-2',
                 getDeploymentsForEnv(row, env).length ? 'bg-white' : 'bg-slate-50/40',
                 devopsStore.matrixLayoutMode === 'columns' ? 'min-w-[270px]' : 'min-w-[210px]'
               ]"
