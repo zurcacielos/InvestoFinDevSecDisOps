@@ -129,10 +129,10 @@ const formattedFullDate = computed(() => {
   <div 
     v-if="priorDep"
     @contextmenu.stop="emit('open-context-menu', $event, row, priorDep, env)"
-    class="flex flex-col w-full text-xs select-none divide-y divide-slate-100 min-w-max bg-white"
+    class="flex flex-col w-full text-xs select-none divide-y divide-amber-100/60 min-w-max bg-amber-50/20"
   >
     <!-- Row 1: Strict Prior Version / Tag & Run Link -->
-    <div class="h-7 px-3 flex items-center justify-between gap-2 bg-slate-50/60 whitespace-nowrap">
+    <div class="h-7 px-3 flex items-center justify-between gap-2 bg-amber-50/40 whitespace-nowrap">
       <div class="flex items-center gap-1.5 whitespace-nowrap">
         <svg 
           xmlns="http://www.w3.org/2000/svg" 
@@ -238,7 +238,7 @@ const formattedFullDate = computed(() => {
     </div>
 
     <!-- Row 5: Prior Baseline Line -->
-    <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-slate-50/50 whitespace-nowrap text-slate-500">
+    <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-amber-50/30 whitespace-nowrap text-slate-500">
       <div class="flex items-center gap-1 font-medium">
         <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
         <span>Prior return point</span>
@@ -249,13 +249,13 @@ const formattedFullDate = computed(() => {
   <!-- Empty Prior State: 5 Uniform Rows Matching Exact Baselines -->
   <div 
     v-else
-    class="flex flex-col w-full text-xs select-none divide-y divide-slate-100 min-w-max bg-slate-50/20"
+    class="flex flex-col w-full text-xs select-none divide-y divide-amber-100/50 min-w-max bg-amber-50/10"
     :title="canScanMore 
       ? `No prior ${devopsStore.priorRunMode === 'distinct' ? 'distinct revision' : 'run'} found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan +50' to search older runs.` 
       : `No prior ${devopsStore.priorRunMode === 'distinct' ? 'distinct revision' : 'run'} found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`"
   >
     <!-- Row 1: Header / Label -->
-    <div class="h-7 px-3 flex items-center justify-center gap-1.5 text-slate-400 text-[10px] bg-slate-50/40 whitespace-nowrap">
+    <div class="h-7 px-3 flex items-center justify-center gap-1.5 text-slate-400 text-[10px] bg-amber-50/30 whitespace-nowrap">
       <span class="text-slate-400 font-bold font-mono text-xs select-none">&mdash;</span>
       <span class="font-medium text-slate-500">
         {{ devopsStore.priorRunMode === 'distinct' ? 'No prior revision' : 'No prior run' }}

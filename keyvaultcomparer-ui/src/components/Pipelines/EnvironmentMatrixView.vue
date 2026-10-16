@@ -282,7 +282,7 @@ onUnmounted(() => {
           >
             <template v-for="env in environments" :key="`sub-${env}`">
               <!-- Prior Sub-header -->
-              <th class="px-2 py-1 font-medium text-center text-slate-500 border-r border-slate-200 whitespace-nowrap min-w-max">
+              <th class="px-2 py-1 font-medium text-center text-amber-900/80 bg-amber-50/40 border-r border-slate-200 whitespace-nowrap min-w-max">
                 Prior
               </th>
 
@@ -337,7 +337,7 @@ onUnmounted(() => {
                 <template v-if="getDeploymentsForEnv(row, env).length > 0">
                   <!-- Prior Column Cell -->
                   <td 
-                    class="border-r border-slate-200 select-none align-top p-0 bg-white whitespace-nowrap min-w-max"
+                    class="border-r border-slate-200 select-none align-top p-0 bg-amber-50/20 whitespace-nowrap min-w-max"
                     :class="rowIdx > 0 ? 'pt-1' : ''"
                   >
                     <EnvironmentCellPrior 
