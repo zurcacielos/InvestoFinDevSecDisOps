@@ -66,7 +66,7 @@ const refreshDepth = computed(() => {
             class="font-bold text-slate-900 hover:text-blue-600 hover:underline text-left text-xs leading-snug break-words block w-full"
             :title="`Open Pipeline '${row.pipelineName}' in Azure DevOps`"
           >
-            {{ devopsStore.cleanPipelineName(row.pipelineName) }}
+            {{ devopsStore.cleanPipelineName(row.pipelineName, row.repository?.name) }}
           </button>
           <div v-if="row.yamlFilename" class="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono mt-0.5">
             <span class="truncate" :title="`YAML: ${row.yamlFilename}`">

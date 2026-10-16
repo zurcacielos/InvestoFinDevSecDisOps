@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { apiFetch } from '../services/apiClient';
 import { openUrlInNewTab } from '../utils/urlOpener';
+import { useSettingsStore } from './settingsStore';
 
 export interface AdoVariableGroup {
   id: number;
@@ -227,6 +228,8 @@ export const useDevopsDataStore = defineStore('devopsData', {
     return {
       organization: currentOrg,
       project: currentProj,
+      backendGithubOrg: '',
+      backendAdoOrg: '',
       variableGroups: [] as AdoVariableGroup[],
       selectedGroupIds: [] as number[],
       isLoading: false,
@@ -1085,22 +1088,125 @@ export const useDevopsDataStore = defineStore('devopsData', {
       } catch {}
     },
 
+    async fetchBackendSettings() {
+      try {
+        const res = await apiFetch('/api/settings');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.githubOrganization) {
+            this.backendGithubOrg = data.githubOrganization;
+          }
+          if (data.adoOrganization) {
+            this.backendAdoOrg = data.adoOrganization;
+            if (!this.organization) {
+              this.organization = data.adoOrganization;
+            }
+          }
+          if (data.adoProject && !this.project) {
+            this.project = data.adoProject;
+          }
+        }
+      } catch {}
+    },
+
     setPipelineColumnWidth(width: number) {
       this.pipelineColumnWidth = width;
       localStorage.setItem('adoPipelineColWidth', width.toString());
     },
 
-    cleanPipelineName(name: string): string {
+    cleanPipelineName(name: string, repositoryName?: string): string {
       if (!name) return '';
       let cleaned = name.trim();
-      const org = this.organization?.trim();
-      if (org && cleaned.toLowerCase().startsWith(`${org.toLowerCase()}.`)) {
-        cleaned = cleaned.substring(org.length + 1);
+
+      const candidateOrgs = new Set<string>();
+
+      // 1. ADO Organization from devopsDataStore and local storage
+      if (this.organization?.trim()) {
+        candidateOrgs.add(this.organization.trim());
       }
-      const proj = this.project?.trim();
-      if (proj && cleaned.toLowerCase().startsWith(`${proj.toLowerCase()}.`)) {
-        cleaned = cleaned.substring(proj.length + 1);
+      if (this.backendAdoOrg?.trim()) {
+        candidateOrgs.add(this.backendAdoOrg.trim());
       }
+      const localAdoOrg = localStorage.getItem('adoOrg') || localStorage.getItem('adoOrganization');
+      if (localAdoOrg?.trim()) {
+        candidateOrgs.add(localAdoOrg.trim());
+      }
+
+      // 2. ADO Project from devopsDataStore and local storage
+      if (this.project?.trim()) {
+        candidateOrgs.add(this.project.trim());
+      }
+      const localAdoProj = localStorage.getItem('adoProject');
+      if (localAdoProj?.trim()) {
+        candidateOrgs.add(localAdoProj.trim());
+      }
+
+      // 3. GitHub Organization from settingsStore and backend
+      try {
+        const settingsStore = useSettingsStore();
+        if (settingsStore.uiSettings?.githubOrg?.trim()) {
+          candidateOrgs.add(settingsStore.uiSettings.githubOrg.trim());
+        }
+      } catch {}
+
+      if (this.backendGithubOrg?.trim()) {
+        candidateOrgs.add(this.backendGithubOrg.trim());
+      }
+
+      // 4. GitHub Org directly from localStorage
+      try {
+        const storedUi = localStorage.getItem('uiSettings');
+        if (storedUi) {
+          const parsed = JSON.parse(storedUi);
+          if (parsed.githubOrg?.trim()) {
+            candidateOrgs.add(parsed.githubOrg.trim());
+          }
+        }
+      } catch {}
+      const directGithubOrg = localStorage.getItem('githubOrg') || localStorage.getItem('githubOrganization');
+      if (directGithubOrg?.trim()) {
+        candidateOrgs.add(directGithubOrg.trim());
+      }
+
+      // 5. Repository owner from passed repositoryName (e.g. 'org/repo')
+      if (repositoryName && repositoryName.includes('/')) {
+        const repoOwner = repositoryName.split('/')[0].trim();
+        if (repoOwner) candidateOrgs.add(repoOwner);
+      }
+
+      // 6. Known repository owners across loaded pipelines and matrix rows
+      if (this.pipelines && this.pipelines.length) {
+        for (const p of this.pipelines) {
+          if (p.repository?.name && p.repository.name.includes('/')) {
+            const org = p.repository.name.split('/')[0].trim();
+            if (org) candidateOrgs.add(org);
+          }
+        }
+      }
+      if (this.releaseMatrix?.rows && this.releaseMatrix.rows.length) {
+        for (const r of this.releaseMatrix.rows) {
+          if (r.repository?.name && r.repository.name.includes('/')) {
+            const org = r.repository.name.split('/')[0].trim();
+            if (org) candidateOrgs.add(org);
+          }
+        }
+      }
+
+      // Iteratively strip prefix followed by a dot, as long as there are characters remaining after it
+      let strippedAny = true;
+      while (strippedAny) {
+        strippedAny = false;
+        for (const org of candidateOrgs) {
+          if (!org) continue;
+          const prefix = `${org.toLowerCase()}.`;
+          if (cleaned.toLowerCase().startsWith(prefix) && cleaned.length > prefix.length) {
+            cleaned = cleaned.substring(prefix.length).trim();
+            strippedAny = true;
+            break;
+          }
+        }
+      }
+
       return cleaned;
     }
   },

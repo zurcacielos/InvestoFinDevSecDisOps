@@ -122,7 +122,7 @@ The application provides continuous delivery and deployment visibility across Az
 
 ### 3.2 Target Environments Matrix & Interchangeable Layout Modes
 - **Integrated & Resizable Service / Pipeline Column**:
-  - The standalone `REPOSITORY` column is eliminated and merged into the sticky left `SERVICE / PIPELINE` column, displaying the clean pipeline name (stripping `${org}.` and `${project}.` prefixes), definition link, repository link, and default branch. Pipeline names wrap naturally with `break-words` instead of truncation.
+  - The standalone `REPOSITORY` column is eliminated and merged into the sticky left `SERVICE / PIPELINE` column, displaying the clean pipeline name (iteratively stripping GitHub organization, ADO organization, project, or repository owner prefixes followed by a dot when characters remain), definition link, repository link, and default branch. Pipeline names wrap naturally with `break-words` instead of truncation.
   - Draggable column resizer handle on the header divider allows customized column width, persisted across reloads in `localStorage` (`adoPipelineColWidth`, default 260px), synchronized across both the Environment Matrix and Expanded Stages DAG view.
   - The cell header retains the dedicated per-pipeline circular refresh button (`↻`), while extraneous YAML icon buttons (GitHub, Copy YAML, View YAML) are removed from the cell to avoid visual crowding since those capabilities are readily accessible via the right-click context menu.
 - **Minimalist Status & Progressive Disclosure**:
