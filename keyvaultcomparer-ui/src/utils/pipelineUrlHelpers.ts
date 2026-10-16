@@ -95,6 +95,21 @@ export function formatTimeAgo(iso?: string): string {
   return `${diffDays}d ago`;
 }
 
+export function formatFullDate(iso?: string): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export function formatTimeAndDate(iso?: string): string {
+  if (!iso) return '';
+  const timeAgo = formatTimeAgo(iso);
+  const fullDate = formatFullDate(iso);
+  if (timeAgo && fullDate) return `${timeAgo} · ${fullDate}`;
+  return timeAgo || fullDate;
+}
+
 export function getBuildUrl(
   organization?: string,
   project?: string,

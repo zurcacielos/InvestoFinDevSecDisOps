@@ -4,7 +4,7 @@ import type { EnvironmentDeploymentInfo, PipelineMatrixRow } from '../../../stor
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useDevopsDataStore } from '../../../stores/devopsDataStore';
 import { openUrlInNewTab } from '../../../utils/urlOpener';
-import { formatTimeAgo, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
+import { formatTimeAndDate, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
 import DeploymentStatusIndicator from './DeploymentStatusIndicator.vue';
 import PipelineAuthorBadge from '../PipelineAuthorBadge.vue';
 import EmptyEnvironmentCell from './EmptyEnvironmentCell.vue';
@@ -28,7 +28,21 @@ const activeDep = computed<EnvironmentDeploymentInfo | null>(() => {
 });
 
 const priorDep = computed<EnvironmentDeploymentInfo | null>(() => {
-  return props.deployments.length > 1 ? props.deployments[1] : null;
+  if (props.deployments.length <= 1) return null;
+  if (devopsStore.priorRunMode === 'distinct') {
+    const active = props.deployments[0];
+    const found = props.deployments.slice(1).find(d => {
+      if (active.commitSha && d.commitSha) {
+        return d.commitSha.toLowerCase() !== active.commitSha.toLowerCase();
+      }
+      if (active.version && d.version) {
+        return d.version !== active.version;
+      }
+      return d.buildId !== active.buildId;
+    });
+    return found || null;
+  }
+  return props.deployments[1];
 });
 
 const isScanning = computed(() => {
@@ -153,22 +167,22 @@ const lagStatus = computed(() => {
   <div 
     v-if="activeDep"
     @contextmenu.stop="emit('open-context-menu', $event, row, activeDep, env)"
-    class="flex flex-col w-full text-xs select-none divide-y divide-slate-100"
+    class="flex flex-col w-full text-xs select-none divide-y divide-slate-100 min-w-max"
   >
-    <!-- Row 1: Strict Version / Tag & Run Link -->
-    <div class="h-7 px-3 flex items-center justify-between gap-1 bg-slate-50/60 whitespace-nowrap">
-      <div class="flex items-center gap-1.5 min-w-0">
+    <!-- Row 1: Strict Version / Tag & Run Link (Never Truncate) -->
+    <div class="h-7 px-3 flex items-center justify-between gap-2 bg-slate-50/60 whitespace-nowrap">
+      <div class="flex items-center gap-1.5 whitespace-nowrap">
         <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
         <span 
           v-if="activeDep.version"
-          class="font-mono font-bold text-xs text-violet-700 truncate"
+          class="font-mono font-bold text-xs text-violet-700 whitespace-nowrap"
           :title="`Version/Tag: ${activeDep.version}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           v{{ activeDep.version }}
         </span>
         <span 
           v-else-if="activeDep.commitSha"
-          class="font-mono font-bold text-xs text-slate-700 truncate"
+          class="font-mono font-bold text-xs text-slate-700 whitespace-nowrap"
           :title="`Commit: ${activeDep.commitSha}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
@@ -191,13 +205,13 @@ const lagStatus = computed(() => {
     </div>
 
     <!-- Row 2: Strict Commit SHA & PR -->
-    <div class="h-6 px-3 flex items-center justify-between gap-1 text-[10px] whitespace-nowrap">
-      <div class="flex items-center gap-1 min-w-0">
+    <div class="h-6 px-3 flex items-center justify-between gap-2 text-[10px] whitespace-nowrap">
+      <div class="flex items-center gap-1 whitespace-nowrap">
         <span class="text-slate-400 font-mono text-[9px]">SHA:</span>
         <button 
           v-if="activeDep.commitSha"
           @click.stop="commitUrl ? openUrlInNewTab(commitUrl) : null"
-          class="font-mono text-indigo-700 hover:underline truncate"
+          class="font-mono text-indigo-700 hover:underline whitespace-nowrap"
           :title="`Commit: ${activeDep.commitSha}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
@@ -216,21 +230,21 @@ const lagStatus = computed(() => {
     </div>
 
     <!-- Row 3: Strict Branch -->
-    <div class="h-6 px-3 flex items-center gap-1 text-[10px] text-slate-700 min-w-0 whitespace-nowrap">
+    <div class="h-6 px-3 flex items-center gap-1 text-[10px] text-slate-700 whitespace-nowrap">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="18" cy="6" r="3"></circle>
         <circle cx="6" cy="18" r="3"></circle>
         <path d="M18 9a9 9 0 0 1-9 9"></path>
       </svg>
-      <span class="truncate font-medium" :title="`Branch: ${activeDep.branch}`">
+      <span class="whitespace-nowrap font-medium" :title="`Branch: ${activeDep.branch}`">
         {{ cleanBranch || '-' }}
       </span>
     </div>
 
-    <!-- Row 4: Strict Date / Time & Author -->
-    <div class="h-6 px-3 flex items-center justify-between gap-1 text-[10px] text-slate-500 whitespace-nowrap">
-      <span :title="formattedFullDate" class="text-[9px] font-mono truncate">
-        {{ formatTimeAgo(activeDep.deployedAt) }}
+    <!-- Row 4: Strict Date / Time & Author (e.g. 5d ago · Jun 18, 2026) -->
+    <div class="h-6 px-3 flex items-center justify-between gap-2 text-[10px] text-slate-500 whitespace-nowrap">
+      <span :title="formattedFullDate" class="text-[9px] font-mono whitespace-nowrap">
+        {{ formatTimeAndDate(activeDep.deployedAt) }}
       </span>
 
       <PipelineAuthorBadge 
@@ -244,7 +258,7 @@ const lagStatus = computed(() => {
 
     <!-- Row 5: Upstream Status -->
     <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-slate-50/50 whitespace-nowrap">
-      <div v-if="lagStatus" class="flex items-center gap-1 font-medium">
+      <div v-if="lagStatus" class="flex items-center gap-1 font-medium whitespace-nowrap">
         <span 
           class="w-1.5 h-1.5 rounded-full" 
           :class="lagStatus.isSynced ? 'bg-emerald-500' : 'bg-amber-500'"
@@ -253,7 +267,7 @@ const lagStatus = computed(() => {
           {{ lagStatus.label }}
         </span>
       </div>
-      <div v-else class="flex items-center gap-1 font-medium text-slate-500 text-[9px]">
+      <div v-else class="flex items-center gap-1 font-medium text-slate-500 text-[9px] whitespace-nowrap">
         <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
         <span>Origin baseline</span>
       </div>
@@ -262,13 +276,13 @@ const lagStatus = computed(() => {
     <!-- Row 6: Prior Release Tag & Date (when enabled) -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-6 px-3 flex items-center justify-between gap-1 text-[9px] border-t border-slate-100 whitespace-nowrap"
+      class="h-6 px-3 flex items-center justify-between gap-2 text-[9px] border-t border-slate-100 whitespace-nowrap"
       :class="priorDep 
         ? 'bg-amber-50/60 text-amber-900' 
         : 'bg-white text-slate-400'"
     >
       <template v-if="priorDep">
-        <div class="flex items-center gap-1 min-w-0">
+        <div class="flex items-center gap-1 whitespace-nowrap">
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
             class="h-2.5 w-2.5 text-amber-600 shrink-0" 
@@ -282,7 +296,7 @@ const lagStatus = computed(() => {
           <button 
             v-if="priorDep.version"
             @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
-            class="font-mono font-bold text-amber-950 truncate transition-colors"
+            class="font-mono font-bold text-amber-950 whitespace-nowrap transition-colors"
             :class="priorBuildUrl ? 'hover:underline hover:text-amber-800 cursor-pointer' : 'cursor-default'"
             :title="priorBuildUrl ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (v${priorDep.version})${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}` : `Previous Version: v${priorDep.version}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
           >
@@ -291,30 +305,30 @@ const lagStatus = computed(() => {
           <button 
             v-else-if="priorDep.commitSha"
             @click.stop="priorCommitUrl ? openUrlInNewTab(priorCommitUrl) : null"
-            class="font-mono text-indigo-700 hover:underline truncate"
+            class="font-mono text-indigo-700 hover:underline whitespace-nowrap"
             :title="`Previous Commit: ${priorDep.commitSha}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
           >
             {{ priorDep.commitSha.substring(0, 7) }}
           </button>
         </div>
         <span 
-          class="text-amber-800/80 font-mono shrink-0"
+          class="text-amber-800/80 font-mono shrink-0 whitespace-nowrap"
           :title="priorDep.deployedAt ? new Date(priorDep.deployedAt).toLocaleString() : ''"
         >
-          {{ formatTimeAgo(priorDep.deployedAt) }}
+          {{ formatTimeAndDate(priorDep.deployedAt) }}
         </span>
       </template>
 
       <!-- Empty State: Row 6 -->
       <template v-else>
         <div 
-          class="flex items-center gap-1.5 text-slate-400 truncate"
+          class="flex items-center gap-1.5 text-slate-400 whitespace-nowrap"
           :title="canScanMore 
             ? `No prior deployment found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan +50' to search older runs.` 
             : `No prior deployment found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`"
         >
           <span class="text-amber-500 font-bold font-mono text-[10px] select-none">&mdash;</span>
-          <span class="italic text-slate-400 truncate">
+          <span class="italic text-slate-400 whitespace-nowrap">
             No prior in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}
           </span>
         </div>

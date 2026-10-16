@@ -162,19 +162,19 @@ onUnmounted(() => {
             <span>Rows (Cross-Env)</span>
           </button>
 
-          <!-- Columns Mode (Temporal In-Environment Comparison) -->
+          <!-- Prior/Active Mode (Temporal In-Environment Comparison) -->
           <button 
             @click="devopsStore.setMatrixLayoutMode('columns')"
             class="px-2.5 py-0.5 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
             :class="devopsStore.matrixLayoutMode === 'columns' 
               ? 'bg-white text-slate-900 font-bold shadow-xs' 
               : 'text-slate-600 hover:text-slate-900'"
-            title="Columns Mode: Side-by-side vertical split comparing active run vs prior run"
+            title="Prior/Active Mode: Side-by-side vertical split comparing active run vs prior run"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16m6-16v16M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" />
             </svg>
-            <span>Columns (Temporal)</span>
+            <span>Prior/Active</span>
           </button>
         </div>
 
@@ -252,10 +252,10 @@ onUnmounted(() => {
               class="px-3 py-2 font-bold bg-slate-100 border-r border-slate-200 text-center cursor-context-menu select-none hover:bg-slate-200/70 transition-colors"
               :class="[
                 devopsStore.matrixLayoutMode === 'columns' 
-                  ? 'w-[300px] min-w-[280px] max-w-[340px]' 
+                  ? 'min-w-[300px] whitespace-nowrap' 
                   : devopsStore.matrixLayoutMode === 'rows'
-                    ? 'w-[230px] min-w-[210px] max-w-[260px]'
-                    : 'w-[250px] min-w-[230px] max-w-[280px]'
+                    ? 'min-w-[230px] whitespace-nowrap'
+                    : 'min-w-[250px] whitespace-nowrap'
               ]"
               @contextmenu.prevent="openHeaderContextMenu($event, env)"
               :title="`Right-click to configure column options for ${env}`"
@@ -318,10 +318,10 @@ onUnmounted(() => {
                   : (rowIdx > 0 ? 'px-2.5 pt-3 pb-2' : 'px-2.5 py-2'),
                 getDeploymentsForEnv(row, env).length ? 'bg-white' : 'bg-slate-50/40',
                 devopsStore.matrixLayoutMode === 'columns' 
-                  ? 'w-[300px] min-w-[280px] max-w-[340px]' 
+                  ? 'min-w-[300px] whitespace-nowrap' 
                   : devopsStore.matrixLayoutMode === 'rows'
-                    ? 'w-[230px] min-w-[210px] max-w-[260px]'
-                    : 'w-[250px] min-w-[230px] max-w-[280px]'
+                    ? 'min-w-[230px] whitespace-nowrap'
+                    : 'min-w-[250px] whitespace-nowrap'
               ]"
             >
               <!-- Cards Mode -->

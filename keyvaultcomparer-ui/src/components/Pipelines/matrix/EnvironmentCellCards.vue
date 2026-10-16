@@ -4,7 +4,7 @@ import type { EnvironmentDeploymentInfo, PipelineMatrixRow } from '../../../stor
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useDevopsDataStore } from '../../../stores/devopsDataStore';
 import { openUrlInNewTab } from '../../../utils/urlOpener';
-import { formatTimeAgo, getCommitUrl, getPrUrl } from '../../../utils/pipelineUrlHelpers';
+import { formatTimeAndDate, getCommitUrl, getPrUrl } from '../../../utils/pipelineUrlHelpers';
 import DeploymentStatusIndicator from './DeploymentStatusIndicator.vue';
 import PipelineAuthorBadge from '../PipelineAuthorBadge.vue';
 import RollbackRibbon from './RollbackRibbon.vue';
@@ -29,7 +29,21 @@ const activeDep = computed<EnvironmentDeploymentInfo | null>(() => {
 });
 
 const priorDep = computed<EnvironmentDeploymentInfo | null>(() => {
-  return props.deployments.length > 1 ? props.deployments[1] : null;
+  if (props.deployments.length <= 1) return null;
+  if (devopsStore.priorRunMode === 'distinct') {
+    const active = props.deployments[0];
+    const found = props.deployments.slice(1).find(d => {
+      if (active.commitSha && d.commitSha) {
+        return d.commitSha.toLowerCase() !== active.commitSha.toLowerCase();
+      }
+      if (active.version && d.version) {
+        return d.version !== active.version;
+      }
+      return d.buildId !== active.buildId;
+    });
+    return found || null;
+  }
+  return props.deployments[1];
 });
 
 const isScanning = computed(() => {
@@ -123,14 +137,14 @@ const lagStatus = computed(() => {
         <!-- Primary Version / Tag -->
         <span 
           v-if="activeDep.version"
-          class="font-mono font-bold text-xs text-violet-700 bg-violet-50/90 px-1.5 py-0.5 rounded border border-violet-200/80 truncate shadow-2xs"
+          class="font-mono font-bold text-xs text-violet-700 bg-violet-50/90 px-1.5 py-0.5 rounded border border-violet-200/80 whitespace-nowrap shadow-2xs"
           :title="`Version/Tag: ${activeDep.version}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           v{{ activeDep.version }}
         </span>
         <span 
           v-else-if="activeDep.commitSha"
-          class="font-mono font-bold text-xs text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 truncate"
+          class="font-mono font-bold text-xs text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap"
           :title="`Commit: ${activeDep.commitSha}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
@@ -165,7 +179,7 @@ const lagStatus = computed(() => {
       <!-- Branch -->
       <span 
         v-if="cleanBranch"
-        class="inline-flex items-center gap-1 font-medium text-slate-700 bg-slate-100 hover:bg-slate-200/70 px-1.5 py-0.5 rounded border border-slate-200 max-w-[130px] truncate transition-colors cursor-default"
+        class="inline-flex items-center gap-1 font-medium text-slate-700 bg-slate-100 hover:bg-slate-200/70 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap transition-colors cursor-default"
         :title="`Branch: ${activeDep.branch}`"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -173,14 +187,14 @@ const lagStatus = computed(() => {
           <circle cx="6" cy="18" r="3"></circle>
           <path d="M18 9a9 9 0 0 1-9 9"></path>
         </svg>
-        <span class="truncate">{{ cleanBranch }}</span>
+        <span class="whitespace-nowrap">{{ cleanBranch }}</span>
       </span>
 
       <!-- Commit Link -->
       <button 
         v-if="activeDep.commitSha"
         @click.stop="commitUrl ? openUrlInNewTab(commitUrl) : null"
-        class="font-mono px-1.5 py-0.5 rounded transition-colors"
+        class="font-mono px-1.5 py-0.5 rounded transition-colors whitespace-nowrap"
         :class="commitUrl ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:underline border border-indigo-100' : 'bg-slate-100 text-slate-600'"
         :title="`Commit: ${activeDep.commitSha}`"
       >
@@ -191,21 +205,21 @@ const lagStatus = computed(() => {
       <button 
         v-if="activeDep.prNumber"
         @click.stop="prUrl ? openUrlInNewTab(prUrl) : null"
-        class="font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 hover:bg-violet-200 transition-colors border border-violet-200"
+        class="font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 hover:bg-violet-200 transition-colors border border-violet-200 whitespace-nowrap"
         :title="`Pull Request #${activeDep.prNumber}`"
       >
         PR #{{ activeDep.prNumber }}
       </button>
     </div>
 
-    <!-- Line 3: Deployed Time Ago + Compact Author Badge + Upstream Lag -->
+    <!-- Line 3: Deployed Time & Date (e.g. 5d ago · Jun 18, 2026) + Compact Author Badge + Upstream Lag -->
     <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100 whitespace-nowrap">
-      <div class="flex items-center gap-1.5">
+      <div class="flex items-center gap-1.5 whitespace-nowrap">
         <span 
           :title="formattedFullDate" 
-          class="text-[9px] font-mono text-slate-500"
+          class="text-[9px] font-mono text-slate-500 whitespace-nowrap"
         >
-          {{ formatTimeAgo(activeDep.deployedAt) }}
+          {{ formatTimeAndDate(activeDep.deployedAt) }}
         </span>
 
         <!-- Compact Author Badge -->
