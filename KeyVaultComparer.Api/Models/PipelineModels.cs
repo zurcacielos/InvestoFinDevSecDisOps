@@ -9,6 +9,9 @@ namespace KeyVaultComparer.Api.Models
         public string Name { get; set; } = string.Empty;
         public string? Path { get; set; }
         public PipelineRepository? Repository { get; set; }
+        public bool? HasRuns { get; set; }
+        public int? RunCount { get; set; }
+        public string? LatestBuildNumber { get; set; }
     }
 
     public class PipelineRepository

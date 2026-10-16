@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import { useDevopsDataStore } from '../../stores/devopsDataStore';
 import type { PipelineMatrixRow, StageDeploymentInfo, PipelineRunInfo } from '../../stores/devopsDataStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -8,6 +8,41 @@ import PipelineAuthorBadge from './PipelineAuthorBadge.vue';
 
 const devopsStore = useDevopsDataStore();
 const settingsStore = useSettingsStore();
+
+// Column Resizing for Pinned Pipeline / Run Execution Column
+const isResizing = ref(false);
+let startX = 0;
+let startWidth = 0;
+
+const onResizerMouseDown = (e: MouseEvent) => {
+  isResizing.value = true;
+  startX = e.clientX;
+  startWidth = devopsStore.pipelineColumnWidth;
+  document.addEventListener('mousemove', onResizerMouseMove);
+  document.addEventListener('mouseup', onResizerMouseUp);
+  document.body.style.userSelect = 'none';
+  document.body.style.cursor = 'col-resize';
+};
+
+const onResizerMouseMove = (e: MouseEvent) => {
+  if (!isResizing.value) return;
+  const delta = e.clientX - startX;
+  const newWidth = Math.min(Math.max(startWidth + delta, 180), 800);
+  devopsStore.setPipelineColumnWidth(newWidth);
+};
+
+const onResizerMouseUp = () => {
+  isResizing.value = false;
+  document.removeEventListener('mousemove', onResizerMouseMove);
+  document.removeEventListener('mouseup', onResizerMouseUp);
+  document.body.style.userSelect = '';
+  document.body.style.cursor = '';
+};
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onResizerMouseMove);
+  document.removeEventListener('mouseup', onResizerMouseUp);
+});
 
 const emit = defineEmits<{
   (e: 'open-context-menu', event: MouseEvent, row: PipelineMatrixRow, cell: any, stageName: string): void;
@@ -251,8 +286,17 @@ const toDeploymentInfo = (run: PipelineRunInfo, stageName?: string): StageDeploy
         <thead>
           <tr class="bg-slate-100/90 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider sticky top-0 shadow-xs z-10">
             <!-- Pipeline / Run Header -->
-            <th class="px-4 py-2.5 font-bold bg-slate-100 border-r border-slate-200 min-w-[280px] max-w-[340px]">
-              Pipeline / Run Execution
+            <th 
+              class="px-4 py-2.5 font-bold bg-slate-100 border-r border-slate-200 sticky left-0 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.03)] select-none relative"
+              :style="{ width: `${devopsStore.pipelineColumnWidth}px`, minWidth: `${devopsStore.pipelineColumnWidth}px`, maxWidth: `${devopsStore.pipelineColumnWidth}px` }"
+            >
+              <span>Pipeline / Run Execution</span>
+              <div 
+                class="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex justify-end z-30 group/resizer"
+                @mousedown.prevent="onResizerMouseDown"
+              >
+                <div class="h-full w-[2px] bg-slate-300 group-hover/resizer:bg-blue-400 transition-colors" :class="{'!bg-blue-500': isResizing}"></div>
+              </div>
             </th>
 
             <!-- Repository & Metadata Header -->
@@ -287,6 +331,7 @@ const toDeploymentInfo = (run: PipelineRunInfo, stageName?: string): StageDeploy
               <td 
                 @contextmenu="emit('open-context-menu', $event, row, undefined, '')"
                 class="px-3 py-2.5 border-r border-slate-200 bg-slate-50 sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.02)] cursor-context-menu"
+                :style="{ width: `${devopsStore.pipelineColumnWidth}px`, minWidth: `${devopsStore.pipelineColumnWidth}px`, maxWidth: `${devopsStore.pipelineColumnWidth}px` }"
               >
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-1.5 min-w-0">
@@ -312,10 +357,10 @@ const toDeploymentInfo = (run: PipelineRunInfo, stageName?: string): StageDeploy
                       <div class="flex items-center gap-1.5">
                         <button 
                           @click.stop="openUrlInNewTab(getPipelineDefinitionUrl(row.pipelineId))"
-                          class="font-bold text-slate-900 hover:text-blue-600 hover:underline text-left text-xs leading-snug truncate"
+                          class="font-bold text-slate-900 hover:text-blue-600 hover:underline text-left text-xs leading-snug break-words"
                           :title="`Open Pipeline ${row.pipelineName} in Azure DevOps`"
                         >
-                          {{ row.pipelineName }}
+                          {{ devopsStore.cleanPipelineName(row.pipelineName) }}
                         </button>
                         
                         <!-- Runs Count Badge -->
@@ -464,6 +509,7 @@ const toDeploymentInfo = (run: PipelineRunInfo, stageName?: string): StageDeploy
                 <td 
                   @contextmenu="emit('open-context-menu', $event, row, toDeploymentInfo(run), '')"
                   class="pl-7 pr-3 py-2 border-r border-slate-200 bg-white sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.02)] cursor-context-menu"
+                  :style="{ width: `${devopsStore.pipelineColumnWidth}px`, minWidth: `${devopsStore.pipelineColumnWidth}px`, maxWidth: `${devopsStore.pipelineColumnWidth}px` }"
                 >
                   <div class="flex items-center justify-between gap-2">
                     <!-- Left: Run # and overall status -->
@@ -619,7 +665,10 @@ const toDeploymentInfo = (run: PipelineRunInfo, stageName?: string): StageDeploy
                 v-if="!row.recentRuns || row.recentRuns.length === 0" 
                 class="hover:bg-slate-50/80 transition-colors bg-white"
               >
-                <td class="pl-7 pr-3 py-2 border-r border-slate-200 bg-white sticky left-0 z-5 text-slate-400 italic text-[11px]">
+                <td 
+                  class="pl-7 pr-3 py-2 border-r border-slate-200 bg-white sticky left-0 z-5 text-slate-400 italic text-[11px]"
+                  :style="{ width: `${devopsStore.pipelineColumnWidth}px`, minWidth: `${devopsStore.pipelineColumnWidth}px`, maxWidth: `${devopsStore.pipelineColumnWidth}px` }"
+                >
                   No historical run data loaded
                 </td>
                 <td class="px-3 py-2 border-r border-slate-200 text-slate-300">-</td>

@@ -75,7 +75,7 @@ const cleanBranch = computed(() => {
     <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
       <svg 
         xmlns="http://www.w3.org/2000/svg" 
-        class="h-3 w-3 text-amber-600 shrink-0 cursor-help" 
+        class="h-3 w-3 text-amber-600 shrink-0" 
         fill="none" 
         viewBox="0 0 24 24" 
         stroke="currentColor"
@@ -134,7 +134,7 @@ const cleanBranch = computed(() => {
     <div class="flex items-center gap-1.5 shrink-0 text-slate-500">
       <span 
         :title="formattedFullDate" 
-        class="text-[9px] font-mono text-amber-800/80 cursor-help"
+        class="text-[9px] font-mono text-amber-800/80"
       >
         {{ formatTimeAgo(deployment.deployedAt) }}
       </span>

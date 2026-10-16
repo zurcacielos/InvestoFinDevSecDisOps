@@ -1,19 +1,33 @@
 import { defineStore } from 'pinia';
 
+export type AppRibbonTab = 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops' | 'pipelines';
+
+const VALID_TABS: AppRibbonTab[] = ['select', 'analyze', 'inspections-tool', 'staged', 'logs', 'code', 'devops', 'pipelines'];
+
 export const useUiStateStore = defineStore('uiState', {
-  state: () => ({
-    globalLoadingValues: false,
-    fetchingVaults: {} as Record<string, boolean>,
-    loadingCells: {} as Record<string, Record<string, boolean>>,
-    currentTab: 'select' as 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops' | 'pipelines',
-    contextMenu: { show: false, x: 0, y: 0, colId: '' },
-  }),
+  state: () => {
+    const saved = localStorage.getItem('kvcActiveTab') as AppRibbonTab | null;
+    const initialTab: AppRibbonTab = saved && VALID_TABS.includes(saved) ? saved : 'select';
+
+    return {
+      globalLoadingValues: false,
+      fetchingVaults: {} as Record<string, boolean>,
+      loadingCells: {} as Record<string, Record<string, boolean>>,
+      currentTab: initialTab,
+      contextMenu: { show: false, x: 0, y: 0, colId: '' },
+    };
+  },
   actions: {
     setGlobalLoading(val: boolean) {
       this.globalLoadingValues = val;
     },
-    setCurrentTab(tab: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'logs' | 'code' | 'devops' | 'pipelines') {
+    setCurrentTab(tab: AppRibbonTab) {
       this.currentTab = tab;
+      try {
+        localStorage.setItem('kvcActiveTab', tab);
+      } catch (e) {
+        console.warn('Failed to save kvcActiveTab to localStorage', e);
+      }
     },
     showContextMenu(x: number, y: number, colId: string) {
       this.contextMenu = { show: true, x, y, colId };

@@ -47,7 +47,7 @@ namespace KeyVaultComparer.Api.Services
             using var client = _httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Authorization = authHeader;
 
-            var url = $"https://dev.azure.com/{organization}/{project}/_apis/build/definitions?api-version=7.1";
+            var url = $"https://dev.azure.com/{organization}/{project}/_apis/build/definitions?includeLatestBuilds=true&api-version=7.1";
             var response = await client.GetAsync(url, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
@@ -67,11 +67,37 @@ namespace KeyVaultComparer.Api.Services
                 {
                     if (item == null) continue;
 
+                    var latestBuildNode = item["latestBuild"];
+                    bool hasRuns = latestBuildNode != null;
+                    int? runCount = null;
+
+                    var metricsNode = item["metrics"]?.AsArray();
+                    if (metricsNode != null)
+                    {
+                        foreach (var m in metricsNode)
+                        {
+                            var mName = m?["name"]?.ToString() ?? m?["metric"]?["name"]?.ToString();
+                            if (string.Equals(mName, "TotalBuilds", StringComparison.OrdinalIgnoreCase))
+                            {
+                                runCount = m?["intValue"]?.GetValue<int>() ?? m?["value"]?.GetValue<int>();
+                                break;
+                            }
+                        }
+                    }
+
+                    if (runCount == null && !hasRuns)
+                    {
+                        runCount = 0;
+                    }
+
                     var summary = new PipelineSummary
                     {
                         Id = item["id"]?.GetValue<int>() ?? 0,
                         Name = item["name"]?.GetValue<string>() ?? string.Empty,
-                        Path = item["path"]?.GetValue<string>()
+                        Path = item["path"]?.GetValue<string>(),
+                        HasRuns = hasRuns,
+                        RunCount = runCount,
+                        LatestBuildNumber = latestBuildNode?["buildNumber"]?.ToString()
                     };
 
                     var repoNode = item["repository"];
@@ -442,13 +468,16 @@ namespace KeyVaultComparer.Api.Services
 
             // 3. For Environment Matrix mode, build environment columns
             var targetEnvs = new List<string>(profileConfig.Environments);
-            foreach (var row in rows)
+            if (targetEnvs.Count == 0)
             {
-                foreach (var envKey in row.EnvironmentDeployments.Keys)
+                foreach (var row in rows)
                 {
-                    if (!targetEnvs.Any(e => string.Equals(e, envKey, StringComparison.OrdinalIgnoreCase)))
+                    foreach (var envKey in row.EnvironmentDeployments.Keys)
                     {
-                        targetEnvs.Add(envKey);
+                        if (!targetEnvs.Any(e => string.Equals(e, envKey, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            targetEnvs.Add(envKey);
+                        }
                     }
                 }
             }

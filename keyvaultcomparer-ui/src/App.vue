@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 
 import AppHeader from './components/Layout/AppHeader.vue';
@@ -109,6 +109,14 @@ const showDevopsContextMenu = (e: MouseEvent, group: import('./stores/devopsData
 
 const uiStateStore = useUiStateStore();
 const { currentTab } = storeToRefs(uiStateStore);
+
+watch(currentTab, (newTab) => {
+  if (newTab) {
+    try {
+      localStorage.setItem('kvcActiveTab', newTab);
+    } catch {}
+  }
+}, { immediate: true });
 const showHelpDialog = ref(false);
 const showSettingsModal = ref(false);
 const showRegexHelpDialog = ref(false);

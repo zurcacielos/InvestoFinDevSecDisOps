@@ -18,8 +18,10 @@ const filteredPipelines = computed(() => {
   if (q) {
     list = list.filter(p => {
       const nameMatch = p.name.toLowerCase().includes(q);
+      const cleanMatch = devopsStore.cleanPipelineName(p.name).toLowerCase().includes(q);
       const repoMatch = p.repository?.name?.toLowerCase().includes(q);
-      return nameMatch || repoMatch;
+      const pathMatch = p.path?.toLowerCase().includes(q);
+      return nameMatch || cleanMatch || repoMatch || pathMatch;
     });
   }
   return list;
@@ -166,10 +168,19 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
                 :class="devopsStore.selectedPipelineIds.includes(p.id) ? 'bg-blue-50/60 font-semibold' : ''"
               >
                 <div class="flex flex-col min-w-0 pr-2">
-                  <span class="text-slate-800 truncate font-medium">{{ p.name }}</span>
-                  <span v-if="p.repository?.name" class="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                    <span>repo:</span> {{ p.repository.name }}
-                  </span>
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-slate-800 truncate font-medium">{{ devopsStore.cleanPipelineName(p.name) }}</span>
+                    <span v-if="p.runCount !== undefined && p.runCount !== null" class="text-[10px] text-slate-400 font-mono shrink-0">
+                      ({{ p.runCount }} {{ p.runCount === 1 ? 'run' : 'runs' }})
+                    </span>
+                    <span v-else-if="p.hasRuns === false" class="text-[10px] text-slate-400 font-mono shrink-0">
+                      (0 runs)
+                    </span>
+                  </div>
+                  <div class="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                    <span v-if="p.path && p.path !== '\\'" class="text-slate-500 font-mono">{{ p.path }} &bull;</span>
+                    <span v-if="p.repository?.name">repo: {{ p.repository.name }}</span>
+                  </div>
                 </div>
                 <span 
                   v-if="devopsStore.selectedPipelineIds.includes(p.id)"
@@ -204,10 +215,19 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
                 :class="devopsStore.selectedPipelineIds.includes(p.id) ? 'bg-blue-50/60 font-semibold' : ''"
               >
                 <div class="flex flex-col min-w-0 pr-2">
-                  <span class="text-slate-800 truncate font-medium">{{ p.name }}</span>
-                  <span v-if="p.repository?.name" class="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                    <span>repo:</span> {{ p.repository.name }}
-                  </span>
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-slate-800 truncate font-medium">{{ devopsStore.cleanPipelineName(p.name) }}</span>
+                    <span v-if="p.runCount !== undefined && p.runCount !== null" class="text-[10px] text-slate-400 font-mono shrink-0">
+                      ({{ p.runCount }} {{ p.runCount === 1 ? 'run' : 'runs' }})
+                    </span>
+                    <span v-else-if="p.hasRuns === false" class="text-[10px] text-slate-400 font-mono shrink-0">
+                      (0 runs)
+                    </span>
+                  </div>
+                  <div class="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                    <span v-if="p.path && p.path !== '\\'" class="text-slate-500 font-mono">{{ p.path }} &bull;</span>
+                    <span v-if="p.repository?.name">repo: {{ p.repository.name }}</span>
+                  </div>
                 </div>
                 <span 
                   v-if="devopsStore.selectedPipelineIds.includes(p.id)"
@@ -229,10 +249,16 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
               >
                 <div class="flex flex-col min-w-0 pr-2">
                   <div class="flex items-center gap-1.5 min-w-0">
-                    <span class="text-slate-800 truncate font-medium">{{ p.name }}</span>
+                    <span class="text-slate-800 truncate font-medium">{{ devopsStore.cleanPipelineName(p.name) }}</span>
+                    <span v-if="p.runCount !== undefined && p.runCount !== null" class="text-[10px] text-slate-400 font-mono shrink-0">
+                      ({{ p.runCount }} {{ p.runCount === 1 ? 'run' : 'runs' }})
+                    </span>
+                    <span v-else-if="p.hasRuns === false" class="text-[10px] text-slate-400 font-mono shrink-0">
+                      (0 runs)
+                    </span>
                     <span 
                       v-if="devopsStore.recentPipelineIds.includes(p.id)" 
-                      class="px-1 py-0.2 rounded text-[9px] bg-slate-100 text-slate-500 border border-slate-200 shrink-0 font-normal flex items-center gap-0.5"
+                      class="px-1 py-0.2 rounded text-[9px] bg-slate-100 text-slate-500 border border-slate-200 shrink-0 font-normal flex items-center gap-0.5 ml-1"
                       title="Recently selected pipeline"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -241,9 +267,10 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
                       Recent
                     </span>
                   </div>
-                  <span v-if="p.repository?.name" class="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                    <span>repo:</span> {{ p.repository.name }}
-                  </span>
+                  <div class="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                    <span v-if="p.path && p.path !== '\\'" class="text-slate-500 font-mono">{{ p.path }} &bull;</span>
+                    <span v-if="p.repository?.name">repo: {{ p.repository.name }}</span>
+                  </div>
                 </div>
                 <span 
                   v-if="devopsStore.selectedPipelineIds.includes(p.id)"
@@ -281,13 +308,12 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
 
     <!-- Row 2: Selected Pipelines Chips Bar (directly under source combobox, grows as needed) -->
     <div v-if="devopsStore.selectedPipelineIds.length" class="flex items-center gap-2 pt-0.5 flex-wrap">
-      <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Matrix Rows:</span>
       <div 
         v-for="p in devopsStore.selectedPipelines" 
         :key="p.id"
         class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs"
       >
-        <span class="font-medium truncate max-w-[30ch]" :title="p.name">{{ p.name }}</span>
+        <span class="font-medium" :title="p.name">{{ devopsStore.cleanPipelineName(p.name) }}</span>
 
         <!-- Quick Copy YAML context button -->
         <button 
@@ -403,8 +429,8 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
             : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold'"
           :disabled="devopsStore.isMatrixLoading || devopsStore.selectedPipelineIds.length === 0"
           :title="devopsStore.hasPendingChanges 
-            ? 'Pending changes detected: click to refresh matrix from Azure DevOps' 
-            : (devopsStore.selectedPipelineIds.length ? 'Refresh matrix deployments from Azure DevOps' : 'Select at least one pipeline to fetch matrix')"
+            ? 'Pending changes detected: click to refresh pipeline runs from Azure DevOps' 
+            : (devopsStore.selectedPipelineIds.length ? 'Refresh pipeline runs from Azure DevOps' : 'Select at least one pipeline to fetch runs')"
         >
           <span v-if="devopsStore.hasPendingChanges && !devopsStore.isMatrixLoading" class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
           <svg 
@@ -417,7 +443,7 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
           >
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          <span class="text-[11px]">{{ devopsStore.isMatrixLoading ? 'Updating Matrix...' : 'Refresh Matrix' }}</span>
+          <span class="text-[11px]">{{ devopsStore.isMatrixLoading ? 'Updating Runs...' : "Refresh Pipeline's Run" }}</span>
         </button>
       </div>
     </div>

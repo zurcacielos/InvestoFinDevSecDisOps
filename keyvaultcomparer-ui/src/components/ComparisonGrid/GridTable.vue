@@ -648,7 +648,7 @@ onUnmounted(() => {
                   <span v-else-if="row.vaultValues[col.id]?.status === 'Missing'" class="text-slate-300 font-bold mx-auto text-lg">
                     -
                   </span>
-                  <span v-else-if="row.vaultValues[col.id]?.status === 'Forbidden'" class="text-red-600 font-bold text-sm bg-red-50 px-2 py-1 rounded cursor-help shadow-sm border border-red-200" :title="row.vaultValues[col.id]?.errorMessage">
+                  <span v-else-if="row.vaultValues[col.id]?.status === 'Forbidden'" class="text-red-600 font-bold text-sm bg-red-50 px-2 py-1 rounded cursor-default shadow-sm border border-red-200" :title="row.vaultValues[col.id]?.errorMessage">
                     [403 Forbidden]
                   </span>
                   <span v-else-if="row.vaultValues[col.id]?.status === 'Error'" class="text-rose-500 italic text-sm font-medium">
@@ -680,7 +680,7 @@ onUnmounted(() => {
                     
                     <span 
                       v-if="row.vaultValues[col.id]?.inspections?.length"
-                      class="ml-1.5 cursor-help flex items-center justify-center rounded-full transition-transform hover:scale-110 drop-shadow-sm w-5 h-5 ring-1 bg-black ring-green-400 shrink-0"
+                      class="ml-1.5 cursor-pointer flex items-center justify-center rounded-full transition-transform hover:scale-110 drop-shadow-sm w-5 h-5 ring-1 bg-black ring-green-400 shrink-0"
                       :class="{
                         'text-[#00FFFF]': row.vaultValues[col.id]?.highestSeverity === 'Low',
                         'text-[#FFFF00]': row.vaultValues[col.id]?.highestSeverity === 'Medium',
@@ -700,7 +700,7 @@ onUnmounted(() => {
                 
                 <div 
                   v-if="getUsageForCell(col.id, row.secretName)"
-                  class="absolute bottom-0 right-0 text-[10px] text-slate-500 font-medium bg-slate-100/80 px-1 py-0.5 rounded-tl-md border-t border-l border-slate-200 cursor-help backdrop-blur-sm"
+                  class="absolute bottom-0 right-0 text-[10px] text-slate-500 font-medium bg-slate-100/80 px-1 py-0.5 rounded-tl-md border-t border-l border-slate-200 cursor-default backdrop-blur-sm"
                   :title="getUsageForCell(col.id, row.secretName)?.fullDate"
                 >
                   {{ getUsageForCell(col.id, row.secretName)?.text }}

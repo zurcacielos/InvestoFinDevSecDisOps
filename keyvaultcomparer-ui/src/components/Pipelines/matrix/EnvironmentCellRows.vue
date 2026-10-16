@@ -229,7 +229,7 @@ const lagStatus = computed(() => {
 
     <!-- Row 4: Strict Date / Time & Author -->
     <div class="h-6 px-2 flex items-center justify-between gap-1 text-[10px] text-slate-500">
-      <span :title="formattedFullDate" class="text-[9px] font-mono cursor-help truncate">
+      <span :title="formattedFullDate" class="text-[9px] font-mono truncate">
         {{ formatTimeAgo(activeDep.deployedAt) }}
       </span>
 
@@ -264,14 +264,14 @@ const lagStatus = computed(() => {
       v-if="devopsStore.showRollbackTarget"
       class="h-6 px-2 flex items-center justify-between gap-1 text-[9px] transition-colors"
       :class="priorDep 
-        ? 'bg-amber-50/80 border-t border-amber-200/70 text-amber-900' 
-        : 'bg-white border-t border-dashed border-amber-300/90 text-slate-400'"
+        ? 'bg-amber-50/70 border-t border-amber-100 text-amber-900' 
+        : 'bg-white border-t border-slate-100 text-slate-400'"
     >
       <template v-if="priorDep">
         <div class="flex items-center gap-1 min-w-0">
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
-            class="h-2.5 w-2.5 text-amber-600 shrink-0 cursor-help" 
+            class="h-2.5 w-2.5 text-amber-600 shrink-0" 
             fill="none" 
             viewBox="0 0 24 24" 
             stroke="currentColor"
@@ -298,7 +298,7 @@ const lagStatus = computed(() => {
           </button>
         </div>
         <span 
-          class="text-amber-800/80 font-mono shrink-0 cursor-help"
+          class="text-amber-800/80 font-mono shrink-0"
           :title="priorDep.deployedAt ? new Date(priorDep.deployedAt).toLocaleString() : ''"
         >
           {{ formatTimeAgo(priorDep.deployedAt) }}
@@ -343,8 +343,8 @@ const lagStatus = computed(() => {
       v-if="devopsStore.showRollbackTarget"
       class="h-6 px-2 flex items-center justify-between gap-1 text-[9px] transition-colors"
       :class="priorDep 
-        ? 'bg-amber-50/60 border-t border-amber-200/40 text-amber-900' 
-        : 'bg-white border-t border-slate-100/80 text-slate-300'"
+        ? 'bg-amber-50/50 border-t border-amber-100 text-amber-900' 
+        : 'bg-white border-t border-slate-100 text-slate-300'"
     >
       <div v-if="priorDep" class="flex items-center gap-1 min-w-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-amber-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -76,9 +76,41 @@ const showAllColumns = () => {
   hideHeaderContextMenu();
 };
 
+// Column Resizing for Pinned Service / Pipeline Column
+const isResizing = ref(false);
+let startX = 0;
+let startWidth = 0;
+
+const onResizerMouseDown = (e: MouseEvent) => {
+  isResizing.value = true;
+  startX = e.clientX;
+  startWidth = devopsStore.pipelineColumnWidth;
+  document.addEventListener('mousemove', onResizerMouseMove);
+  document.addEventListener('mouseup', onResizerMouseUp);
+  document.body.style.userSelect = 'none';
+  document.body.style.cursor = 'col-resize';
+};
+
+const onResizerMouseMove = (e: MouseEvent) => {
+  if (!isResizing.value) return;
+  const delta = e.clientX - startX;
+  const newWidth = Math.min(Math.max(startWidth + delta, 180), 800);
+  devopsStore.setPipelineColumnWidth(newWidth);
+};
+
+const onResizerMouseUp = () => {
+  isResizing.value = false;
+  document.removeEventListener('mousemove', onResizerMouseMove);
+  document.removeEventListener('mouseup', onResizerMouseUp);
+  document.body.style.userSelect = '';
+  document.body.style.cursor = '';
+};
+
 onUnmounted(() => {
   window.removeEventListener('click', hideHeaderContextMenu);
   window.removeEventListener('keydown', handleHeaderContextMenuEsc);
+  document.removeEventListener('mousemove', onResizerMouseMove);
+  document.removeEventListener('mouseup', onResizerMouseUp);
 });
 </script>
 
@@ -200,8 +232,17 @@ onUnmounted(() => {
         <thead>
           <tr class="bg-slate-100/90 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider sticky top-0 shadow-xs z-10">
             <!-- Pinned Pipeline & Repository Combined Header -->
-            <th class="px-3.5 py-2.5 font-bold bg-slate-100 border-r border-slate-200 min-w-[220px] max-w-[260px] sticky left-0 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.03)]">
-              Service / Pipeline
+            <th 
+              class="px-3.5 py-2.5 font-bold bg-slate-100 border-r border-slate-200 sticky left-0 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.03)] select-none relative"
+              :style="{ width: `${devopsStore.pipelineColumnWidth}px`, minWidth: `${devopsStore.pipelineColumnWidth}px`, maxWidth: `${devopsStore.pipelineColumnWidth}px` }"
+            >
+              <span>Service / Pipeline</span>
+              <div 
+                class="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex justify-end z-30 group/resizer"
+                @mousedown.prevent="onResizerMouseDown"
+              >
+                <div class="h-full w-[2px] bg-slate-300 group-hover/resizer:bg-blue-400 transition-colors" :class="{'!bg-blue-500': isResizing}"></div>
+              </div>
             </th>
 
             <!-- Dynamic Environment Headers -->
