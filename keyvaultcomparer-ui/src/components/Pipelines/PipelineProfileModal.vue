@@ -106,16 +106,7 @@ const closeModal = () => {
         
         <!-- Environments Configuration -->
         <div>
-          <div class="flex items-center justify-between mb-2">
-            <div>
-              <label class="font-semibold text-slate-700 block">
-                Target Environments Order (Release Matrix Columns)
-              </label>
-              <span class="text-[11px] text-slate-400">
-                Determines column order and topological tie-breaking (ordered left to right)
-              </span>
-            </div>
-            
+          <div class="flex items-center justify-end mb-2">
             <!-- Presets -->
             <div class="flex items-center gap-1.5">
               <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mr-1">Presets:</span>
