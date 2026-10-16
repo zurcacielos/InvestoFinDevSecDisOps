@@ -1,11 +1,7 @@
 import { defineStore } from 'pinia';
+import { useAzureConnectionStore, type UserProfile } from './azureConnectionStore';
 
-export interface UserProfile {
-  email: string;
-  subscriptionName: string;
-  initials: string;
-  photoUrl?: string | null;
-}
+export type { UserProfile } from './azureConnectionStore';
 
 export interface AzureSubscription {
   id: string;
@@ -53,24 +49,43 @@ export const useAuthStore = defineStore('auth', {
       error: null as string | null,
     } as AzureDevOpsState,
     globalError: null as string | null,
-    connectionPromise: null as Promise<boolean> | null,
   }),
 
   getters: {
-    // Azure Cloud Getters
-    isCloudConnected: (state): boolean => state.azureCloud.isConnected,
-    isCloudConnecting: (state): boolean => state.azureCloud.isConnecting,
-    showCloudAuthBanner: (state): boolean => 
-      !state.azureCloud.isConnected && state.azureCloud.hasAttempted && !state.azureCloud.isDismissed,
-    profile: (state): UserProfile | null => state.azureCloud.profile,
+    // Azure Cloud Getters driven by state machine
+    isCloudConnected(): boolean {
+      const conn = useAzureConnectionStore();
+      return conn.isConnected || this.azureCloud.isConnected;
+    },
+    isCloudConnecting(): boolean {
+      const conn = useAzureConnectionStore();
+      return conn.isChecking || conn.isLoggingIn || this.azureCloud.isConnecting;
+    },
+    showCloudAuthBanner(): boolean {
+      return useAzureConnectionStore().showLoginPrompt;
+    },
+    profile(state): UserProfile | null {
+      const conn = useAzureConnectionStore();
+      return conn.profile || state.azureCloud.profile;
+    },
     subscriptions: (state): AzureSubscription[] => state.azureCloud.subscriptions,
-    cloudAuthMethod: (state): 'InteractiveSSO' | 'ServicePrincipal' | null => state.azureCloud.authMethod,
+    cloudAuthMethod(state): 'InteractiveSSO' | 'ServicePrincipal' | null {
+      const conn = useAzureConnectionStore();
+      return conn.authMethod || state.azureCloud.authMethod;
+    },
 
     // Backward-compatibility Getters
-    isConnected: (state): boolean => state.azureCloud.isConnected,
-    isConnecting: (state): boolean => state.azureCloud.isConnecting,
-    showAuthError: (state): boolean => 
-      !state.azureCloud.isConnected && state.azureCloud.hasAttempted && !state.azureCloud.isDismissed,
+    isConnected(): boolean {
+      const conn = useAzureConnectionStore();
+      return conn.isConnected || this.azureCloud.isConnected;
+    },
+    isConnecting(): boolean {
+      const conn = useAzureConnectionStore();
+      return conn.isChecking || conn.isLoggingIn || this.azureCloud.isConnecting;
+    },
+    showAuthError(): boolean {
+      return useAzureConnectionStore().showLoginPrompt;
+    },
 
     // Azure DevOps Getters
     isAdoConnected: (state): boolean => !!state.azureDevOps.isConnected,
@@ -90,10 +105,14 @@ export const useAuthStore = defineStore('auth', {
     },
 
     setShowAuthError(val: boolean) {
+      const conn = useAzureConnectionStore();
+      if (!val) conn.dismissBanner();
+      else conn.showBanner();
       this.azureCloud.isDismissed = !val;
     },
 
     dismissCloudBanner() {
+      useAzureConnectionStore().dismissBanner();
       this.azureCloud.isDismissed = true;
     },
 
@@ -102,6 +121,7 @@ export const useAuthStore = defineStore('auth', {
     },
 
     handleAzureUnauthorized() {
+      useAzureConnectionStore().status = 'login_prompt';
       this.azureCloud.isConnected = false;
       this.azureCloud.hasAttempted = true;
       this.azureCloud.isDismissed = false;
@@ -110,17 +130,25 @@ export const useAuthStore = defineStore('auth', {
     setAzureCloudConnected(val: boolean) {
       this.azureCloud.isConnected = val;
       if (val) {
+        useAzureConnectionStore().status = 'connected';
         this.azureCloud.error = null;
         this.azureCloud.isDismissed = false;
+      } else {
+        useAzureConnectionStore().status = 'login_prompt';
       }
     },
 
     async fetchProfile() {
+      const conn = useAzureConnectionStore();
+      if (!conn.canMakeAzureRequests) {
+        return null;
+      }
       try {
         const response = await fetch('/api/profile');
         if (response.ok) {
           const data = await response.json();
           this.setProfile(data);
+          conn.profile = data;
           return data;
         } else if (response.status === 401) {
           this.handleAzureUnauthorized();
@@ -133,6 +161,11 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async fetchSubscriptions() {
+      const conn = useAzureConnectionStore();
+      if (!conn.canMakeAzureRequests) {
+        this.azureCloud.subscriptions = [];
+        return [];
+      }
       try {
         const response = await fetch('/api/subscriptions');
         if (response.ok) {
@@ -149,134 +182,68 @@ export const useAuthStore = defineStore('auth', {
       return [];
     },
 
+    /**
+     * Connect to Azure using the single-probe state machine.
+     * Guaranteed fast response; no heavy requests if not authenticated.
+     */
     async connectToAzure(): Promise<boolean> {
-      if (this.azureCloud.isConnected) return true;
-      if (this.connectionPromise) return this.connectionPromise;
+      const conn = useAzureConnectionStore();
+      const isConnected = await conn.checkConnection();
 
-      this.azureCloud.isConnecting = true;
+      this.azureCloud.isConnected = isConnected;
+      this.azureCloud.hasAttempted = true;
+      this.azureCloud.authMethod = conn.authMethod;
 
-      const promise = (async () => {
-        try {
-          const fetchWithTimeout = async (url: string, timeoutMs = 15000) => {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeoutMs);
-            try {
-              return await fetch(url, { signal: controller.signal });
-            } finally {
-              clearTimeout(timer);
-            }
-          };
+      if (isConnected) {
+        this.azureCloud.profile = conn.profile;
+        this.azureCloud.error = null;
 
-          const [profileRes, subsRes, settingsRes] = await Promise.all([
-            fetchWithTimeout('/api/profile').catch(() => null),
-            fetchWithTimeout('/api/subscriptions').catch(() => null),
-            fetchWithTimeout('/api/settings').catch(() => null)
-          ]);
-
-          if (settingsRes && settingsRes.ok) {
-            const settingsData = await settingsRes.json();
-            this.azureCloud.authMethod = settingsData.azureAuthMode || 'InteractiveSSO';
-            this.azureDevOps.hasPat = !!settingsData.hasAdoPat;
-          }
-
-          let profile = null;
-          let subs: any[] = [];
-
-          if (profileRes && profileRes.ok) {
-            try {
-              profile = await profileRes.json();
-              this.setProfile(profile);
-            } catch {}
-          }
-
-          if (subsRes && subsRes.ok) {
-            try {
-              subs = await subsRes.json();
-              this.setSubscriptions(subs);
-            } catch {}
-          }
-
-          if (profile && profile.email && profile.email !== 'Unknown User') {
-            this.azureCloud.isConnected = true;
-            this.azureCloud.hasAttempted = true;
-            this.azureCloud.error = null;
-
-            // Probe ADO automatically with the connected Azure identity
-            this.checkAutoAdo();
-
-            return true;
-          } else {
-            this.azureCloud.profile = null;
-            this.azureCloud.subscriptions = [];
-            this.azureCloud.isConnected = false;
-            this.azureCloud.hasAttempted = true;
-            this.azureCloud.error = 'Azure authentication required. Please sign in with Microsoft or configure credentials.';
-            return false;
-          }
-        } catch (e: any) {
-          this.azureCloud.profile = null;
-          this.azureCloud.subscriptions = [];
-          this.azureCloud.isConnected = false;
-          this.azureCloud.hasAttempted = true;
-          this.azureCloud.error = e?.message || 'Failed to connect to Azure Cloud';
-          return false;
-        } finally {
-          this.azureCloud.isConnecting = false;
-          this.connectionPromise = null;
-        }
-      })();
-
-      this.connectionPromise = promise;
-      return promise;
-    },
-
-    async loginInteractive(): Promise<{ success: boolean; message: string }> {
-      this.azureCloud.isConnecting = true;
-      this.azureCloud.error = null;
-      try {
-        const res = await fetch('/api/auth/login-interactive', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: '{}'
-        });
-        const data = await res.json();
-        if (data.success) {
-          await this.retryAuth();
-          return { success: true, message: data.message || 'Authenticated successfully' };
-        } else {
-          this.azureCloud.error = data.message || 'Authentication failed';
-          return { success: false, message: this.azureCloud.error || 'Authentication failed' };
-        }
-      } catch (err: any) {
-        this.azureCloud.error = err?.message || 'Login request failed';
-        return { success: false, message: this.azureCloud.error || 'Login request failed' };
-      } finally {
-        this.azureCloud.isConnecting = false;
+        // Fetch subscriptions and probe ADO only when connected
+        this.fetchSubscriptions();
+        this.checkAutoAdo();
+        return true;
+      } else {
+        this.azureCloud.profile = null;
+        this.azureCloud.subscriptions = [];
+        this.azureCloud.error = conn.error || 'Azure authentication required.';
+        return false;
       }
     },
 
-    async logout(): Promise<void> {
-      try {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: '{}'
-        });
-      } catch {}
-      this.disconnectFromAzure();
-      this.azureDevOps.isConnected = null;
-      this.azureDevOps.authMethod = null;
-      this.azureDevOps.connectionMessage = null;
+    async loginInteractive(): Promise<{ success: boolean; message: string }> {
+      const conn = useAzureConnectionStore();
+      const res = await conn.loginInteractive();
+
+      if (res.success) {
+        this.azureCloud.isConnected = true;
+        this.azureCloud.profile = conn.profile;
+        this.azureCloud.authMethod = conn.authMethod;
+        this.fetchSubscriptions();
+        this.checkAutoAdo();
+      } else {
+        this.azureCloud.isConnected = false;
+        this.azureCloud.error = res.message;
+      }
+
+      return res;
     },
 
-    async retryAuth() {
-      this.azureCloud.isDismissed = false;
+    async logout(): Promise<void> {
+      const conn = useAzureConnectionStore();
+      await conn.logout();
       this.azureCloud.isConnected = false;
-      this.connectionPromise = null;
-      return this.connectToAzure();
+      this.azureCloud.profile = null;
+      this.azureCloud.subscriptions = [];
+    },
+
+    async retryAuth(): Promise<boolean> {
+      const conn = useAzureConnectionStore();
+      return conn.checkConnection(true);
     },
 
     disconnectFromAzure() {
+      const conn = useAzureConnectionStore();
+      conn.status = 'login_prompt';
       this.azureCloud.isConnected = false;
       this.azureCloud.profile = null;
       this.azureCloud.subscriptions = [];

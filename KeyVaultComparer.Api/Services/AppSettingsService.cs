@@ -22,6 +22,9 @@ namespace KeyVaultComparer.Api.Services
         public int CachePipelineRunsTtlMinutes { get; set; } = 15;
         public int CacheVaultKeysTtlMinutes { get; set; } = 120;
         public int CacheVariableGroupsTtlMinutes { get; set; } = 30;
+
+        // Fast Connection & Timeout Settings
+        public int AzureAuthTimeoutSeconds { get; set; } = 4;
     }
 
     public class AppSettingsService
