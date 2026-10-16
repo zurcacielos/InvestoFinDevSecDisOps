@@ -262,7 +262,7 @@ onUnmounted(() => {
           </tr>
         </thead>
 
-        <tbody class="divide-y divide-slate-100 text-xs">
+        <tbody class="divide-y divide-slate-200 text-xs">
           <!-- Fallback when all environments are hidden -->
           <tr v-if="environments.length === 0">
             <td :colspan="2" class="p-8 text-center bg-slate-50 text-slate-500">
@@ -288,7 +288,7 @@ onUnmounted(() => {
           <tr 
             v-for="row in rows" 
             :key="row.pipelineId"
-            class="hover:bg-slate-50/70 transition-colors"
+            class="hover:bg-slate-50/70 transition-colors border-b border-slate-200"
           >
             <!-- 1. Pinned Service & Repository Integrated Column -->
             <PipelineServiceColumn 
