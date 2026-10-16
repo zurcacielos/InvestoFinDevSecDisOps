@@ -139,6 +139,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
     } catch {}
 
     const savedViewMode = (localStorage.getItem('adoMatrixViewMode') as 'environments' | 'stages') || 'environments';
+    const savedMatrixLayoutMode = (localStorage.getItem('adoMatrixLayoutMode') as 'cards' | 'rows' | 'columns') || 'cards';
     const savedScanDepth = localStorage.getItem('adoScanDepth') ? parseInt(localStorage.getItem('adoScanDepth')!) : 25;
     const savedOnlySucceeded = localStorage.getItem('adoOnlySucceeded') !== 'false';
     const savedShowRollback = localStorage.getItem('adoShowRollbackTarget') !== 'false';
@@ -166,6 +167,9 @@ export const useDevopsDataStore = defineStore('devopsData', {
 
       // Dual Display Mode ('environments' = Release Matrix, 'stages' = DAG Expanded)
       viewMode: savedViewMode as 'environments' | 'stages',
+
+      // Environment Matrix Layout Mode ('cards' = default cards, 'rows' = cross-env rows, 'columns' = temporal columns)
+      matrixLayoutMode: savedMatrixLayoutMode,
 
       // Pipeline Run Exploration & History Filters
       scanDepth: savedScanDepth,
@@ -575,6 +579,11 @@ export const useDevopsDataStore = defineStore('devopsData', {
         console.error('Failed to get pipeline GitHub YAMLs:', err);
         return null;
       }
+    },
+
+    setMatrixLayoutMode(mode: 'cards' | 'rows' | 'columns') {
+      this.matrixLayoutMode = mode;
+      localStorage.setItem('adoMatrixLayoutMode', mode);
     },
 
     setScanDepth(val: number) {
