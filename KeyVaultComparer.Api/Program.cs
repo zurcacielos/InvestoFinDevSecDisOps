@@ -3,6 +3,7 @@ using Azure.Identity;
 using KeyVaultComparer.Api.Models;
 using KeyVaultComparer.Api.Services;
 using KeyVaultComparer.Api.Services.SecretStore;
+using KeyVaultComparer.Api.Services.Cache;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,11 +38,12 @@ builder.Services.AddSingleton<DynamicAzureCredential>(sp =>
 });
 builder.Services.AddSingleton<TokenCredential>(sp => sp.GetRequiredService<DynamicAzureCredential>());
 
+builder.Services.AddSingleton<AppSettingsService>();
+builder.Services.AddSingleton<EncryptedCacheService>();
 builder.Services.AddSingleton<KeyVaultService>();
 builder.Services.AddSingleton<KeyVaultManagementService>();
 builder.Services.AddSingleton<ProfileService>();
 builder.Services.AddHttpClient();
-builder.Services.AddSingleton<AppSettingsService>();
 builder.Services.AddSingleton<ISecureSecretStore, WindowsCredentialStore>();
 builder.Services.AddSingleton<ISecureSecretStore, EncryptedFileSecretStore>();
 builder.Services.AddSingleton<SecretStoreManager>();
@@ -147,28 +149,41 @@ app.MapGet("/api/subscriptions", async ([FromServices] KeyVaultManagementService
 })
 .WithName("GetSubscriptions");
 
-app.MapGet("/api/devops/variablegroups", async ([FromQuery] string organization, [FromQuery] string project, AdoAuthService adoAuthService) =>
+app.MapGet("/api/devops/variablegroups", async (
+    [FromQuery] string organization, 
+    [FromQuery] string project, 
+    AdoAuthService adoAuthService,
+    EncryptedCacheService cacheService,
+    CancellationToken ct) =>
 {
     try
     {
+        string cacheKey = $"variable_groups:{organization.ToLower()}:{project.ToLower()}";
+        var cached = await cacheService.GetAsync<string>(cacheKey, "VariableGroups", ct);
+        if (!string.IsNullOrEmpty(cached))
+        {
+            return Results.Content(cached, "application/json");
+        }
+
         using var client = new HttpClient();
-        client.DefaultRequestHeaders.Authorization = await adoAuthService.GetAdoAuthHeaderAsync();
+        client.DefaultRequestHeaders.Authorization = await adoAuthService.GetAdoAuthHeaderAsync(ct);
         
         var url = $"https://dev.azure.com/{organization}/{project}/_apis/distributedtask/variablegroups?api-version=7.1";
-        var response = await client.GetAsync(url);
+        var response = await client.GetAsync(url, ct);
         
         if (response.IsSuccessStatusCode)
         {
-            var content = await response.Content.ReadAsStringAsync();
+            var content = await response.Content.ReadAsStringAsync(ct);
             if (response.StatusCode == System.Net.HttpStatusCode.NonAuthoritativeInformation || content.TrimStart().StartsWith("<"))
             {
                 return Results.BadRequest(new { error = "Authentication to Azure DevOps failed. The API returned a sign-in page.", details = "Please ensure your Azure AD token has access to this DevOps organization." });
             }
+            await cacheService.SetAsync(cacheKey, content, "VariableGroups", cancellationToken: ct);
             return Results.Content(content, "application/json");
         }
         else
         {
-            var error = await response.Content.ReadAsStringAsync();
+            var error = await response.Content.ReadAsStringAsync(ct);
             var details = error.TrimStart().StartsWith("<") ? "HTML Sign-In Page / Unauthorized" : error;
             return Results.BadRequest(new { error = $"ADO API Error ({response.StatusCode})", details = details });
         }
@@ -185,7 +200,8 @@ app.MapPut("/api/devops/variablegroups/{groupId}/variables", async (
     [FromQuery] string organization, 
     [FromQuery] string project, 
     [FromBody] AddVariableRequest req,
-    AdoAuthService adoAuthService) =>
+    AdoAuthService adoAuthService,
+    EncryptedCacheService cacheService) =>
 {
     try
     {
@@ -227,6 +243,7 @@ app.MapPut("/api/devops/variablegroups/{groupId}/variables", async (
             return Results.BadRequest(new { error = $"ADO API Error updating group ({putResp.StatusCode})", details = err });
         }
 
+        await cacheService.ClearCategoryAsync("VariableGroups");
         return Results.Ok();
     }
     catch (Exception ex)
@@ -440,7 +457,12 @@ app.MapGet("/api/settings", async (
         hasGithubToken = hasGithubToken,
         activeStorageProvider = activeProvider.ProviderName,
         isWindows = OperatingSystem.IsWindows(),
-        storageProviders = providers
+        storageProviders = providers,
+        cacheEnabled = settings.CacheEnabled,
+        cachePipelinesTtlMinutes = settings.CachePipelinesTtlMinutes,
+        cachePipelineRunsTtlMinutes = settings.CachePipelineRunsTtlMinutes,
+        cacheVaultKeysTtlMinutes = settings.CacheVaultKeysTtlMinutes,
+        cacheVariableGroupsTtlMinutes = settings.CacheVariableGroupsTtlMinutes
     });
 })
 .WithName("GetSettings");
@@ -461,8 +483,11 @@ app.MapPost("/api/auth/login-interactive", async (
 })
 .WithName("LoginInteractive");
 
-app.MapPost("/api/auth/logout", async (CancellationToken ct) =>
+app.MapPost("/api/auth/logout", async (
+    [FromServices] EncryptedCacheService cacheService,
+    CancellationToken ct) =>
 {
+    cacheService.ClearSessionKey();
     DynamicAzureCredential.ClearInteractiveCredential();
     try
     {
@@ -481,6 +506,49 @@ app.MapPost("/api/auth/logout", async (CancellationToken ct) =>
     return Results.Ok(new { success = true, message = "Logged out successfully." });
 })
 .WithName("Logout");
+
+app.MapGet("/api/cache/stats", async (EncryptedCacheService cacheService, CancellationToken ct) =>
+{
+    var stats = await cacheService.GetStatsAsync(ct);
+    return Results.Ok(stats);
+})
+.WithName("GetCacheStats");
+
+app.MapPost("/api/cache/clear", async (HttpContext context, EncryptedCacheService cacheService, CancellationToken ct) =>
+{
+    string? category = context.Request.Query["category"].FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(category) && context.Request.HasJsonContentType())
+    {
+        try
+        {
+            var body = await context.Request.ReadFromJsonAsync<ClearCacheRequest>(cancellationToken: ct);
+            category = body?.Category;
+        }
+        catch {}
+    }
+
+    if (!string.IsNullOrWhiteSpace(category))
+    {
+        await cacheService.ClearCategoryAsync(category, ct);
+        return Results.Ok(new { success = true, message = $"Cache category '{category}' cleared successfully." });
+    }
+    await cacheService.ClearAllAsync(ct);
+    return Results.Ok(new { success = true, message = "All local encrypted cache cleared successfully." });
+})
+.WithName("ClearCache");
+
+app.MapPost("/api/cache/settings", async ([FromBody] CacheTtlSettings req, AppSettingsService settingsService, CancellationToken ct) =>
+{
+    var settings = await settingsService.GetSettingsAsync(ct);
+    settings.CacheEnabled = req.Enabled;
+    settings.CachePipelinesTtlMinutes = req.PipelinesTtlMinutes;
+    settings.CachePipelineRunsTtlMinutes = req.PipelineRunsTtlMinutes;
+    settings.CacheVaultKeysTtlMinutes = req.VaultKeysTtlMinutes;
+    settings.CacheVariableGroupsTtlMinutes = req.VariableGroupsTtlMinutes;
+    await settingsService.SaveSettingsAsync(settings, ct);
+    return Results.Ok(new { success = true, message = "Cache settings updated successfully." });
+})
+.WithName("UpdateCacheSettings");
 
 app.MapPost("/api/settings", async (
     [FromBody] UpdateSettingsDto req,
@@ -511,6 +579,13 @@ app.MapPost("/api/settings", async (
         if (req.AdoProject != null) settings.AdoProject = req.AdoProject;
         if (req.GithubBaseUrl != null) settings.GithubBaseUrl = req.GithubBaseUrl;
         if (req.GithubOrganization != null) settings.GithubOrganization = req.GithubOrganization;
+
+        if (req.CacheEnabled.HasValue) settings.CacheEnabled = req.CacheEnabled.Value;
+        if (req.CachePipelinesTtlMinutes.HasValue) settings.CachePipelinesTtlMinutes = req.CachePipelinesTtlMinutes.Value;
+        if (req.CachePipelineRunsTtlMinutes.HasValue) settings.CachePipelineRunsTtlMinutes = req.CachePipelineRunsTtlMinutes.Value;
+        if (req.CacheVaultKeysTtlMinutes.HasValue) settings.CacheVaultKeysTtlMinutes = req.CacheVaultKeysTtlMinutes.Value;
+        if (req.CacheVariableGroupsTtlMinutes.HasValue) settings.CacheVariableGroupsTtlMinutes = req.CacheVariableGroupsTtlMinutes.Value;
+
         await appSettingsService.SaveSettingsAsync(settings, ct);
 
         if (req.ClearAdoPat)
@@ -597,6 +672,7 @@ app.MapPost("/api/settings/test-azure", async (
 app.Run();
 
 public record LogUrlRequest(string Url);
+public record ClearCacheRequest(string? Category);
 public record UpdateSettingsDto(
     string? AzureTenantId,
     string? AzureClientId,
@@ -610,7 +686,12 @@ public record UpdateSettingsDto(
     string? GithubOrganization,
     string? GithubToken,
     bool ClearGithubToken,
-    string? StorageProvider
+    string? StorageProvider,
+    bool? CacheEnabled = null,
+    int? CachePipelinesTtlMinutes = null,
+    int? CachePipelineRunsTtlMinutes = null,
+    int? CacheVaultKeysTtlMinutes = null,
+    int? CacheVariableGroupsTtlMinutes = null
 );
 public record TestAzureRequest(string? TenantId, string? ClientId, string? ClientSecret);
 public record TestAdoRequest(string Organization, string Project, string? Pat);

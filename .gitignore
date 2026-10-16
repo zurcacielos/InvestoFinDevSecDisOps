@@ -488,3 +488,8 @@ $RECYCLE.BIN/
 logs/
 
 .local/
+
+# Encrypted cache and secret store files
+*.enc
+cache.enc
+secrets.enc

@@ -15,6 +15,13 @@ namespace KeyVaultComparer.Api.Services
         public string? AzureTenantId { get; set; }
         public string? AzureClientId { get; set; }
         public string? SecretStorageProvider { get; set; }
+        
+        // Option 1 Encrypted Cache Settings
+        public bool CacheEnabled { get; set; } = true;
+        public int CachePipelinesTtlMinutes { get; set; } = 60;
+        public int CachePipelineRunsTtlMinutes { get; set; } = 15;
+        public int CacheVaultKeysTtlMinutes { get; set; } = 120;
+        public int CacheVariableGroupsTtlMinutes { get; set; } = 30;
     }
 
     public class AppSettingsService
