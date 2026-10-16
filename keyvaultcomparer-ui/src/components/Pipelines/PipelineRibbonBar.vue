@@ -257,11 +257,25 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
         </div>
       </div>
 
-      <div v-if="copySuccessNotice" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 animate-in fade-in flex items-center gap-1.5 shrink-0">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-        </svg>
-        {{ copySuccessNotice }}
+      <!-- Right: Copy notice & Clear Cache button at Top-Right of Ribbon -->
+      <div class="flex items-center gap-2 ml-auto shrink-0">
+        <div v-if="copySuccessNotice" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 animate-in fade-in flex items-center gap-1.5 shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          {{ copySuccessNotice }}
+        </div>
+
+        <button 
+          @click="devopsStore.clearAllAndCache()"
+          class="px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shadow-2xs flex items-center gap-1.5 border border-slate-300 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-slate-600 shrink-0"
+          title="Clear all selected pipelines, matrix state, and server/local cache"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span>Clear Cache</span>
+        </button>
       </div>
     </div>
 
@@ -379,8 +393,8 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
         </button>
       </div>
 
-      <!-- Right: Refresh Matrix Button and to its right, Clear All -->
-      <div class="flex items-center gap-2 ml-auto">
+      <!-- Right: Refresh Matrix Button (aligned vertically under Clear Cache) -->
+      <div class="flex items-center gap-2 ml-auto shrink-0">
         <button 
           @click="devopsStore.fetchReleaseMatrix(undefined, true)"
           class="px-3 py-1 text-xs rounded-lg transition-all shadow-2xs flex items-center gap-1.5"
@@ -404,17 +418,6 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
           <span class="text-[11px]">{{ devopsStore.isMatrixLoading ? 'Updating Matrix...' : 'Refresh Matrix' }}</span>
-        </button>
-
-        <button 
-          @click="devopsStore.clearAllAndCache()"
-          class="px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shadow-2xs flex items-center gap-1.5 border border-slate-300 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-slate-600"
-          title="Clear all selected pipelines, matrix state, and server/local cache"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-          <span>Clear Cache</span>
         </button>
       </div>
     </div>

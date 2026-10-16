@@ -145,14 +145,18 @@ const lagStatus = computed(() => {
         </span>
       </div>
 
-      <!-- Build Number Link -->
+      <!-- Open Run in Azure DevOps (External Link Icon) -->
       <button 
         v-if="activeDep.buildUrl"
         @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
-        class="text-[11px] font-mono text-blue-600 hover:underline hover:text-blue-800 shrink-0"
+        class="p-0.5 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors shrink-0 cursor-pointer flex items-center justify-center"
         :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
       >
-        #{{ activeDep.buildNumber }}
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
       </button>
     </div>
 

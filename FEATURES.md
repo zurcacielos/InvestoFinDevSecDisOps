@@ -191,10 +191,11 @@ The application provides continuous delivery and deployment visibility across Az
 
 ### 3.4 Architecture & Component Decomposition
 - **Frontend Matrix Components (`keyvaultcomparer-ui/src/components/Pipelines/matrix/`)**:
+  - `PipelineRibbonBar.vue`: Controls bar coordinating pipeline combobox selection, chips, and filters. Positions "Clear Cache" at the top-right (Row 1) and "Refresh Matrix" at the bottom-right (Row 3), vertically aligned in a right-hand column with maximum spatial separation to prevent accidental cache purges.
   - `PipelineServiceColumn.vue`: Pinned column coordinating pipeline identification, AST actions, repository deep-linking, and a bottom-right `scanned X runs` telemetry badge indicating the maximum runs scanned for that pipeline.
-  - `EnvironmentCellCards.vue`: Card-based cell with top-line version anchor and docked $N-1$ ribbon showing prior version and deployed branch.
-  - `EnvironmentCellRows.vue`: Tabular cell enforcing uniform vertical spacing across all environments for straight horizontal version comparison, rendering prior version and deployed branch in Row 6.
-  - `EnvironmentCellColumns.vue`: Side-by-side temporal split comparing present vs past deployments within each environment, displaying deployed branch badges alongside both active and prior versions.
+  - `EnvironmentCellCards.vue`: Card-based cell with top-line version anchor, open-in-new-tab external link icon button, and docked $N-1$ ribbon showing prior version and deployed branch.
+  - `EnvironmentCellRows.vue`: Tabular cell enforcing uniform vertical spacing across all environments for straight horizontal version comparison, rendering open-in-new-tab external link icon in Row 1 and prior version with deployed branch in Row 6.
+  - `EnvironmentCellColumns.vue`: Side-by-side temporal split comparing present vs past deployments within each environment, displaying deployed branch badges and open-in-new-tab external link icon buttons.
   - `RollbackRibbon.vue`: Reusable prior run delta component displaying return arrow, prior version, deployed branch badge, commit SHA, PR link, and elapsed time.
   - `DeploymentStatusIndicator.vue`: Minimalist Azure-green status icon eliminating text noise.
   - `pipelineUrlHelpers.ts`: Shared URL resolution logic for Azure DevOps builds, commits, PRs, and GitHub integration.
