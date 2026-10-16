@@ -93,7 +93,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
 <template>
   <div 
     v-if="activeDep"
-    class="flex rounded-lg bg-white border border-slate-200/90 shadow-2xs divide-x divide-slate-200 overflow-hidden text-xs select-none hover:border-blue-300 transition-all min-w-[260px]"
+    class="flex rounded-lg bg-white border border-slate-200/90 shadow-2xs divide-x divide-slate-200 overflow-hidden text-xs select-none hover:border-blue-300 transition-all min-w-[280px]"
   >
     <!-- Left Column: Prior Run (N-1) (Side-by-Side) -->
     <div 
@@ -205,15 +205,15 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       class="flex-1 p-2 flex flex-col gap-1 min-w-0 bg-white"
     >
       <!-- Sub-header: Current Status & Run -->
-      <div class="flex items-center justify-between gap-1 text-[10px] pb-1 border-b border-slate-100">
-        <div class="flex items-center gap-1 min-w-0">
+      <div class="flex items-center justify-between gap-1.5 text-[10px] pb-1 border-b border-slate-100 min-w-0">
+        <div class="flex items-center gap-1 shrink-0">
           <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
-          <span class="font-bold text-slate-800 text-[10px]">Active</span>
+          <span class="font-bold text-slate-800 text-[10px] shrink-0">Active</span>
         </div>
         <button 
           v-if="activeDep.buildUrl"
           @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
-          class="font-mono text-blue-600 hover:underline text-[10px] shrink-0"
+          class="font-mono text-blue-600 hover:underline text-[10px] truncate max-w-[95px] text-right shrink-0"
           :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
         >
           #{{ activeDep.buildNumber }}

@@ -5,14 +5,10 @@ import type { PipelineProfileConfig } from '../../stores/devopsDataStore';
 
 const devopsStore = useDevopsDataStore();
 
-const envParamName = ref('Environment');
-const opParamName = ref('Operation');
 const environmentsList = ref<string[]>([]);
 const newEnvInput = ref('');
 
 const syncFromStore = () => {
-  envParamName.value = devopsStore.profileConfig.environmentParameterName || 'Environment';
-  opParamName.value = devopsStore.profileConfig.operationParameterName || 'Operation';
   environmentsList.value = [...devopsStore.profileConfig.environments];
 };
 
@@ -46,20 +42,22 @@ const moveEnvironment = (index: number, direction: 'up' | 'down') => {
   }
 };
 
-const applyPreset = (preset: 'standard' | 'simple' | 'extended') => {
+const applyPreset = (preset: 'standard' | 'simple' | 'extended' | 'prod') => {
   if (preset === 'standard') {
     environmentsList.value = ['dev', 'uat', 'uat1', 'uat2', 'stg', 'stg1', 'prd', 'prd1'];
   } else if (preset === 'simple') {
     environmentsList.value = ['dev', 'test', 'staging', 'prod'];
   } else if (preset === 'extended') {
     environmentsList.value = ['dev', 'qa', 'uat', 'uat1', 'uat2', 'stg', 'preprod', 'prd'];
+  } else if (preset === 'prod') {
+    environmentsList.value = ['prod', 'prod1'];
   }
 };
 
 const saveAndApply = async () => {
   const newConfig: PipelineProfileConfig = {
-    environmentParameterName: envParamName.value.trim() || 'Environment',
-    operationParameterName: opParamName.value.trim() || 'Operation',
+    environmentParameterName: devopsStore.profileConfig.environmentParameterName || localStorage.getItem('adoEnvParamName') || 'Environment',
+    operationParameterName: devopsStore.profileConfig.operationParameterName || localStorage.getItem('adoOpParamName') || 'Operation',
     environments: environmentsList.value.filter(e => e.trim().length > 0),
   };
   await devopsStore.updateProfileConfig(newConfig);
@@ -85,13 +83,12 @@ const closeModal = () => {
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
             </svg>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-slate-800">Pipeline Profiling &amp; Parametrization</h3>
-            <p class="text-xs text-slate-500">Configure parameters and target environment order for release matching</p>
+            <h3 class="text-sm font-bold text-slate-800">Target Environments (Columns)</h3>
+            <p class="text-xs text-slate-500">Configure target environments and column display order for release matching</p>
           </div>
         </div>
         <button 
@@ -107,39 +104,6 @@ const closeModal = () => {
       <!-- Modal Body -->
       <div class="p-6 overflow-y-auto space-y-5 text-xs">
         
-        <!-- Parameter Names Inputs -->
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">
-              Environment Parameter Name
-            </label>
-            <input 
-              v-model="envParamName"
-              type="text" 
-              class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
-              placeholder="e.g. Environment, env, targetEnvironment"
-            />
-            <span class="text-[11px] text-slate-400 mt-1 block">
-              Parameter name defined in your pipeline YAML.
-            </span>
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">
-              Operation Parameter Name
-            </label>
-            <input 
-              v-model="opParamName"
-              type="text" 
-              class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
-              placeholder="e.g. Operation, action"
-            />
-            <span class="text-[11px] text-slate-400 mt-1 block">
-              Used to identify build vs release runs.
-            </span>
-          </div>
-        </div>
-
         <!-- Environments Configuration -->
         <div>
           <div class="flex items-center justify-between mb-2">
@@ -172,6 +136,12 @@ const closeModal = () => {
                 class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 border border-slate-200 transition-colors"
               >
                 Extended
+              </button>
+              <button 
+                @click="applyPreset('prod')"
+                class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 border border-slate-200 transition-colors"
+              >
+                Prod
               </button>
             </div>
           </div>
