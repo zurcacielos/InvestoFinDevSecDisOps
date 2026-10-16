@@ -65,6 +65,11 @@ const totalRunsCount = computed(() => {
   }, 0);
 });
 
+const getPipelineRefreshDepth = (row: PipelineMatrixRow) => {
+  const current = row.scannedRunsCount ?? row.recentRuns?.length ?? 0;
+  return Math.max(current, devopsStore.scanDepth);
+};
+
 const getPipelineDefinitionUrl = (pipelineId: number) => {
   const org = devopsStore.organization;
   const proj = devopsStore.project;
@@ -330,7 +335,7 @@ const toDeploymentInfo = (run: PipelineRunInfo, stageName?: string): StageDeploy
                     <button 
                       @click.stop="devopsStore.refreshSinglePipeline(row.pipelineId)"
                       class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                      :title="`Refresh '${row.pipelineName}' (Scan depth: ${devopsStore.scanDepth} runs)`"
+                      :title="`Refresh '${row.pipelineName}' (Scan depth: ${getPipelineRefreshDepth(row)} ${getPipelineRefreshDepth(row) === 1 ? 'run' : 'runs'})`"
                       :disabled="devopsStore.isSinglePipelineRefreshing(row.pipelineId)"
                     >
                       <svg 
