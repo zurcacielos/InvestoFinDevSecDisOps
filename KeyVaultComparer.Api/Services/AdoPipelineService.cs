@@ -413,13 +413,22 @@ namespace KeyVaultComparer.Api.Services
             int scanDepth = 25,
             bool onlySucceeded = true,
             CancellationToken cancellationToken = default,
-            bool bypassCache = false)
+            bool bypassCache = false,
+            Dictionary<int, int>? pipelineScanDepths = null)
         {
             profileConfig ??= new PipelineProfileConfig();
             var authHeader = await GetAdoAuthHeaderAsync(cancellationToken);
             var collectedEdges = new System.Collections.Concurrent.ConcurrentBag<(string From, string To)>();
 
-            var tasks = pipelineIds.Select(id => FetchPipelineRowAsync(organization, project, id, authHeader, profileConfig, collectedEdges, scanDepth, onlySucceeded, cancellationToken, bypassCache: bypassCache));
+            var tasks = pipelineIds.Select(id =>
+            {
+                int effectiveDepth = scanDepth;
+                if (pipelineScanDepths != null && pipelineScanDepths.TryGetValue(id, out var customDepth) && customDepth > effectiveDepth)
+                {
+                    effectiveDepth = customDepth;
+                }
+                return FetchPipelineRowAsync(organization, project, id, authHeader, profileConfig, collectedEdges, effectiveDepth, onlySucceeded, cancellationToken, bypassCache: bypassCache);
+            });
             var rows = await Task.WhenAll(tasks);
 
             // 1. Gather all discovered stages for the Expanded Stages DAG view
