@@ -321,9 +321,6 @@ const toDeploymentInfo = (run: PipelineRunInfo, stageName?: string): StageDeploy
                           {{ row.recentRuns.length }} {{ row.recentRuns.length === 1 ? 'run' : 'runs' }}
                         </span>
                       </div>
-                      <span class="text-[10px] text-slate-400 font-mono block">
-                        ID: {{ row.pipelineId }}
-                      </span>
                     </div>
                   </div>
 

@@ -237,16 +237,6 @@ const lagStatus = computed(() => {
         >
           {{ priorDep.commitSha.substring(0, 7) }}
         </button>
-
-        <!-- Prior Run # link -->
-        <button 
-          v-if="priorDep.buildNumber"
-          @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
-          class="font-mono text-[9px] text-amber-800/90 font-semibold hover:text-amber-950 hover:underline shrink-0"
-          :title="`Open Previous Run #${priorDep.buildNumber} in Azure DevOps`"
-        >
-          #{{ priorDep.buildNumber }}
-        </button>
       </div>
       <span v-if="priorDep" class="text-amber-800/80 font-mono shrink-0">
         {{ formatTimeAgo(priorDep.deployedAt) }}

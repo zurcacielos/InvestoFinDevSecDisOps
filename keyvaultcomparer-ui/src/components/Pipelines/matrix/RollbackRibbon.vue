@@ -83,16 +83,6 @@ const formattedFullDate = computed(() => {
         v{{ deployment.version }}
       </button>
 
-      <!-- Previous Run # Link -->
-      <button 
-        v-if="deployment.buildNumber"
-        @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
-        class="font-mono text-[9px] text-amber-800/90 font-semibold hover:text-amber-950 hover:underline shrink-0"
-        :title="`Open Previous Run #${deployment.buildNumber} in Azure DevOps`"
-      >
-        #{{ deployment.buildNumber }}
-      </button>
-
       <!-- Previous Commit Link -->
       <button 
         v-if="deployment.commitSha"

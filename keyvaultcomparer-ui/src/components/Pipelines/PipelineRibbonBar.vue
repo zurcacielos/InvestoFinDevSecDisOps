@@ -34,6 +34,12 @@ const handleBlur = () => {
   }, 200);
 };
 
+const handleFilterChange = () => {
+  if (devopsStore.selectedPipelineIds.length > 0) {
+    devopsStore.fetchReleaseMatrix(undefined, true);
+  }
+};
+
 const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
   const result = await devopsStore.copyPipelineYamlToClipboard(pipelineId, pipelineName);
   if (result.success && result.length !== undefined) {
@@ -44,16 +50,120 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
 </script>
 
 <template>
-  <div class="flex flex-col w-full min-h-[84px] px-2 py-1 relative">
+  <div class="flex flex-col w-full min-h-[96px] px-2 py-1.5 gap-2 relative">
     
-    <!-- Top Description & Context Status -->
-    <div class="flex items-center justify-between mb-1.5 flex-wrap gap-2">
-      <div class="flex items-center gap-2">
+    <!-- Row 1: Context Title & Top Actions / Catalog Fetch -->
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div class="flex items-center gap-3 flex-wrap">
         <span class="font-bold text-slate-800 text-sm">Azure DevOps Pipelines &amp; Release Matrix</span>
-        <span class="text-xs text-slate-500">Track environment deployments, rollback targets &amp; resolved YAML ASTs</span>
+        
+        <!-- Organization -->
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs font-medium text-slate-600">Org:</span>
+          <input 
+            v-model="devopsStore.organization" 
+            @keyup.enter="devopsStore.fetchPipelines" 
+            type="text" 
+            placeholder="e.g. MyOrg" 
+            class="w-32 text-xs bg-slate-100 border border-slate-200 rounded-md px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" 
+          />
+        </div>
+
+        <!-- Project -->
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs font-medium text-slate-600">Project:</span>
+          <input 
+            v-model="devopsStore.project" 
+            @keyup.enter="devopsStore.fetchPipelines" 
+            type="text" 
+            placeholder="e.g. MyProject" 
+            class="w-36 text-xs bg-slate-100 border border-slate-200 rounded-md px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" 
+          />
+        </div>
+
+        <!-- Fetch / Re-fetch Pipelines Button (Hover hint only) -->
+        <button 
+          @click="devopsStore.fetchPipelines" 
+          class="px-3 py-1 font-medium text-xs rounded-lg transition-colors shadow-2xs flex items-center gap-1.5"
+          :class="devopsStore.isPipelinesLoading ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
+          :disabled="devopsStore.isPipelinesLoading || !devopsStore.organization || !devopsStore.project"
+          :title="devopsStore.pipelines.length > 0 && devopsStore.pipelinesLastFetched 
+            ? `Re-fetch all pipelines from Azure DevOps\nCached: ${devopsStore.pipelines.length} pipelines · Last fetched ${formatTimeAgo(devopsStore.pipelinesLastFetched)} (${new Date(devopsStore.pipelinesLastFetched).toLocaleString()})` 
+            : (devopsStore.pipelines.length > 0 ? 'Re-fetch all pipeline definitions from Azure DevOps' : 'Fetch pipeline definitions from Azure DevOps')"
+        >
+          <svg v-if="devopsStore.isPipelinesLoading" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {{ devopsStore.isPipelinesLoading ? 'Fetching...' : (devopsStore.pipelines.length > 0 ? 'Re-fetch Pipelines' : 'Fetch Pipelines') }}
+        </button>
+
+        <!-- Pipeline Search Combobox (Hover hint only) -->
+        <div 
+          class="relative w-64"
+          :title="devopsStore.pipelines.length > 0 && devopsStore.pipelinesLastFetched 
+            ? `Cached: ${devopsStore.pipelines.length} pipelines from Azure DevOps · Last fetched ${formatTimeAgo(devopsStore.pipelinesLastFetched)} (${new Date(devopsStore.pipelinesLastFetched).toLocaleString()})` 
+            : (devopsStore.pipelines.length ? `Search ${devopsStore.pipelines.length} pipelines` : 'Fetch pipelines first')"
+        >
+          <div class="relative">
+            <input 
+              v-model="searchQuery" 
+              @focus="isDropdownOpen = true"
+              @blur="handleBlur"
+              type="text" 
+              :placeholder="devopsStore.pipelines.length ? `Search ${devopsStore.pipelines.length} pipelines...` : 'Fetch pipelines first...'"
+              :disabled="!devopsStore.pipelines.length"
+              class="w-full text-xs bg-slate-100 border border-slate-200 rounded-md pl-8 pr-7 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            />
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 absolute left-2.5 top-1 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <button 
+              v-if="devopsStore.pipelines.length"
+              type="button"
+              @mousedown.prevent="isDropdownOpen = !isDropdownOpen"
+              class="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+              title="Toggle pipelines dropdown"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform" :class="{'rotate-180': isDropdownOpen}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Combobox Dropdown Results -->
+          <div 
+            v-if="isDropdownOpen && filteredPipelines.length"
+            class="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50 divide-y divide-slate-100"
+          >
+            <div 
+              v-for="p in filteredPipelines" 
+              :key="p.id"
+              @mousedown="handleSelectPipeline(p.id)"
+              class="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs transition-colors"
+              :class="devopsStore.selectedPipelineIds.includes(p.id) ? 'bg-blue-50/60 font-semibold' : ''"
+            >
+              <div class="flex flex-col min-w-0 pr-2">
+                <span class="text-slate-800 truncate font-medium">{{ p.name }}</span>
+                <span v-if="p.repository?.name" class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                  <span>repo:</span> {{ p.repository.name }}
+                </span>
+              </div>
+              <span 
+                v-if="devopsStore.selectedPipelineIds.includes(p.id)"
+                class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 shrink-0"
+              >
+                Selected
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div v-if="copySuccessNotice" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 animate-in fade-in flex items-center gap-1.5">
+      <div v-if="copySuccessNotice" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 animate-in fade-in flex items-center gap-1.5 shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
         </svg>
@@ -61,149 +171,110 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
       </div>
     </div>
 
-    <!-- Inputs & Actions Bar -->
-    <div class="flex items-center gap-3 pt-1 flex-wrap">
+    <!-- Row 2: View Mode (Environment / Expanded), Filters & SINGLE Refresh Matrix Button on the right -->
+    <div class="flex items-center justify-between gap-3 pt-0.5 flex-wrap">
       
-      <!-- Organization -->
-      <div class="flex items-center gap-1.5">
-        <span class="text-xs font-medium text-slate-600">Org:</span>
-        <input 
-          v-model="devopsStore.organization" 
-          @keyup.enter="devopsStore.fetchPipelines" 
-          type="text" 
-          placeholder="e.g. MyOrg" 
-          class="w-36 text-xs bg-slate-100 border border-slate-200 rounded-md px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" 
-        />
-      </div>
-
-      <!-- Project -->
-      <div class="flex items-center gap-1.5">
-        <span class="text-xs font-medium text-slate-600">Project:</span>
-        <input 
-          v-model="devopsStore.project" 
-          @keyup.enter="devopsStore.fetchPipelines" 
-          type="text" 
-          placeholder="e.g. MyProject" 
-          class="w-44 text-xs bg-slate-100 border border-slate-200 rounded-md px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" 
-        />
-      </div>
-
-      <!-- Fetch / Re-fetch Pipelines Button -->
-      <button 
-        @click="devopsStore.fetchPipelines" 
-        class="px-3 py-1.5 font-medium text-xs rounded-lg transition-colors shadow-sm flex items-center gap-1.5"
-        :class="devopsStore.isPipelinesLoading ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'"
-        :disabled="devopsStore.isPipelinesLoading || !devopsStore.organization || !devopsStore.project"
-        :title="devopsStore.pipelines.length > 0 ? 'Re-fetch all pipeline definitions from Azure DevOps' : 'Fetch pipeline definitions from Azure DevOps'"
-      >
-        <svg v-if="devopsStore.isPipelinesLoading" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-        {{ devopsStore.isPipelinesLoading ? 'Fetching...' : (devopsStore.pipelines.length > 0 ? 'Re-fetch Pipelines' : 'Fetch Pipelines') }}
-      </button>
-
-      <!-- Cache indicator / hint -->
-      <div 
-        v-if="devopsStore.pipelines.length > 0 && devopsStore.pipelinesLastFetched"
-        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-[11px] text-slate-600 border border-slate-200 shadow-2xs"
-        :title="`Cached ${devopsStore.pipelines.length} pipelines from Azure DevOps\nLast fetched: ${new Date(devopsStore.pipelinesLastFetched).toLocaleString()}`"
-      >
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-        <span class="font-medium text-slate-700">Cached</span>
-        <span class="text-slate-400">&bull;</span>
-        <span class="text-slate-500">{{ formatTimeAgo(devopsStore.pipelinesLastFetched) }}</span>
-      </div>
-
-      <!-- Pipeline Search Combobox -->
-      <div class="relative w-72">
-        <div class="relative">
-          <input 
-            v-model="searchQuery" 
-            @focus="isDropdownOpen = true"
-            @blur="handleBlur"
-            type="text" 
-            :placeholder="devopsStore.pipelines.length ? `Search ${devopsStore.pipelines.length} pipelines...` : 'Fetch pipelines first...'"
-            :disabled="!devopsStore.pipelines.length"
-            class="w-full text-xs bg-slate-100 border border-slate-200 rounded-md pl-8 pr-7 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          />
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 absolute left-2.5 top-1.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+      <!-- Left: View Mode Toggle, Scan, Only Succeeded, Parametrization -->
+      <div class="flex items-center gap-2.5 flex-wrap">
+        
+        <!-- View Mode: Environment vs Expanded -->
+        <div class="flex items-center gap-1 p-0.5 bg-slate-200/80 rounded-lg">
           <button 
-            v-if="devopsStore.pipelines.length"
-            type="button"
-            @mousedown.prevent="isDropdownOpen = !isDropdownOpen"
-            class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 transition-colors"
-            title="Toggle pipelines dropdown"
+            @click="devopsStore.setViewMode('environments')"
+            class="px-3 py-1 rounded-md text-xs font-semibold transition-all"
+            :class="devopsStore.viewMode === 'environments' 
+              ? 'bg-white text-slate-800 shadow-2xs' 
+              : 'text-slate-600 hover:text-slate-900'"
+            title="Switch to cross-environment matrix view"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform" :class="{'rotate-180': isDropdownOpen}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
+            Environment
+          </button>
+          <button 
+            @click="devopsStore.setViewMode('stages')"
+            class="px-3 py-1 rounded-md text-xs font-semibold transition-all"
+            :class="devopsStore.viewMode === 'stages' 
+              ? 'bg-white text-slate-800 shadow-2xs' 
+              : 'text-slate-600 hover:text-slate-900'"
+            title="Switch to expanded stages DAG view"
+          >
+            Expanded
           </button>
         </div>
 
-        <!-- Combobox Dropdown Results -->
-        <div 
-          v-if="isDropdownOpen && filteredPipelines.length"
-          class="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50 divide-y divide-slate-100"
-        >
-          <div 
-            v-for="p in filteredPipelines" 
-            :key="p.id"
-            @mousedown="handleSelectPipeline(p.id)"
-            class="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs transition-colors"
-            :class="devopsStore.selectedPipelineIds.includes(p.id) ? 'bg-blue-50/60 font-semibold' : ''"
+        <div class="h-4 w-px bg-slate-200 mx-0.5"></div>
+
+        <!-- Scan Depth Selector -->
+        <div class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs text-xs">
+          <span class="text-slate-500 font-medium text-[11px]">Scan:</span>
+          <select 
+            v-model.number="devopsStore.scanDepth"
+            @change="handleFilterChange"
+            class="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none cursor-pointer"
+            title="Number of recent builds scanned per pipeline"
           >
-            <div class="flex flex-col min-w-0 pr-2">
-              <span class="text-slate-800 truncate font-medium">{{ p.name }}</span>
-              <span v-if="p.repository?.name" class="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                <span>repo:</span> {{ p.repository.name }}
-              </span>
-            </div>
-            <span 
-              v-if="devopsStore.selectedPipelineIds.includes(p.id)"
-              class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 shrink-0"
-            >
-              Selected
-            </span>
-          </div>
+            <option :value="15">15 runs</option>
+            <option :value="25">25 runs</option>
+            <option :value="50">50 runs</option>
+            <option :value="100">100 runs</option>
+          </select>
         </div>
+
+        <!-- Only Succeeded Runs Toggle -->
+        <label 
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-300 shadow-2xs text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 select-none transition-colors"
+          title="Only scan successful pipeline runs when resolving deployments"
+        >
+          <input 
+            type="checkbox" 
+            v-model="devopsStore.onlySucceeded" 
+            @change="handleFilterChange"
+            class="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+          />
+          <span class="text-[11px] font-medium">Only Succeeded (✓)</span>
+        </label>
+
+        <!-- Configure Parametrization Profile -->
+        <button 
+          @click="devopsStore.setProfileModalOpen(true)"
+          class="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium shadow-2xs flex items-center gap-1.5 transition-colors"
+          title="Customize parameter names (Environment, Operation) and target environment order"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span class="text-[11px]">Parametrization</span>
+        </button>
       </div>
 
-      <!-- Refresh Matrix Button -->
+      <!-- Right: THE SINGLE Refresh Matrix Button -->
       <button 
-        v-if="devopsStore.selectedPipelineIds.length"
         @click="devopsStore.fetchReleaseMatrix(undefined, true)"
-        class="px-3 py-1.5 font-medium text-xs rounded-lg transition-colors shadow-sm flex items-center gap-1.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
-        :disabled="devopsStore.isMatrixLoading"
+        class="px-3 py-1 font-semibold text-xs rounded-lg transition-colors shadow-2xs flex items-center gap-1.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 ml-auto"
+        :disabled="devopsStore.isMatrixLoading || devopsStore.selectedPipelineIds.length === 0"
+        :title="devopsStore.selectedPipelineIds.length ? 'Refresh matrix deployments from Azure DevOps' : 'Select at least one pipeline to fetch matrix'"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-500" :class="{'animate-spin': devopsStore.isMatrixLoading}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          class="h-3.5 w-3.5 text-slate-500" 
+          :class="{'animate-spin text-blue-600': devopsStore.isMatrixLoading}" 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+        >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
-        {{ devopsStore.isMatrixLoading ? 'Updating Matrix...' : 'Refresh Matrix' }}
-      </button>
-
-      <!-- Clear Selected Button -->
-      <button 
-        v-if="devopsStore.selectedPipelineIds.length > 1"
-        @click="devopsStore.clearSelectedPipelines()"
-        class="text-xs text-slate-400 hover:text-slate-600 underline ml-auto"
-      >
-        Clear All ({{ devopsStore.selectedPipelineIds.length }})
+        <span class="text-[11px]">{{ devopsStore.isMatrixLoading ? 'Updating Matrix...' : 'Refresh Matrix' }}</span>
       </button>
     </div>
 
-    <!-- Selected Pipelines Chips Bar -->
-    <div v-if="devopsStore.selectedPipelineIds.length" class="flex items-center gap-2 mt-2 flex-wrap">
+    <!-- Row 3: Selected Pipelines Chips Bar -->
+    <div v-if="devopsStore.selectedPipelineIds.length" class="flex items-center gap-2 pt-0.5 flex-wrap">
       <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Matrix Rows:</span>
       <div 
         v-for="p in devopsStore.selectedPipelines" 
         :key="p.id"
-        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-sm"
+        class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs"
       >
         <span class="font-medium truncate max-w-[30ch]" :title="p.name">{{ p.name }}</span>
 
@@ -234,6 +305,15 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
           </svg>
         </button>
       </div>
+
+      <!-- Clear Selected Button -->
+      <button 
+        v-if="devopsStore.selectedPipelineIds.length > 1"
+        @click="devopsStore.clearSelectedPipelines()"
+        class="text-xs text-slate-400 hover:text-slate-600 underline ml-auto"
+      >
+        Clear All ({{ devopsStore.selectedPipelineIds.length }})
+      </button>
     </div>
 
     <!-- Error notices -->
