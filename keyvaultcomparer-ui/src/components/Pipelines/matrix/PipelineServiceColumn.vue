@@ -35,6 +35,12 @@ const cleanBranch = computed(() => {
   const b = props.row.repository?.defaultBranch;
   return b ? b.replace('refs/heads/', '') : null;
 });
+
+const scannedCount = computed(() => {
+  const count = props.row.scannedRunsCount ?? props.row.recentRuns?.length;
+  if (count && count > 0) return count;
+  return devopsStore.scanDepth;
+});
 </script>
 
 <template>
@@ -107,6 +113,16 @@ const cleanBranch = computed(() => {
         <span v-if="cleanBranch" class="text-slate-300 font-mono text-[10px]">&bull;</span>
         <span v-if="cleanBranch" class="text-[10px] text-slate-500 font-mono truncate" :title="`Branch: ${cleanBranch}`">
           {{ cleanBranch }}
+        </span>
+      </div>
+
+      <!-- Bottom-Right Metadata: Scanned Runs Counter -->
+      <div class="flex items-center justify-end text-[9px] font-mono text-slate-400">
+        <span 
+          class="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200/60 select-none text-slate-500 hover:border-slate-300 transition-colors"
+          :title="`Scanned history: ${scannedCount} ${scannedCount === 1 ? 'run' : 'runs'} analyzed for '${row.pipelineName}'${row.hasReachedRunHistoryEnd ? ' (All available runs scanned - end of history reached)' : ''}`"
+        >
+          scanned {{ scannedCount }} {{ scannedCount === 1 ? 'run' : 'runs' }}
         </span>
       </div>
     </div>

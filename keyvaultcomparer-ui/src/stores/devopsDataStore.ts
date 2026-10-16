@@ -391,14 +391,50 @@ export const useDevopsDataStore = defineStore('devopsData', {
     },
 
     mergePipelineMatrixRows(existing: PipelineMatrixRow, incoming: PipelineMatrixRow): PipelineMatrixRow {
-      const scannedRunsCount = Math.max(existing.scannedRunsCount || 0, incoming.scannedRunsCount || 0);
-      const hasReachedRunHistoryEnd = Boolean(
-        incoming.hasReachedRunHistoryEnd ||
-        existing.hasReachedRunHistoryEnd ||
-        (incoming.scannedRunsCount !== undefined && existing.scannedRunsCount !== undefined && incoming.scannedRunsCount > 0 && incoming.scannedRunsCount <= existing.scannedRunsCount) ||
-        (scannedRunsCount > 0 && scannedRunsCount < this.scanDepth)
+      // 1. Merge recent runs without duplicates and sort chronologically descending
+      const mergedRuns: PipelineRunInfo[] = [];
+      const seenRunBuildIds = new Set<number>();
+      for (const run of incoming.recentRuns || []) {
+        if (!seenRunBuildIds.has(run.buildId)) {
+          seenRunBuildIds.add(run.buildId);
+          mergedRuns.push(run);
+        }
+      }
+      for (const run of existing.recentRuns || []) {
+        if (!seenRunBuildIds.has(run.buildId)) {
+          seenRunBuildIds.add(run.buildId);
+          mergedRuns.push(run);
+        }
+      }
+
+      mergedRuns.sort((a, b) => {
+        if (a.deployedAt && b.deployedAt) {
+          return new Date(b.deployedAt).getTime() - new Date(a.deployedAt).getTime();
+        }
+        return (b.buildId || 0) - (a.buildId || 0);
+      });
+
+      // Map buildId to 1-based chronological scan position in mergedRuns
+      const buildPositionMap = new Map<number, number>();
+      mergedRuns.forEach((run, idx) => {
+        buildPositionMap.set(run.buildId, idx + 1);
+      });
+
+      // 2. Compute true maximum scanned runs count
+      const scannedRunsCount = Math.max(
+        existing.scannedRunsCount || 0,
+        incoming.scannedRunsCount || 0,
+        mergedRuns.length
       );
 
+      // 3. Evaluate history completion:
+      // True only if incoming explicitly verified end of history (builds < scanDepth),
+      // or if existing had already confirmed full end of history (build #1 reached)
+      const hasReachedRunHistoryEnd = Boolean(
+        incoming.hasReachedRunHistoryEnd || existing.hasReachedRunHistoryEnd
+      );
+
+      // 4. Merge environment deployment history per environment
       const mergedEnvHistory: Record<string, EnvironmentDeploymentInfo[]> = {};
       const allEnvKeys = new Set([
         ...Object.keys(existing.environmentHistory || {}),
@@ -416,16 +452,18 @@ export const useDevopsDataStore = defineStore('devopsData', {
         const combined: EnvironmentDeploymentInfo[] = [];
         const seenBuildIds = new Set<number>();
 
+        // Incoming runs take priority for latest state of the same build
         for (const dep of incomingList) {
           if (!seenBuildIds.has(dep.buildId)) {
             seenBuildIds.add(dep.buildId);
-            combined.push(dep);
+            combined.push({ ...dep });
           }
         }
+        // Older consolidated runs from existing cache preserved
         for (const dep of existingList) {
           if (!seenBuildIds.has(dep.buildId)) {
             seenBuildIds.add(dep.buildId);
-            combined.push(dep);
+            combined.push({ ...dep });
           }
         }
 
@@ -436,11 +474,20 @@ export const useDevopsDataStore = defineStore('devopsData', {
           return (b.buildId || 0) - (a.buildId || 0);
         });
 
+        // Update scan position according to chronological position in mergedRuns
+        for (const dep of combined) {
+          const pos = buildPositionMap.get(dep.buildId);
+          if (pos !== undefined) {
+            dep.scanPosition = pos;
+          }
+        }
+
         if (combined.length > 0) {
           mergedEnvHistory[env] = combined;
         }
       }
 
+      // 5. Active deployment is the most recent deployment per environment
       const mergedEnvDeployments: Record<string, EnvironmentDeploymentInfo> = {};
       for (const env of Object.keys(mergedEnvHistory)) {
         if (mergedEnvHistory[env].length > 0) {
@@ -452,21 +499,6 @@ export const useDevopsDataStore = defineStore('devopsData', {
         ...(existing.deployments || {}),
         ...(incoming.deployments || {})
       };
-
-      const mergedRuns: PipelineRunInfo[] = [];
-      const seenRunBuildIds = new Set<number>();
-      for (const run of incoming.recentRuns || []) {
-        if (!seenRunBuildIds.has(run.buildId)) {
-          seenRunBuildIds.add(run.buildId);
-          mergedRuns.push(run);
-        }
-      }
-      for (const run of existing.recentRuns || []) {
-        if (!seenRunBuildIds.has(run.buildId)) {
-          seenRunBuildIds.add(run.buildId);
-          mergedRuns.push(run);
-        }
-      }
 
       return {
         ...existing,
@@ -805,9 +837,6 @@ export const useDevopsDataStore = defineStore('devopsData', {
     canScanMore(row: PipelineMatrixRow): boolean {
       if (row.hasReachedRunHistoryEnd) return false;
       const runsCount = row.scannedRunsCount ?? row.recentRuns?.length ?? this.scanDepth;
-      if (row.scannedRunsCount !== undefined && row.scannedRunsCount > 0 && row.scannedRunsCount < this.scanDepth) {
-        return false;
-      }
       if (runsCount >= 500) return false;
       return true;
     },

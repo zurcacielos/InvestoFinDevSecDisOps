@@ -106,6 +106,11 @@ const cleanBranch = computed(() => {
   return b ? b.replace('refs/heads/', '') : null;
 });
 
+const priorCleanBranch = computed(() => {
+  const b = priorDep.value?.branch;
+  return b ? b.replace('refs/heads/', '') : null;
+});
+
 const formattedFullDate = computed(() => {
   if (!activeDep.value?.deployedAt) return '';
   const d = new Date(activeDep.value.deployedAt);
@@ -270,6 +275,19 @@ const lagStatus = computed(() => {
         >
           {{ priorDep.commitSha.substring(0, 7) }}
         </button>
+        <span v-if="priorCleanBranch" class="text-amber-700/50 select-none text-[8px]">&bull;</span>
+        <span 
+          v-if="priorCleanBranch" 
+          class="inline-flex items-center gap-0.5 text-[9px] font-mono text-amber-900/90 max-w-[75px] truncate"
+          :title="`Previous Branch: ${priorDep.branch}`"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-2 w-2 text-amber-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="6" r="3"></circle>
+            <circle cx="6" cy="18" r="3"></circle>
+            <path d="M18 9a9 9 0 0 1-9 9"></path>
+          </svg>
+          <span class="truncate">{{ priorCleanBranch }}</span>
+        </span>
       </div>
       <span v-if="priorDep" class="text-amber-800/80 font-mono shrink-0">
         {{ formatTimeAgo(priorDep.deployedAt) }}

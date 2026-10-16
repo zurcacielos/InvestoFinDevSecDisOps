@@ -191,15 +191,16 @@ The application provides continuous delivery and deployment visibility across Az
 
 ### 3.4 Architecture & Component Decomposition
 - **Frontend Matrix Components (`keyvaultcomparer-ui/src/components/Pipelines/matrix/`)**:
-  - `PipelineServiceColumn.vue`: Pinned column coordinating pipeline identification, AST actions, and repository deep-linking.
-  - `EnvironmentCellCards.vue`: Card-based cell with top-line version anchor and docked $N-1$ ribbon.
-  - `EnvironmentCellRows.vue`: Tabular cell enforcing uniform vertical spacing across all environments for straight horizontal version comparison.
-  - `EnvironmentCellColumns.vue`: Side-by-side temporal split comparing present vs past deployments within each environment.
-  - `RollbackRibbon.vue`: Reusable prior run delta component displaying return arrow, prior version, commit SHA, and time.
+  - `PipelineServiceColumn.vue`: Pinned column coordinating pipeline identification, AST actions, repository deep-linking, and a bottom-right `scanned X runs` telemetry badge indicating the maximum runs scanned for that pipeline.
+  - `EnvironmentCellCards.vue`: Card-based cell with top-line version anchor and docked $N-1$ ribbon showing prior version and deployed branch.
+  - `EnvironmentCellRows.vue`: Tabular cell enforcing uniform vertical spacing across all environments for straight horizontal version comparison, rendering prior version and deployed branch in Row 6.
+  - `EnvironmentCellColumns.vue`: Side-by-side temporal split comparing present vs past deployments within each environment, displaying deployed branch badges alongside both active and prior versions.
+  - `RollbackRibbon.vue`: Reusable prior run delta component displaying return arrow, prior version, deployed branch badge, commit SHA, PR link, and elapsed time.
   - `DeploymentStatusIndicator.vue`: Minimalist Azure-green status icon eliminating text noise.
   - `pipelineUrlHelpers.ts`: Shared URL resolution logic for Azure DevOps builds, commits, PRs, and GitHub integration.
-- **State Management (`devopsDataStore.ts`)**:
+- **State Management & Merge Logic (`devopsDataStore.ts`)**:
   - Centralizes `matrixLayoutMode` (`'cards' | 'rows' | 'columns'`), `viewMode` (`'environments' | 'stages'`), `scanDepth`, `onlySucceeded`, and `showRollbackTarget`, persisted in `localStorage`.
+  - **Multi-Depth Smart Merging (`mergePipelineMatrixRows`)**: Shallow scans (e.g., 25 runs) safely merge with deeper existing cached runs (e.g., 120 runs). Recent incoming builds take precedence for run statuses and active deployments, while older consolidated historical runs and discovered environments are strictly preserved. Runs are sorted chronologically descending, `scanPosition` mappings are dynamically re-indexed against full merged history, `scannedRunsCount` tracks the maximum depth, and `hasReachedRunHistoryEnd` is only flagged when Azure DevOps history has actually terminated.
 
 ## 4. Local Session-Bound Encrypted Cache (Option 1) & Cold-Start Acceleration
 
