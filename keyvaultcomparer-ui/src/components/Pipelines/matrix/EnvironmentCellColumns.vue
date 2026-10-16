@@ -184,26 +184,39 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
     <!-- If No Prior Run -->
     <div 
       v-else
-      class="flex-1 p-2 flex flex-col items-center justify-center text-center text-[9px] text-slate-400 italic bg-slate-50/40 gap-1"
-      :title="canScanMore 
-        ? `No prior run found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan +50' to search older runs.` 
-        : `No prior run found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`"
+      class="flex-1 p-2 flex flex-col items-center justify-center text-center bg-slate-50/20 min-w-0"
     >
-      <span>No prior in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}</span>
-      <button 
-        v-if="canScanMore"
-        type="button"
-        @click.stop="handleDeepScan"
-        :disabled="isScanning"
-        class="font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors disabled:opacity-50 flex items-center gap-1 not-italic cursor-pointer"
-        :title="`Search up to ${nextDepth} older runs for '${row.pipelineName}' in Azure DevOps`"
+      <div 
+        class="w-full h-full min-h-[96px] border border-dashed border-amber-300/80 rounded-lg bg-white p-2.5 flex flex-col items-center justify-center gap-1 text-center transition-colors shadow-2xs"
+        :title="canScanMore 
+          ? `No prior run found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan +50' to search older runs.` 
+          : `No prior run found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`"
       >
-        <svg v-if="isScanning" class="animate-spin h-2.5 w-2.5 text-blue-600" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span>{{ isScanning ? 'Scanning...' : 'Scan +50' }}</span>
-      </button>
+        <div class="flex items-center gap-1.5 text-slate-400 text-[10px]">
+          <span class="text-amber-500 font-bold font-mono text-xs select-none">&mdash;</span>
+          <span class="font-medium text-slate-600">No prior run</span>
+        </div>
+        <span class="text-[9px] text-slate-400 italic">
+          in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}
+        </span>
+        <button 
+          v-if="canScanMore"
+          type="button"
+          @click.stop="handleDeepScan"
+          :disabled="isScanning"
+          class="mt-1 px-2 py-0.5 rounded text-[9px] font-semibold text-blue-600 bg-blue-50/60 hover:bg-blue-100/80 border border-blue-200/70 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+          :title="`Search up to ${nextDepth} older runs for '${row.pipelineName}' in Azure DevOps`"
+        >
+          <svg v-if="!isScanning" class="w-2.5 h-2.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+          </svg>
+          <svg v-else class="animate-spin h-2.5 w-2.5 text-blue-600" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>{{ isScanning ? 'Scanning...' : 'Scan +50' }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Right Column: Current Active Run (N) -->
