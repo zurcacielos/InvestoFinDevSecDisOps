@@ -54,13 +54,13 @@ const applyPreset = (preset: 'standard' | 'simple' | 'extended' | 'prod') => {
   }
 };
 
-const saveAndApply = async () => {
+const saveAndClose = () => {
   const newConfig: PipelineProfileConfig = {
     environmentParameterName: devopsStore.profileConfig.environmentParameterName || localStorage.getItem('adoEnvParamName') || 'Environment',
     operationParameterName: devopsStore.profileConfig.operationParameterName || localStorage.getItem('adoOpParamName') || 'Operation',
     environments: environmentsList.value.filter(e => e.trim().length > 0),
   };
-  await devopsStore.updateProfileConfig(newConfig);
+  devopsStore.updateProfileConfig(newConfig);
   devopsStore.setProfileModalOpen(false);
 };
 
@@ -230,13 +230,13 @@ const closeModal = () => {
             Cancel
           </button>
           <button 
-            @click="saveAndApply"
+            @click="saveAndClose"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>
-            Save &amp; Reload Matrix
+            Save
           </button>
         </div>
       </div>

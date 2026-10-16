@@ -3,13 +3,13 @@
 This document serves as the absolute source of truth for the system's structural behavior, user interface logic, and business rules. 
 
 ## 1. Ribbon Tabs & Navigation
-The application features a top ribbon with distinct tabs that define the main views of the application:
+The application features a top ribbon with distinct tabs that define the main views of the application. The currently active ribbon tab is persisted to `localStorage` under `kvcActiveTab` across application reloads, restarts, and hot reloads:
 
 ### 1.1 Select Vaults
 - **Purpose**: Interface for managing the target vaults.
 - **Visual State**: Interface allowing the user to input and select multiple Azure Key Vault URIs (and AWS Secrets Manager environments). Contains input fields and a list of currently selected vaults.
 - **Business Rules**:
-  - **State Persistence**: Selected vault URIs are saved to `localStorage` and synchronized with the URL via Base64 encoding to allow state-sharing.
+  - **State Persistence**: Selected vault URIs are saved to `localStorage` and synchronized with the URL via Base64 encoding to allow state-sharing. Active ribbon tab selection is preserved across reloads.
   - **Data Persistence**: Raw vault data (`vaultData`), metadata (`knownSecretNames`), and timestamps (`lastFetched`) are persisted in `localStorage`. Pressing `Ctrl+R` rehydrates the DOM without requiring re-authentication or re-fetching.
 - **Acceptance Criteria**:
   - **Given** a user inputs a valid Vault URI, **When** they add it to the selection, **Then** the URI is added to `dataStore`, persisted to `localStorage`, and the URL is updated.
@@ -114,15 +114,16 @@ The application provides continuous delivery and deployment visibility across Az
 
 ### 3.1 Views & Modes
 - **Ribbon 3-Row Architecture (`PipelineRibbonBar.vue`)**:
-  - **Row 1 (Source & Catalog)**: Context label (**`ADO`**), `Org` and `Project` input fields, `Fetch / Re-fetch Pipelines` button, and pipeline search combobox. Cache status and relative timestamps are surfaced strictly via hover tooltips (`title`) on the button and combobox. The combobox manages an LRU buffer (up to 10 recently selected pipelines) persisted in `localStorage` under `adoRecentPipelineIds`. On open without a query, it renders a sticky `RECENT (N)` section, divider, and `ALL PIPELINES (N)` group; upon typing, it transitions seamlessly to a unified search results list with inline `Recent` recognition badges and recoverable empty states.
-  - **Row 2 (Selected Entities / Dynamic Chips)**: Directly beneath the search input, displays `Matrix Rows:` with selected pipeline chips, external template YAML copy shortcuts, and removal triggers. The container expands dynamically as items are added without shifting subsequent control tiers.
-  - **Row 3 (Matrix Controls & Action Triggers)**: Positioned immediately adjacent to the grid surface. Houses the view mode toggle (**"Environment"** and **"Expanded"**), Scan depth selector (`15`, `25`, `50`, `100`), `Only Succeeded (✓)` toggle, and **"Columns"** configuration button on the left (opening the Target Environments modal with column ordering and presets: Standard, Simple, Extended, and **Prod** `['prod', 'prod1']`), paired with the **"Refresh Matrix"** execution button and an always-visible **"Clear Cache"** action docked on the right that clears all selections, local storage, and server cache.
+  - **Row 1 (Source & Catalog)**: Context label (**`ADO`**), `Org` and `Project` input fields, `Fetch / Re-fetch Pipelines` button, and pipeline search combobox. Cache status and relative timestamps are surfaced strictly via hover tooltips (`title`) on the button and combobox. The combobox manages an LRU buffer (up to 10 recently selected pipelines) persisted in `localStorage` under `adoRecentPipelineIds`. On open without a query, it renders a sticky `RECENT (N)` section, divider, and `ALL PIPELINES (N)` group; upon typing, it transitions seamlessly to a unified search results list with inline `Recent` recognition badges and recoverable empty states. In the combobox dropdown, items display clean pipeline names with duplicate differentiation via folder paths (`p.path`) and run counts in parentheses (e.g. `(0 runs)` or `(12 runs)`), querying `_apis/build/definitions?includeLatestBuilds=true`.
+  - **Row 2 (Selected Entities / Dynamic Chips)**: Directly beneath the search input, displays selected pipeline chips with external template YAML copy shortcuts and removal triggers without label prefixes (`MATRIX ROWS:` removed). Names are displayed without artificial truncation (`break-words`) and with organizational prefixes stripped. The container expands dynamically as items are added without shifting subsequent control tiers.
+  - **Row 3 (Matrix Controls & Action Triggers)**: Positioned immediately adjacent to the grid surface. Houses the view mode toggle (**"Environment"** and **"Expanded"**), Scan depth selector (`15`, `25`, `50`, `100`), `Only Succeeded (✓)` toggle, and **"Columns"** configuration button on the left (opening the Target Environments modal with column ordering and presets: Standard, Simple, Extended, and **Prod** `['prod', 'prod1']`), paired with the **"Refresh Pipeline's Run"** execution button and an always-visible **"Clear Cache"** action docked on the top-right of Row 1 that clears all selections, local storage, and server cache.
 - **Environment Matrix View**: Matrix mapping pipelines to target deployment environments (`dev`, `uat`, `stg`, `prd`, etc.).
 - **Expanded Stages (Hierarchical Run DAG) View**: Unfolds all executed stages in topological order (prerequisites to dependents) according to Azure DevOps YAML stage dependencies and timeline sequences.
 
 ### 3.2 Target Environments Matrix & Interchangeable Layout Modes
-- **Integrated Service / Pipeline Column**:
-  - The standalone `REPOSITORY` column is eliminated and merged into the sticky left `SERVICE / PIPELINE` column, displaying the pipeline name, definition link, repository link, and default branch. Raw pipeline IDs are omitted from display to maintain high information density without clutter.
+- **Integrated & Resizable Service / Pipeline Column**:
+  - The standalone `REPOSITORY` column is eliminated and merged into the sticky left `SERVICE / PIPELINE` column, displaying the clean pipeline name (stripping `${org}.` and `${project}.` prefixes), definition link, repository link, and default branch. Pipeline names wrap naturally with `break-words` instead of truncation.
+  - Draggable column resizer handle on the header divider allows customized column width, persisted across reloads in `localStorage` (`adoPipelineColWidth`, default 260px), synchronized across both the Environment Matrix and Expanded Stages DAG view.
   - The cell header retains the dedicated per-pipeline circular refresh button (`↻`), while extraneous YAML icon buttons (GitHub, Copy YAML, View YAML) are removed from the cell to avoid visual crowding since those capabilities are readily accessible via the right-click context menu.
 - **Minimalist Status & Progressive Disclosure**:
   - Replaces bulky "SUCCEEDED" pill badges with minimalist Azure-style circular indicators (`✓` green check, `✕` red cross, pulsing blue dot).
@@ -191,12 +192,12 @@ The application provides continuous delivery and deployment visibility across Az
 
 ### 3.4 Architecture & Component Decomposition
 - **Frontend Matrix Components (`keyvaultcomparer-ui/src/components/Pipelines/matrix/`)**:
-  - `PipelineRibbonBar.vue`: Controls bar coordinating pipeline combobox selection, chips, and filters. Positions "Clear Cache" at the top-right (Row 1) and "Refresh Matrix" at the bottom-right (Row 3), vertically aligned in a right-hand column with maximum spatial separation to prevent accidental cache purges.
+  - `PipelineRibbonBar.vue`: Controls bar coordinating pipeline combobox selection, chips, and filters. Positions "Clear Cache" at the top-right (Row 1) and "Refresh Pipeline's Run" at the bottom-right (Row 3), vertically aligned in a right-hand column with maximum spatial separation to prevent accidental cache purges.
   - `PipelineServiceColumn.vue`: Pinned column coordinating pipeline identification, AST actions, repository deep-linking, and a bottom-right `scanned X runs` telemetry badge indicating the maximum runs scanned for that pipeline.
   - `EnvironmentCellCards.vue`: Card-based cell with top-line version anchor, open-in-new-tab external link icon button, and docked $N-1$ ribbon showing prior version and deployed branch.
   - `EnvironmentCellRows.vue`: Tabular cell enforcing uniform vertical spacing across all environments for straight horizontal version comparison, rendering open-in-new-tab external link icon in Row 1, origin baseline indicator with visible contrast in Row 5, prior version tag with elapsed date in Row 6, and deployed branch name with commit/PR links in Row 7. Maintains fixed 2-row height for empty prior states to guarantee consistent tabular baselines.
   - `EnvironmentCellColumns.vue`: Side-by-side temporal split comparing present vs past deployments within each environment, displaying deployed branch badges and open-in-new-tab external link icon buttons.
-  - `PipelineProfileModal.vue`: Target environments order and columns configuration modal providing presets including 'Prod' (`prd`, `prd1`), 'Standard', 'Simple', and 'Extended'.
+  - `PipelineProfileModal.vue`: Target environments order and columns configuration modal providing presets including 'Prod' (`prd`, `prd1`), 'Standard', 'Simple', and 'Extended'. Features instant in-memory Save without triggering network reloads or cache invalidations, immediately restricting visible matrix columns to the chosen environments and hiding all others.
   - `RollbackRibbon.vue`: Reusable prior run delta component displaying return arrow, prior version, deployed branch badge, commit SHA, PR link, and elapsed time.
   - `DeploymentStatusIndicator.vue`: Minimalist Azure-green status icon eliminating text noise.
   - `pipelineUrlHelpers.ts`: Shared URL resolution logic for Azure DevOps builds, commits, PRs, and GitHub integration.

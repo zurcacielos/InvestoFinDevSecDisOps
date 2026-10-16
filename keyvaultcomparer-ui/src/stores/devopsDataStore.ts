@@ -26,6 +26,9 @@ export interface PipelineSummary {
   name: string;
   path?: string;
   repository?: PipelineRepository;
+  hasRuns?: boolean;
+  runCount?: number;
+  latestBuildNumber?: string;
 }
 
 export interface StageDeploymentInfo {
@@ -153,6 +156,8 @@ export const useDevopsDataStore = defineStore('devopsData', {
     const savedOnlySucceeded = localStorage.getItem('adoOnlySucceeded') !== 'false';
     const savedShowRollback = localStorage.getItem('adoShowRollbackTarget') !== 'false';
 
+    const savedColWidth = localStorage.getItem('adoPipelineColWidth') ? parseInt(localStorage.getItem('adoPipelineColWidth')!) : 260;
+
     let savedHiddenEnvs: string[] = [];
     try {
       const storedHidden = localStorage.getItem('adoHiddenEnvironments');
@@ -258,6 +263,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
       scanDepth: savedScanDepth,
       onlySucceeded: savedOnlySucceeded,
       showRollbackTarget: savedShowRollback,
+      pipelineColumnWidth: savedColWidth || 260,
 
       // Parametrization & Profile Configuration
       profileConfig: {
@@ -544,13 +550,18 @@ export const useDevopsDataStore = defineStore('devopsData', {
         return;
       }
 
-      // Compute dynamic environments list: start with profileConfig.environments
-      const envs = [...this.profileConfig.environments];
-      for (const row of activeRows) {
-        if (row.environmentDeployments) {
-          for (const envKey of Object.keys(row.environmentDeployments)) {
-            if (!envs.some(e => e.toLowerCase() === envKey.toLowerCase())) {
-              envs.push(envKey);
+      // Compute dynamic environments list: if user configured target environments, show ONLY those columns
+      let envs: string[];
+      if (this.profileConfig.environments && this.profileConfig.environments.length > 0) {
+        envs = [...this.profileConfig.environments];
+      } else {
+        envs = [];
+        for (const row of activeRows) {
+          if (row.environmentDeployments) {
+            for (const envKey of Object.keys(row.environmentDeployments)) {
+              if (!envs.some(e => e.toLowerCase() === envKey.toLowerCase())) {
+                envs.push(envKey);
+              }
             }
           }
         }
@@ -748,17 +759,24 @@ export const useDevopsDataStore = defineStore('devopsData', {
       this.isProfileModalOpen = open;
     },
 
-    async updateProfileConfig(newConfig: PipelineProfileConfig) {
+    updateProfileConfig(newConfig: PipelineProfileConfig) {
       this.profileConfig = { ...newConfig };
       localStorage.setItem('adoEnvParamName', newConfig.environmentParameterName);
       localStorage.setItem('adoOpParamName', newConfig.operationParameterName);
       localStorage.setItem('adoTargetEnvs', JSON.stringify(newConfig.environments));
-      // Invalidate row cache because environment extraction depends on profileConfig
-      this.cachedPipelineRows = {};
-      try {
-        localStorage.removeItem('adoCachedPipelineRows');
-      } catch {}
-      await this.fetchReleaseMatrix(undefined, true);
+
+      // Unhide any environments that are now explicitly configured in columns
+      if (newConfig.environments && newConfig.environments.length > 0) {
+        this.hiddenEnvironments = this.hiddenEnvironments.filter(
+          h => !newConfig.environments.some(e => e.toLowerCase() === h.toLowerCase())
+        );
+        try {
+          localStorage.setItem('adoHiddenEnvironments', JSON.stringify(this.hiddenEnvironments));
+        } catch {}
+      }
+
+      // Recompute locally in-memory: instantly updates visible columns with zero network overhead
+      this.computeReleaseMatrix();
     },
 
     async fetchReleaseMatrix(pipelineIdsToFetch?: number[], forceRefresh = false) {
@@ -1065,6 +1083,25 @@ export const useDevopsDataStore = defineStore('devopsData', {
         localStorage.removeItem('adoPipelinesLastFetched');
         localStorage.removeItem('adoCachedPipelineRows');
       } catch {}
+    },
+
+    setPipelineColumnWidth(width: number) {
+      this.pipelineColumnWidth = width;
+      localStorage.setItem('adoPipelineColWidth', width.toString());
+    },
+
+    cleanPipelineName(name: string): string {
+      if (!name) return '';
+      let cleaned = name.trim();
+      const org = this.organization?.trim();
+      if (org && cleaned.toLowerCase().startsWith(`${org.toLowerCase()}.`)) {
+        cleaned = cleaned.substring(org.length + 1);
+      }
+      const proj = this.project?.trim();
+      if (proj && cleaned.toLowerCase().startsWith(`${proj.toLowerCase()}.`)) {
+        cleaned = cleaned.substring(proj.length + 1);
+      }
+      return cleaned;
     }
   },
   getters: {

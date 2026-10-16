@@ -203,7 +203,7 @@ const lagStatus = computed(() => {
       <div class="flex items-center gap-1.5">
         <span 
           :title="formattedFullDate" 
-          class="text-[9px] font-mono text-slate-500 cursor-help"
+          class="text-[9px] font-mono text-slate-500"
         >
           {{ formatTimeAgo(activeDep.deployedAt) }}
         </span>

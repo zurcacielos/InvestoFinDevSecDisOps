@@ -50,7 +50,12 @@ const refreshDepth = computed(() => {
 <template>
   <td 
     @contextmenu="emit('open-context-menu', $event, row, undefined, '')"
-    class="px-3.5 py-2.5 border-r border-slate-200 bg-white sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.03)] cursor-context-menu align-top min-w-[220px] max-w-[260px]"
+    class="px-3.5 py-2.5 border-r border-slate-200 bg-white sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.03)] cursor-context-menu align-top"
+    :style="{
+      width: `${devopsStore.pipelineColumnWidth}px`,
+      minWidth: `${devopsStore.pipelineColumnWidth}px`,
+      maxWidth: `${devopsStore.pipelineColumnWidth}px`
+    }"
   >
     <div class="flex flex-col gap-1.5">
       <!-- Top Line: Pipeline Name & Action Icons -->
@@ -58,10 +63,10 @@ const refreshDepth = computed(() => {
         <div class="min-w-0 flex-1">
           <button 
             @click="openUrlInNewTab(definitionUrl)"
-            class="font-bold text-slate-900 hover:text-blue-600 hover:underline text-left text-xs leading-snug truncate block w-full"
+            class="font-bold text-slate-900 hover:text-blue-600 hover:underline text-left text-xs leading-snug break-words block w-full"
             :title="`Open Pipeline '${row.pipelineName}' in Azure DevOps`"
           >
-            {{ row.pipelineName }}
+            {{ devopsStore.cleanPipelineName(row.pipelineName) }}
           </button>
           <div v-if="row.yamlFilename" class="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono mt-0.5">
             <span class="truncate" :title="`YAML: ${row.yamlFilename}`">

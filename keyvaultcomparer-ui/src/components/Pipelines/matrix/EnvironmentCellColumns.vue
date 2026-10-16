@@ -110,7 +110,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         <div class="flex items-center gap-1 min-w-0">
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
-            class="h-2.5 w-2.5 text-amber-600 shrink-0 cursor-help" 
+            class="h-2.5 w-2.5 text-amber-600 shrink-0" 
             fill="none" 
             viewBox="0 0 24 24" 
             stroke="currentColor"
