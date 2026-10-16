@@ -139,7 +139,7 @@ The application provides continuous delivery and deployment visibility across Az
 - **Streamlined Previous Run ($N-1$) Deployment & Recoverable State**:
   - Prior deployments ($N-1$) in `EnvironmentCellRows.vue`, `EnvironmentCellColumns.vue`, and `RollbackRibbon.vue` do NOT display raw or abstract build/run numbers (`#...`).
   - Prior runs display the version tag (`v...`) or commit SHA directly. Clicking this version tag navigates straight to that specific prior run in Azure DevOps.
-  - When an active deployment exists but no prior deployment ($N-1$) was found within the evaluated run window, the cell renders an informative empty state (`No prior in {N} runs`) paired with an actionable `Scan +50` button that triggers an on-demand deep scan for that pipeline.
+  - When an active deployment exists but no prior deployment ($N-1$) was found within the evaluated run window, the cell renders an informative state (`No prior in {N} run(s)`) paired with an actionable `Scan +50` button that triggers an on-demand deep scan for that pipeline. If the end of run history in Azure DevOps has been reached without finding a prior deployment (detected when returned builds are fewer than requested, e.g. `No prior in 229 runs`), the `Scan +50` button is automatically suppressed.
 - **Pipeline Selection Decoupling & Manual Refresh Flow**:
   - Selected pipeline chips and definitions are persisted across sessions in `localStorage` under `adoCachedPipelines` and `adoCachedPipelineRows`.
   - On application startup, if pipelines were previously fetched, the search combobox is immediately pre-filled and enabled (e.g. `Search 497 pipelines...`), and the fetch button is automatically labeled **"Re-fetch Pipelines"** with cache details surfaced via hover tooltip.
