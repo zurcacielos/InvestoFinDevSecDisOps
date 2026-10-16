@@ -139,10 +139,16 @@ export const useDevopsDataStore = defineStore('devopsData', {
     } catch {}
 
     const savedViewMode = (localStorage.getItem('adoMatrixViewMode') as 'environments' | 'stages') || 'environments';
-    const savedMatrixLayoutMode = (localStorage.getItem('adoMatrixLayoutMode') as 'cards' | 'rows' | 'columns') || 'cards';
+    const savedMatrixLayoutMode = (localStorage.getItem('adoMatrixLayoutMode') as 'cards' | 'rows' | 'columns') || 'rows';
     const savedScanDepth = localStorage.getItem('adoScanDepth') ? parseInt(localStorage.getItem('adoScanDepth')!) : 25;
     const savedOnlySucceeded = localStorage.getItem('adoOnlySucceeded') !== 'false';
     const savedShowRollback = localStorage.getItem('adoShowRollbackTarget') !== 'false';
+
+    let savedHiddenEnvs: string[] = [];
+    try {
+      const storedHidden = localStorage.getItem('adoHiddenEnvironments');
+      if (storedHidden) savedHiddenEnvs = JSON.parse(storedHidden);
+    } catch {}
 
     return {
       organization: localStorage.getItem('adoOrg') || '',
@@ -170,6 +176,9 @@ export const useDevopsDataStore = defineStore('devopsData', {
 
       // Environment Matrix Layout Mode ('cards' = default cards, 'rows' = cross-env rows, 'columns' = temporal columns)
       matrixLayoutMode: savedMatrixLayoutMode,
+
+      // Hidden Environment Columns
+      hiddenEnvironments: savedHiddenEnvs,
 
       // Pipeline Run Exploration & History Filters
       scanDepth: savedScanDepth,
@@ -584,6 +593,24 @@ export const useDevopsDataStore = defineStore('devopsData', {
     setMatrixLayoutMode(mode: 'cards' | 'rows' | 'columns') {
       this.matrixLayoutMode = mode;
       localStorage.setItem('adoMatrixLayoutMode', mode);
+    },
+
+    hideEnvironment(envName: string) {
+      if (!this.hiddenEnvironments.some(e => e.toLowerCase() === envName.toLowerCase())) {
+        this.hiddenEnvironments.push(envName);
+        localStorage.setItem('adoHiddenEnvironments', JSON.stringify(this.hiddenEnvironments));
+      }
+    },
+
+    hideOtherEnvironments(envToKeep: string) {
+      const allEnvs = this.releaseMatrix?.environments || [];
+      this.hiddenEnvironments = allEnvs.filter(e => e.toLowerCase() !== envToKeep.toLowerCase());
+      localStorage.setItem('adoHiddenEnvironments', JSON.stringify(this.hiddenEnvironments));
+    },
+
+    showAllHiddenEnvironments() {
+      this.hiddenEnvironments = [];
+      localStorage.removeItem('adoHiddenEnvironments');
     },
 
     setScanDepth(val: number) {

@@ -67,84 +67,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
     v-if="activeDep"
     class="flex rounded-lg bg-white border border-slate-200/90 shadow-2xs divide-x divide-slate-200 overflow-hidden text-xs select-none hover:border-blue-300 transition-all min-w-[260px]"
   >
-    <!-- Left Column: Current Active Run (N) -->
-    <div 
-      @contextmenu.stop="emit('open-context-menu', $event, row, activeDep, env)"
-      class="flex-1 p-2 flex flex-col gap-1 min-w-0 bg-white"
-    >
-      <!-- Sub-header: Current Status & Run -->
-      <div class="flex items-center justify-between gap-1 text-[10px] pb-1 border-b border-slate-100">
-        <div class="flex items-center gap-1 min-w-0">
-          <DeploymentStatusIndicator :status="activeDep.status" />
-          <span class="font-bold text-slate-800 text-[10px]">Active</span>
-        </div>
-        <button 
-          v-if="activeDep.buildUrl"
-          @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
-          class="font-mono text-blue-600 hover:underline text-[10px] shrink-0"
-          :title="`Open Run #${activeDep.buildNumber}`"
-        >
-          #{{ activeDep.buildNumber }}
-        </button>
-      </div>
-
-      <!-- Version / Tag Anchor -->
-      <div class="flex items-center gap-1 min-w-0 py-0.5">
-        <span 
-          v-if="activeDep.version"
-          class="font-mono font-bold text-xs text-violet-700 bg-violet-50 px-1.5 py-0.2 rounded border border-violet-200 truncate"
-          :title="`Version/Tag: ${activeDep.version}`"
-        >
-          v{{ activeDep.version }}
-        </span>
-        <span 
-          v-else-if="activeDep.commitSha"
-          class="font-mono font-bold text-xs text-slate-700 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 truncate"
-        >
-          {{ activeDep.commitSha.substring(0, 7) }}
-        </span>
-      </div>
-
-      <!-- Commit & Branch -->
-      <div class="flex items-center gap-1 text-[10px] flex-wrap">
-        <button 
-          v-if="activeDep.commitSha"
-          @click.stop="getCommitLink(activeDep) ? openUrlInNewTab(getCommitLink(activeDep)!) : null"
-          class="font-mono text-indigo-700 hover:underline"
-          :title="`Commit: ${activeDep.commitSha}`"
-        >
-          {{ activeDep.commitSha.substring(0, 7) }}
-        </button>
-        <button 
-          v-if="activeDep.prNumber"
-          @click.stop="getPrLink(activeDep) ? openUrlInNewTab(getPrLink(activeDep)!) : null"
-          class="font-semibold px-1 py-0.2 rounded bg-violet-100 text-violet-800 hover:underline border border-violet-200 text-[9px]"
-          :title="`Pull Request #${activeDep.prNumber}`"
-        >
-          PR #{{ activeDep.prNumber }}
-        </button>
-        <span v-if="getCleanBranch(activeDep)" class="text-slate-300">&bull;</span>
-        <span v-if="getCleanBranch(activeDep)" class="text-slate-600 truncate max-w-[80px]" :title="`Branch: ${activeDep.branch}`">
-          {{ getCleanBranch(activeDep) }}
-        </span>
-      </div>
-
-      <!-- Time & Author -->
-      <div class="flex items-center justify-between text-[10px] text-slate-400 mt-auto pt-1 border-t border-slate-100">
-        <span class="text-[9px] font-mono text-slate-500" :title="activeDep.deployedAt">
-          {{ formatTimeAgo(activeDep.deployedAt) }}
-        </span>
-        <PipelineAuthorBadge 
-          :author="activeDep.author"
-          :author-image-url="activeDep.authorImageUrl"
-          :is-automated="activeDep.isAutomated"
-          :trigger-reason="activeDep.triggerReason"
-          compact
-        />
-      </div>
-    </div>
-
-    <!-- Right Column: Prior Run (N-1) (Side-by-Side) -->
+    <!-- Left Column: Prior Run (N-1) (Side-by-Side) -->
     <div 
       v-if="priorDep"
       @contextmenu.stop="emit('open-context-menu', $event, row, priorDep, env)"
@@ -230,6 +153,83 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       class="flex-1 p-2 flex items-center justify-center text-center text-[9px] text-slate-400 italic bg-slate-50/40"
     >
       No prior run
+    </div>
+
+    <!-- Right Column: Current Active Run (N) -->
+    <div 
+      @contextmenu.stop="emit('open-context-menu', $event, row, activeDep, env)"
+      class="flex-1 p-2 flex flex-col gap-1 min-w-0 bg-white"
+    >
+      <!-- Sub-header: Current Status & Run -->
+      <div class="flex items-center justify-between gap-1 text-[10px] pb-1 border-b border-slate-100">
+        <div class="flex items-center gap-1 min-w-0">
+          <DeploymentStatusIndicator :status="activeDep.status" />
+          <span class="font-bold text-slate-800 text-[10px]">Active</span>
+        </div>
+        <button 
+          v-if="activeDep.buildUrl"
+          @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
+          class="font-mono text-blue-600 hover:underline text-[10px] shrink-0"
+          :title="`Open Run #${activeDep.buildNumber}`"
+        >
+          #{{ activeDep.buildNumber }}
+        </button>
+      </div>
+
+      <!-- Version / Tag Anchor -->
+      <div class="flex items-center gap-1 min-w-0 py-0.5">
+        <span 
+          v-if="activeDep.version"
+          class="font-mono font-bold text-xs text-violet-700 bg-violet-50 px-1.5 py-0.2 rounded border border-violet-200 truncate"
+          :title="`Version/Tag: ${activeDep.version}`"
+        >
+          v{{ activeDep.version }}
+        </span>
+        <span 
+          v-else-if="activeDep.commitSha"
+          class="font-mono font-bold text-xs text-slate-700 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 truncate"
+        >
+          {{ activeDep.commitSha.substring(0, 7) }}
+        </span>
+      </div>
+
+      <!-- Commit & Branch -->
+      <div class="flex items-center gap-1 text-[10px] flex-wrap">
+        <button 
+          v-if="activeDep.commitSha"
+          @click.stop="getCommitLink(activeDep) ? openUrlInNewTab(getCommitLink(activeDep)!) : null"
+          class="font-mono text-indigo-700 hover:underline"
+          :title="`Commit: ${activeDep.commitSha}`"
+        >
+          {{ activeDep.commitSha.substring(0, 7) }}
+        </button>
+        <button 
+          v-if="activeDep.prNumber"
+          @click.stop="getPrLink(activeDep) ? openUrlInNewTab(getPrLink(activeDep)!) : null"
+          class="font-semibold px-1 py-0.2 rounded bg-violet-100 text-violet-800 hover:underline border border-violet-200 text-[9px]"
+          :title="`Pull Request #${activeDep.prNumber}`"
+        >
+          PR #{{ activeDep.prNumber }}
+        </button>
+        <span v-if="getCleanBranch(activeDep)" class="text-slate-300">&bull;</span>
+        <span v-if="getCleanBranch(activeDep)" class="text-slate-600 truncate max-w-[80px]" :title="`Branch: ${activeDep.branch}`">
+          {{ getCleanBranch(activeDep) }}
+        </span>
+      </div>
+
+      <!-- Time & Author -->
+      <div class="flex items-center justify-between text-[10px] text-slate-400 mt-auto pt-1 border-t border-slate-100">
+        <span class="text-[9px] font-mono text-slate-500" :title="activeDep.deployedAt">
+          {{ formatTimeAgo(activeDep.deployedAt) }}
+        </span>
+        <PipelineAuthorBadge 
+          :author="activeDep.author"
+          :author-image-url="activeDep.authorImageUrl"
+          :is-automated="activeDep.isAutomated"
+          :trigger-reason="activeDep.triggerReason"
+          compact
+        />
+      </div>
     </div>
   </div>
 
