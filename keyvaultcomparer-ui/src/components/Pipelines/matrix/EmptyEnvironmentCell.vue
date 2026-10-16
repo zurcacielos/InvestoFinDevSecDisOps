@@ -56,7 +56,7 @@ const handleScanAction = () => {
 
   <div 
     v-else
-    class="h-full min-h-[48px] flex flex-col items-center justify-center py-2 px-1 text-slate-300 hover:bg-slate-50/70 rounded transition-colors group/empty"
+    class="h-full min-h-[48px] w-full flex flex-col items-center justify-center py-2 px-1 text-slate-300 transition-colors group/empty"
     :title="isUnscanned 
       ? `Not yet scanned. Click to scan recent ${devopsStore.scanDepth} runs.` 
       : (canScanMore 
