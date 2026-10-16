@@ -171,7 +171,46 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
       </div>
     </div>
 
-    <!-- Row 2: View Mode (Environment / Expanded), Filters & SINGLE Refresh Matrix Button on the right -->
+    <!-- Row 2: Selected Pipelines Chips Bar (directly under source combobox, grows as needed) -->
+    <div v-if="devopsStore.selectedPipelineIds.length" class="flex items-center gap-2 pt-0.5 flex-wrap">
+      <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Matrix Rows:</span>
+      <div 
+        v-for="p in devopsStore.selectedPipelines" 
+        :key="p.id"
+        class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs"
+      >
+        <span class="font-medium truncate max-w-[30ch]" :title="p.name">{{ p.name }}</span>
+
+        <!-- Quick Copy YAML context button -->
+        <button 
+          @click.stop="triggerCopyYaml(p.id, p.name)"
+          title="Copy full pipeline YAML (resolved external templates) to clipboard"
+          class="text-slate-400 hover:text-blue-600 transition-colors p-0.5 rounded"
+          :disabled="devopsStore.copyingYamlPipelineId === p.id"
+        >
+          <svg v-if="devopsStore.copyingYamlPipelineId === p.id" class="animate-spin h-3.5 w-3.5 text-blue-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        </button>
+
+        <!-- Remove chip button -->
+        <button 
+          @click="devopsStore.removePipeline(p.id)" 
+          class="text-slate-400 hover:text-rose-500 transition-colors rounded-full hover:bg-slate-100 p-0.5"
+          title="Remove from matrix"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Row 3: View Mode (Environment / Expanded), Filters & Refresh Matrix + Clear All on the right -->
     <div class="flex items-center justify-between gap-3 pt-0.5 flex-wrap">
       
       <!-- Left: View Mode Toggle, Scan, Only Succeeded, Parametrization -->
@@ -247,73 +286,36 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
         </button>
       </div>
 
-      <!-- Right: THE SINGLE Refresh Matrix Button -->
-      <button 
-        @click="devopsStore.fetchReleaseMatrix(undefined, true)"
-        class="px-3 py-1 font-semibold text-xs rounded-lg transition-colors shadow-2xs flex items-center gap-1.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 ml-auto"
-        :disabled="devopsStore.isMatrixLoading || devopsStore.selectedPipelineIds.length === 0"
-        :title="devopsStore.selectedPipelineIds.length ? 'Refresh matrix deployments from Azure DevOps' : 'Select at least one pipeline to fetch matrix'"
-      >
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          class="h-3.5 w-3.5 text-slate-500" 
-          :class="{'animate-spin text-blue-600': devopsStore.isMatrixLoading}" 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          stroke="currentColor"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-        <span class="text-[11px]">{{ devopsStore.isMatrixLoading ? 'Updating Matrix...' : 'Refresh Matrix' }}</span>
-      </button>
-    </div>
-
-    <!-- Row 3: Selected Pipelines Chips Bar -->
-    <div v-if="devopsStore.selectedPipelineIds.length" class="flex items-center gap-2 pt-0.5 flex-wrap">
-      <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Matrix Rows:</span>
-      <div 
-        v-for="p in devopsStore.selectedPipelines" 
-        :key="p.id"
-        class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs"
-      >
-        <span class="font-medium truncate max-w-[30ch]" :title="p.name">{{ p.name }}</span>
-
-        <!-- Quick Copy YAML context button -->
+      <!-- Right: Refresh Matrix Button and to its right, Clear All -->
+      <div class="flex items-center gap-2 ml-auto">
         <button 
-          @click.stop="triggerCopyYaml(p.id, p.name)"
-          title="Copy full pipeline YAML (resolved external templates) to clipboard"
-          class="text-slate-400 hover:text-blue-600 transition-colors p-0.5 rounded"
-          :disabled="devopsStore.copyingYamlPipelineId === p.id"
+          @click="devopsStore.fetchReleaseMatrix(undefined, true)"
+          class="px-3 py-1 font-semibold text-xs rounded-lg transition-colors shadow-2xs flex items-center gap-1.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+          :disabled="devopsStore.isMatrixLoading || devopsStore.selectedPipelineIds.length === 0"
+          :title="devopsStore.selectedPipelineIds.length ? 'Refresh matrix deployments from Azure DevOps' : 'Select at least one pipeline to fetch matrix'"
         >
-          <svg v-if="devopsStore.copyingYamlPipelineId === p.id" class="animate-spin h-3.5 w-3.5 text-blue-500" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            class="h-3.5 w-3.5 text-slate-500" 
+            :class="{'animate-spin text-blue-600': devopsStore.isMatrixLoading}" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
+          <span class="text-[11px]">{{ devopsStore.isMatrixLoading ? 'Updating Matrix...' : 'Refresh Matrix' }}</span>
         </button>
 
-        <!-- Remove chip button -->
         <button 
-          @click="devopsStore.removePipeline(p.id)" 
-          class="text-slate-400 hover:text-rose-500 transition-colors rounded-full hover:bg-slate-100 p-0.5"
-          title="Remove from matrix"
+          v-if="devopsStore.selectedPipelineIds.length > 1"
+          @click="devopsStore.clearSelectedPipelines()"
+          class="text-xs text-slate-400 hover:text-rose-600 transition-colors font-medium px-2 py-1 rounded hover:bg-slate-100"
+          title="Clear all selected matrix rows"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          Clear All ({{ devopsStore.selectedPipelineIds.length }})
         </button>
       </div>
-
-      <!-- Clear Selected Button -->
-      <button 
-        v-if="devopsStore.selectedPipelineIds.length > 1"
-        @click="devopsStore.clearSelectedPipelines()"
-        class="text-xs text-slate-400 hover:text-slate-600 underline ml-auto"
-      >
-        Clear All ({{ devopsStore.selectedPipelineIds.length }})
-      </button>
     </div>
 
     <!-- Error notices -->
