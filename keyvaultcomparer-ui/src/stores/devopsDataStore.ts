@@ -134,6 +134,12 @@ export const useDevopsDataStore = defineStore('devopsData', {
       if (stored) savedPipelineIds = JSON.parse(stored);
     } catch {}
 
+    let savedRecentPipelineIds: number[] = [];
+    try {
+      const storedRecents = localStorage.getItem('adoRecentPipelineIds');
+      if (storedRecents) savedRecentPipelineIds = JSON.parse(storedRecents);
+    } catch {}
+
     let savedEnvs = ['dev', 'uat', 'uat1', 'uat2', 'stg', 'stg1', 'prd', 'prd1'];
     try {
       const storedEnvs = localStorage.getItem('adoTargetEnvs');
@@ -224,6 +230,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
       pipelines: savedPipelines as PipelineSummary[],
       pipelinesLastFetched: savedLastFetched as string | null,
       selectedPipelineIds: savedPipelineIds,
+      recentPipelineIds: savedRecentPipelineIds as number[],
       releaseMatrix: initialReleaseMatrix as ReleaseMatrixResponse | null,
       cachedPipelineRows: savedRows as Record<number, PipelineMatrixRow>,
       cachedTopoSortedStages: [] as string[],
@@ -495,7 +502,17 @@ export const useDevopsDataStore = defineStore('devopsData', {
       }
     },
 
+    recordRecentPipeline(pipelineId: number) {
+      this.recentPipelineIds = [pipelineId, ...this.recentPipelineIds.filter(id => id !== pipelineId)].slice(0, 10);
+      try {
+        localStorage.setItem('adoRecentPipelineIds', JSON.stringify(this.recentPipelineIds));
+      } catch (e) {
+        console.warn('Failed to save adoRecentPipelineIds to localStorage', e);
+      }
+    },
+
     async selectPipeline(pipelineId: number) {
+      this.recordRecentPipeline(pipelineId);
       if (!this.selectedPipelineIds.includes(pipelineId)) {
         this.selectedPipelineIds.push(pipelineId);
         this.saveSelectedPipelineIds();
@@ -549,10 +566,12 @@ export const useDevopsDataStore = defineStore('devopsData', {
       this.releaseMatrix = null;
       this.cachedPipelineRows = {};
       this.hasPendingChanges = false;
+      this.recentPipelineIds = [];
 
       try {
         localStorage.removeItem('adoSelectedPipelineIds');
         localStorage.removeItem('adoCachedPipelineRows');
+        localStorage.removeItem('adoRecentPipelineIds');
       } catch (e) {
         console.warn('Failed to clear localStorage', e);
       }
@@ -877,6 +896,25 @@ export const useDevopsDataStore = defineStore('devopsData', {
           repository: cached?.repository
         };
       });
+    },
+    recentPipelines: (state): PipelineSummary[] => {
+      if (!state.recentPipelineIds || state.recentPipelineIds.length === 0) return [];
+      const map = new Map(state.pipelines.map(p => [p.id, p]));
+      return state.recentPipelineIds
+        .map(id => {
+          const found = map.get(id);
+          if (found) return found;
+          const cached = state.cachedPipelineRows[id];
+          if (cached) {
+            return {
+              id,
+              name: cached.pipelineName,
+              repository: cached.repository
+            };
+          }
+          return null;
+        })
+        .filter((p): p is PipelineSummary => !!p);
     }
   }
 });
