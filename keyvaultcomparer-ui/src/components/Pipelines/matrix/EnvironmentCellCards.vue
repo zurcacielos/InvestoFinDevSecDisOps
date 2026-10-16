@@ -124,15 +124,24 @@ const lagStatus = computed(() => {
         </span>
       </div>
 
-      <!-- Build Number Link -->
-      <button 
-        v-if="activeDep.buildUrl"
-        @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
-        class="text-[11px] font-mono text-blue-600 hover:underline hover:text-blue-800 shrink-0"
-        :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
-      >
-        #{{ activeDep.buildNumber }}
-      </button>
+      <!-- Build Number Link & Scan Position Badge -->
+      <div class="flex items-center gap-1 shrink-0">
+        <button 
+          v-if="activeDep.buildUrl"
+          @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
+          class="text-[11px] font-mono text-blue-600 hover:underline hover:text-blue-800"
+          :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
+        >
+          #{{ activeDep.buildNumber }}
+        </button>
+        <span 
+          v-if="activeDep.scanPosition" 
+          class="text-[9px] font-mono font-semibold px-1 py-0.2 rounded bg-slate-100 text-slate-500 border border-slate-200"
+          :title="`Discovered at build position #${activeDep.scanPosition} in recent runs scan window`"
+        >
+          p#{{ activeDep.scanPosition }}
+        </span>
+      </div>
     </div>
 
     <!-- Line 2: Branch Badge + Commit SHA + PR -->

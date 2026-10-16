@@ -136,15 +136,24 @@ const lagStatus = computed(() => {
         </span>
       </div>
 
-      <!-- Run # -->
-      <button 
-        v-if="activeDep.buildUrl"
-        @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
-        class="text-[10px] font-mono text-blue-600 hover:underline shrink-0"
-        :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
-      >
-        #{{ activeDep.buildNumber }}
-      </button>
+      <!-- Run # & Scan Position Badge -->
+      <div class="flex items-center gap-1 shrink-0">
+        <button 
+          v-if="activeDep.buildUrl"
+          @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
+          class="text-[10px] font-mono text-blue-600 hover:underline shrink-0"
+          :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
+        >
+          #{{ activeDep.buildNumber }}
+        </button>
+        <span 
+          v-if="activeDep.scanPosition" 
+          class="text-[9px] font-mono font-semibold px-1 py-0.2 rounded bg-slate-100 text-slate-500 border border-slate-200 shrink-0" 
+          :title="`Discovered at build position #${activeDep.scanPosition} in recent runs scan window`"
+        >
+          p#{{ activeDep.scanPosition }}
+        </span>
+      </div>
     </div>
 
     <!-- Row 2: Strict Commit SHA & PR -->
@@ -239,6 +248,13 @@ const lagStatus = computed(() => {
         >
           {{ priorDep.commitSha.substring(0, 7) }}
         </button>
+        <span 
+          v-if="priorDep.scanPosition" 
+          class="text-[8px] font-mono font-semibold px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200 shrink-0" 
+          :title="`Prior deployment discovered at build position #${priorDep.scanPosition}`"
+        >
+          p#{{ priorDep.scanPosition }}
+        </span>
       </div>
       <span v-if="priorDep" class="text-amber-800/80 font-mono shrink-0">
         {{ formatTimeAgo(priorDep.deployedAt) }}

@@ -78,7 +78,8 @@ interface CacheStats {
   totalItems: number;
   fileSizeBytes: number;
   filePath: string;
-  categories: CacheCategoryStat[];
+  categories?: CacheCategoryStat[];
+  categoryCounts?: Record<string, number>;
 }
 
 const cacheEnabled = ref(true);
@@ -117,6 +118,18 @@ const fetchCacheStats = async () => {
   } finally {
     isLoadingCacheStats.value = false;
   }
+};
+
+const getCategoryCount = (category: string): number => {
+  if (cacheStats.value?.categories && Array.isArray(cacheStats.value.categories)) {
+    const found = cacheStats.value.categories.find(c => c.category.toLowerCase() === category.toLowerCase());
+    if (found) return found.itemCount;
+  }
+  if (cacheStats.value?.categoryCounts) {
+    const key = Object.keys(cacheStats.value.categoryCounts).find(k => k.toLowerCase() === category.toLowerCase());
+    if (key) return cacheStats.value.categoryCounts[key];
+  }
+  return 0;
 };
 
 const handleClearCache = async (category?: string) => {
@@ -1521,13 +1534,13 @@ const showUiSection = computed(() => {
                   <div class="min-w-0 pr-2">
                     <div class="text-xs font-bold text-slate-800 truncate">Pipelines</div>
                     <div class="text-[10px] text-slate-500">
-                      {{ cacheStats?.categories?.find(c => c.category === 'Pipelines')?.itemCount ?? 0 }} items cached
+                      {{ getCategoryCount('Pipelines') }} items cached
                     </div>
                   </div>
                   <button 
                     type="button"
                     @click="handleClearCache('Pipelines')"
-                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'Pipelines')?.itemCount)"
+                    :disabled="isClearingCache || !getCategoryCount('Pipelines')"
                     class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
                   >
                     Purge
@@ -1539,13 +1552,13 @@ const showUiSection = computed(() => {
                   <div class="min-w-0 pr-2">
                     <div class="text-xs font-bold text-slate-800 truncate">Pipeline Runs &amp; Matrix</div>
                     <div class="text-[10px] text-slate-500">
-                      {{ cacheStats?.categories?.find(c => c.category === 'PipelineRuns')?.itemCount ?? 0 }} items cached
+                      {{ getCategoryCount('PipelineRuns') }} items cached
                     </div>
                   </div>
                   <button 
                     type="button"
                     @click="handleClearCache('PipelineRuns')"
-                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'PipelineRuns')?.itemCount)"
+                    :disabled="isClearingCache || !getCategoryCount('PipelineRuns')"
                     class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
                   >
                     Purge
@@ -1557,13 +1570,13 @@ const showUiSection = computed(() => {
                   <div class="min-w-0 pr-2">
                     <div class="text-xs font-bold text-slate-800 truncate">Vault Keys &amp; Names</div>
                     <div class="text-[10px] text-slate-500">
-                      {{ cacheStats?.categories?.find(c => c.category === 'VaultKeys')?.itemCount ?? 0 }} items cached
+                      {{ getCategoryCount('VaultKeys') }} items cached
                     </div>
                   </div>
                   <button 
                     type="button"
                     @click="handleClearCache('VaultKeys')"
-                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'VaultKeys')?.itemCount)"
+                    :disabled="isClearingCache || !getCategoryCount('VaultKeys')"
                     class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
                   >
                     Purge
@@ -1575,13 +1588,13 @@ const showUiSection = computed(() => {
                   <div class="min-w-0 pr-2">
                     <div class="text-xs font-bold text-slate-800 truncate">Vault Discovery</div>
                     <div class="text-[10px] text-slate-500">
-                      {{ cacheStats?.categories?.find(c => c.category === 'VaultDiscovery')?.itemCount ?? 0 }} items cached
+                      {{ getCategoryCount('VaultDiscovery') }} items cached
                     </div>
                   </div>
                   <button 
                     type="button"
                     @click="handleClearCache('VaultDiscovery')"
-                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'VaultDiscovery')?.itemCount)"
+                    :disabled="isClearingCache || !getCategoryCount('VaultDiscovery')"
                     class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
                   >
                     Purge
@@ -1593,13 +1606,13 @@ const showUiSection = computed(() => {
                   <div class="min-w-0 pr-2">
                     <div class="text-xs font-bold text-slate-800 truncate">Subscriptions</div>
                     <div class="text-[10px] text-slate-500">
-                      {{ cacheStats?.categories?.find(c => c.category === 'Subscriptions')?.itemCount ?? 0 }} items cached
+                      {{ getCategoryCount('Subscriptions') }} items cached
                     </div>
                   </div>
                   <button 
                     type="button"
                     @click="handleClearCache('Subscriptions')"
-                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'Subscriptions')?.itemCount)"
+                    :disabled="isClearingCache || !getCategoryCount('Subscriptions')"
                     class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
                   >
                     Purge
@@ -1611,13 +1624,13 @@ const showUiSection = computed(() => {
                   <div class="min-w-0 pr-2">
                     <div class="text-xs font-bold text-slate-800 truncate">Variable Groups</div>
                     <div class="text-[10px] text-slate-500">
-                      {{ cacheStats?.categories?.find(c => c.category === 'VariableGroups')?.itemCount ?? 0 }} items cached
+                      {{ getCategoryCount('VariableGroups') }} items cached
                     </div>
                   </div>
                   <button 
                     type="button"
                     @click="handleClearCache('VariableGroups')"
-                    :disabled="isClearingCache || !(cacheStats?.categories?.find(c => c.category === 'VariableGroups')?.itemCount)"
+                    :disabled="isClearingCache || !getCategoryCount('VariableGroups')"
                     class="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
                   >
                     Purge

@@ -312,12 +312,14 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
         </button>
 
         <button 
-          v-if="devopsStore.selectedPipelineIds.length > 1"
-          @click="devopsStore.clearSelectedPipelines()"
-          class="text-xs text-slate-400 hover:text-rose-600 transition-colors font-medium px-2 py-1 rounded hover:bg-slate-100"
-          title="Clear all selected matrix rows"
+          @click="devopsStore.clearAllAndCache()"
+          class="px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shadow-2xs flex items-center gap-1.5 border border-slate-300 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-slate-600"
+          title="Clear all selected pipelines, matrix state, and server/local cache"
         >
-          Clear All ({{ devopsStore.selectedPipelineIds.length }})
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span>Clear Cache</span>
         </button>
       </div>
     </div>

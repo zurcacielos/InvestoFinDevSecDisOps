@@ -22,6 +22,12 @@ namespace KeyVaultComparer.Api.Services.Cache
         public DateTime ExpiresAt { get; set; }
     }
 
+    public class CacheCategoryStat
+    {
+        public string Category { get; set; } = string.Empty;
+        public int ItemCount { get; set; }
+    }
+
     public class CacheStats
     {
         public bool Enabled { get; set; }
@@ -29,6 +35,7 @@ namespace KeyVaultComparer.Api.Services.Cache
         public int ItemCount { get; set; }
         public long FileSizeBytes { get; set; }
         public Dictionary<string, int> CategoryCounts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public List<CacheCategoryStat> Categories => CategoryCounts.Select(kv => new CacheCategoryStat { Category = kv.Key, ItemCount = kv.Value }).ToList();
         public DateTime? OldestCreatedAt { get; set; }
         public DateTime? NewestCreatedAt { get; set; }
         public CacheTtlSettings Settings { get; set; } = new();
@@ -441,6 +448,7 @@ namespace KeyVaultComparer.Api.Services.Cache
         public async Task<CacheStats> GetStatsAsync(CancellationToken ct = default)
         {
             var settings = await _appSettingsService.GetSettingsAsync(ct);
+            await GetOrCreateSessionKeyAsync(ct);
             long fileSize = 0;
             try
             {

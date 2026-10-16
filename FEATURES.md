@@ -113,13 +113,14 @@ The application provides continuous delivery and deployment visibility across Az
 - **Ribbon 3-Row Architecture (`PipelineRibbonBar.vue`)**:
   - **Row 1 (Source & Catalog)**: Context label (**`ADO`**), `Org` and `Project` input fields, `Fetch / Re-fetch Pipelines` button, and pipeline search combobox. Cache status and relative timestamps are surfaced strictly via hover tooltips (`title`) on the button and combobox.
   - **Row 2 (Selected Entities / Dynamic Chips)**: Directly beneath the search input, displays `Matrix Rows:` with selected pipeline chips, external template YAML copy shortcuts, and removal triggers. The container expands dynamically as items are added without shifting subsequent control tiers.
-  - **Row 3 (Matrix Controls & Action Triggers)**: Positioned immediately adjacent to the grid surface. Houses the view mode toggle (**"Environment"** and **"Expanded"**), Scan depth selector (`15`, `25`, `50`, `100`), `Only Succeeded (✓)` toggle, and `Parametrization` settings button on the left, paired with the **"Refresh Matrix"** execution button and **"Clear All"** action docked on the right.
+  - **Row 3 (Matrix Controls & Action Triggers)**: Positioned immediately adjacent to the grid surface. Houses the view mode toggle (**"Environment"** and **"Expanded"**), Scan depth selector (`15`, `25`, `50`, `100`), `Only Succeeded (✓)` toggle, and `Parametrization` settings button on the left, paired with the **"Refresh Matrix"** execution button and an always-visible **"Clear Cache"** action docked on the right that clears all selections, local storage, and server cache.
 - **Environment Matrix View**: Matrix mapping pipelines to target deployment environments (`dev`, `uat`, `stg`, `prd`, etc.).
 - **Expanded Stages (Hierarchical Run DAG) View**: Unfolds all executed stages in topological order (prerequisites to dependents) according to Azure DevOps YAML stage dependencies and timeline sequences.
 
 ### 3.2 Target Environments Matrix & Interchangeable Layout Modes
 - **Integrated Service / Pipeline Column**:
-  - The standalone `REPOSITORY` column is eliminated and merged into the sticky left `SERVICE / PIPELINE` column, displaying the pipeline name, definition link, YAML AST shortcuts, repository link, and default branch. Raw pipeline IDs are omitted from display to maintain high information density without clutter.
+  - The standalone `REPOSITORY` column is eliminated and merged into the sticky left `SERVICE / PIPELINE` column, displaying the pipeline name, definition link, repository link, and default branch. Raw pipeline IDs are omitted from display to maintain high information density without clutter.
+  - The cell header retains the dedicated per-pipeline circular refresh button (`↻`), while extraneous YAML icon buttons (GitHub, Copy YAML, View YAML) are removed from the cell to avoid visual crowding since those capabilities are readily accessible via the right-click context menu.
 - **Minimalist Status & Progressive Disclosure**:
   - Replaces bulky "SUCCEEDED" pill badges with minimalist Azure-style circular indicators (`✓` green check, `✕` red cross, pulsing blue dot).
   - Compact author badges hide verbose names from the default cell view while retaining full user and trigger details in native hover tooltips.
@@ -144,9 +145,9 @@ The application provides continuous delivery and deployment visibility across Az
 - **Per-Pipeline Circular Refresh (`↻`)**:
   - Each pipeline row in both the cross-environment matrix (`PipelineServiceColumn.vue`) and hierarchical DAG view (`ExpandedStagesView.vue`) features a dedicated circular refresh button (`↻`).
   - Clicking this button refreshes only that specific pipeline row at the currently selected scan depth (`scanDepth`), rendering an inline spinning icon and updating its environments upon completion.
-- **Stage-Level Multi-Stage Pipeline Evaluation & Scan Depth Tracking**:
+- **Stage-Level Multi-Stage Pipeline Evaluation & Visible Scan Depth Tracking**:
   - ADO build exploration evaluates run results at the individual stage level rather than filtering at the top-level build endpoint, preventing multi-stage pipelines with downstream failures from hiding upstream environments.
-  - Discovered active ($N$) and prior ($N-1$) deployments track their exact 1-based run position in the scanned build window (`scanPosition`), displayed via hover tooltips for run telemetry.
+  - Discovered active ($N$) and prior ($N-1$) deployments track their exact 1-based run position in the scanned build window (`scanPosition`). This is prominently rendered as a visible `p#<N>` badge (e.g., `p#1`, `p#4`) alongside the build number and commit SHA across all cell modes, as well as in hover tooltips.
 - **On-Demand Per-Pipeline Deep Scan (`EmptyEnvironmentCell.vue`)**:
   - Sparse environments where no deployment was found within the initial scan window (`scanDepth: 15/25/50`) display a recoverable empty state (`—` with an actionable `Scan deeper` or `Scan pipeline` link).
   - Hovering provides full context via native tooltip (`No deployment found in the last {N} runs for '{pipeline}' on '{env}'. Click 'Scan deeper' to search up to {N+50} runs.`).
@@ -214,7 +215,7 @@ The application provides continuous delivery and deployment visibility across Az
 ### 4.3 Settings Modal Integration (`SettingsModal.vue`)
 - **Navigation**: Dedicated "Encrypted Cache" tab accessible from the global settings modal (`Ctrl+,`).
 - **Live Security Badge**: Real-time indicator displaying whether the cache is "Unlocked (Active Azure Session)" or "Sealed (Login Required)".
-- **Metrics Dashboard**: Displays live counts of cached entries, encrypted file size in bytes/KB, cache mode (Enabled/Bypassed), and protection level.
+- **Metrics Dashboard**: Displays live counts of cached entries, encrypted file size in bytes/KB, cache mode (Enabled/Bypassed), and protection level. Decrypts and populates cache state dynamically upon stats query so displayed item counts are strictly accurate and never falsely 0.
 - **Configurable Time-To-Live (TTL)**:
   - Pipelines Catalog TTL (minutes, default: 60)
   - Matrix Runs & Rollback History TTL (minutes, default: 30)
