@@ -45,6 +45,17 @@ const priorDep = computed<EnvironmentDeploymentInfo | null>(() => {
   return props.deployments[1];
 });
 
+const isSameRevision = computed(() => {
+  if (!activeDep.value || !priorDep.value) return false;
+  if (activeDep.value.commitSha && priorDep.value.commitSha) {
+    return activeDep.value.commitSha.toLowerCase() === priorDep.value.commitSha.toLowerCase();
+  }
+  if (activeDep.value.version && priorDep.value.version) {
+    return activeDep.value.version === priorDep.value.version;
+  }
+  return false;
+});
+
 const isScanning = computed(() => {
   return devopsStore.deepScanningPipelineIds.includes(props.row.pipelineId) ||
          devopsStore.isSinglePipelineRefreshing(props.row.pipelineId);
@@ -175,14 +186,14 @@ const lagStatus = computed(() => {
         <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
         <span 
           v-if="activeDep.version"
-          class="font-mono font-bold text-xs text-violet-700 whitespace-nowrap"
+          class="font-mono font-bold text-xs text-slate-800 whitespace-nowrap"
           :title="`Version/Tag: ${activeDep.version}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           v{{ activeDep.version }}
         </span>
         <span 
           v-else-if="activeDep.commitSha"
-          class="font-mono font-bold text-xs text-slate-700 whitespace-nowrap"
+          class="font-mono font-bold text-xs text-slate-800 whitespace-nowrap"
           :title="`Commit: ${activeDep.commitSha}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
@@ -193,7 +204,7 @@ const lagStatus = computed(() => {
       <button 
         v-if="activeDep.buildUrl"
         @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
-        class="p-0.5 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors shrink-0 cursor-pointer flex items-center justify-center"
+        class="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors shrink-0 cursor-pointer flex items-center justify-center"
         :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -211,18 +222,25 @@ const lagStatus = computed(() => {
         <button 
           v-if="activeDep.commitSha"
           @click.stop="commitUrl ? openUrlInNewTab(commitUrl) : null"
-          class="font-mono text-indigo-700 hover:underline whitespace-nowrap"
+          class="font-mono text-slate-700 hover:text-blue-600 hover:underline whitespace-nowrap"
           :title="`Commit: ${activeDep.commitSha}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
         </button>
-        <span v-else class="text-slate-300">-</span>
+        <span 
+          v-if="activeDep.buildNumber && isSameRevision"
+          class="text-slate-400 font-mono text-[9px] whitespace-nowrap"
+          title="Build number"
+        >
+          (build #{{ activeDep.buildNumber }})
+        </span>
+        <span v-else-if="!activeDep.commitSha" class="text-slate-300">-</span>
       </div>
 
       <button 
         v-if="activeDep.prNumber"
         @click.stop="prUrl ? openUrlInNewTab(prUrl) : null"
-        class="font-semibold text-violet-700 hover:underline shrink-0 text-[9px]"
+        class="font-semibold text-slate-600 hover:text-blue-600 hover:underline shrink-0 text-[9px]"
         :title="`Pull Request #${activeDep.prNumber}`"
       >
         PR #{{ activeDep.prNumber }}
@@ -273,19 +291,16 @@ const lagStatus = computed(() => {
       </div>
     </div>
 
-    <!-- Row 6: Prior Release Tag & Date (when enabled) -->
+    <!-- Row 6: Prior Release Tag (same font size as active) -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-6 px-3 flex items-center justify-between gap-2 text-[9px] border-t border-slate-100 whitespace-nowrap"
-      :class="priorDep 
-        ? 'bg-amber-50/60 text-amber-900' 
-        : 'bg-white text-slate-400'"
+      class="h-7 px-3 flex items-center justify-between gap-2 border-t border-slate-200/80 bg-slate-50/60 whitespace-nowrap"
     >
       <template v-if="priorDep">
-        <div class="flex items-center gap-1 whitespace-nowrap">
+        <div class="flex items-center gap-1.5 whitespace-nowrap">
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
-            class="h-2.5 w-2.5 text-amber-600 shrink-0" 
+            class="h-3 w-3 text-slate-400 shrink-0" 
             fill="none" 
             viewBox="0 0 24 24" 
             stroke="currentColor"
@@ -296,8 +311,8 @@ const lagStatus = computed(() => {
           <button 
             v-if="priorDep.version"
             @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
-            class="font-mono font-bold text-amber-950 whitespace-nowrap transition-colors"
-            :class="priorBuildUrl ? 'hover:underline hover:text-amber-800 cursor-pointer' : 'cursor-default'"
+            class="font-mono font-bold text-xs text-slate-800 whitespace-nowrap transition-colors"
+            :class="priorBuildUrl ? 'hover:underline hover:text-blue-600 cursor-pointer' : 'cursor-default'"
             :title="priorBuildUrl ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (v${priorDep.version})${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}` : `Previous Version: v${priorDep.version}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
           >
             v{{ priorDep.version }}
@@ -305,18 +320,26 @@ const lagStatus = computed(() => {
           <button 
             v-else-if="priorDep.commitSha"
             @click.stop="priorCommitUrl ? openUrlInNewTab(priorCommitUrl) : null"
-            class="font-mono text-indigo-700 hover:underline whitespace-nowrap"
+            class="font-mono font-bold text-xs text-slate-800 hover:underline hover:text-blue-600 whitespace-nowrap cursor-pointer"
             :title="`Previous Commit: ${priorDep.commitSha}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
           >
             {{ priorDep.commitSha.substring(0, 7) }}
           </button>
         </div>
-        <span 
-          class="text-amber-800/80 font-mono shrink-0 whitespace-nowrap"
-          :title="priorDep.deployedAt ? new Date(priorDep.deployedAt).toLocaleString() : ''"
+
+        <!-- Open Prior Run in Azure DevOps (External Link Icon) -->
+        <button 
+          v-if="priorBuildUrl"
+          @click.stop="openUrlInNewTab(priorBuildUrl)"
+          class="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors shrink-0 cursor-pointer flex items-center justify-center"
+          :title="priorDep.scanPosition ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (Scanned build position: #${priorDep.scanPosition})` : `Open Previous Run #${priorDep.buildNumber} in Azure DevOps`"
         >
-          {{ formatTimeAndDate(priorDep.deployedAt) }}
-        </span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </button>
       </template>
 
       <!-- Empty State: Row 6 -->
@@ -327,17 +350,44 @@ const lagStatus = computed(() => {
             ? `No prior deployment found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan +50' to search older runs.` 
             : `No prior deployment found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`"
         >
-          <span class="text-amber-500 font-bold font-mono text-[10px] select-none">&mdash;</span>
-          <span class="italic text-slate-400 whitespace-nowrap">
-            No prior in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}
+          <span class="text-slate-400 font-bold font-mono text-xs select-none">&mdash;</span>
+          <span class="italic text-slate-400 whitespace-nowrap text-[10px]">
+            No prior run
           </span>
         </div>
+      </template>
+    </div>
+
+    <!-- Row 7: Prior Deployed Date (directly below release of prior) -->
+    <div 
+      v-if="devopsStore.showRollbackTarget"
+      class="h-6 px-3 flex items-center justify-between gap-2 text-[10px] text-slate-500 whitespace-nowrap"
+    >
+      <template v-if="priorDep">
+        <span 
+          class="text-slate-500 font-mono shrink-0 whitespace-nowrap text-[9px]"
+          :title="priorDep.deployedAt ? new Date(priorDep.deployedAt).toLocaleString() : ''"
+        >
+          {{ formatTimeAndDate(priorDep.deployedAt) }}
+        </span>
+        <PipelineAuthorBadge 
+          :author="priorDep.author"
+          :author-image-url="priorDep.authorImageUrl"
+          :is-automated="priorDep.isAutomated"
+          :trigger-reason="priorDep.triggerReason"
+          compact
+        />
+      </template>
+      <template v-else>
+        <span class="text-[9px] text-slate-400 italic whitespace-nowrap">
+          in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}
+        </span>
         <button 
           v-if="canScanMore"
           type="button"
           @click.stop="handleDeepScan"
           :disabled="isScanning"
-          class="px-1.5 py-0.5 rounded text-[9px] font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200/70 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer shrink-0 ml-1"
+          class="px-1.5 py-0.5 rounded text-[9px] font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200/70 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer shrink-0"
           :title="`Search up to ${nextDepth} older runs for '${row.pipelineName}' in Azure DevOps`"
         >
           <svg v-if="!isScanning" class="w-2.5 h-2.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -352,21 +402,18 @@ const lagStatus = computed(() => {
       </template>
     </div>
 
-    <!-- Row 7: Prior Deployed Branch (when enabled) -->
+    <!-- Row 8: Prior Branch & SHA/PR -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-6 px-3 flex items-center justify-between gap-1 text-[9px] border-t border-slate-100 whitespace-nowrap"
-      :class="priorDep 
-        ? 'bg-amber-50/40 text-amber-900' 
-        : 'bg-white text-slate-300'"
+      class="h-6 px-3 flex items-center justify-between gap-1 text-[10px] whitespace-nowrap text-slate-700"
     >
       <div v-if="priorDep" class="flex items-center gap-1 min-w-0">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-amber-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="18" cy="6" r="3"></circle>
           <circle cx="6" cy="18" r="3"></circle>
           <path d="M18 9a9 9 0 0 1-9 9"></path>
         </svg>
-        <span class="truncate font-medium" :title="`Previous Branch: ${priorDep.branch}`">
+        <span class="whitespace-nowrap font-medium" :title="`Previous Branch: ${priorDep.branch}`">
           {{ priorCleanBranch || '-' }}
         </span>
       </div>
@@ -374,27 +421,29 @@ const lagStatus = computed(() => {
         <button 
           v-if="priorDep.commitSha && priorDep.version"
           @click.stop="priorCommitUrl ? openUrlInNewTab(priorCommitUrl) : null"
-          class="font-mono text-indigo-700 hover:underline truncate"
+          class="font-mono text-slate-700 hover:text-blue-600 hover:underline whitespace-nowrap"
           :title="`Previous Commit: ${priorDep.commitSha}`"
         >
           {{ priorDep.commitSha.substring(0, 7) }}
         </button>
+        <span 
+          v-if="priorDep.buildNumber && isSameRevision"
+          class="text-slate-400 font-mono text-[9px] whitespace-nowrap"
+          title="Build number"
+        >
+          (build #{{ priorDep.buildNumber }})
+        </span>
         <button 
           v-if="priorDep.prNumber"
           @click.stop="priorPrUrl ? openUrlInNewTab(priorPrUrl) : null"
-          class="font-semibold text-violet-700 hover:underline shrink-0 text-[8px]"
+          class="font-semibold text-slate-600 hover:text-blue-600 hover:underline shrink-0 text-[9px]"
           :title="`Previous Pull Request #${priorDep.prNumber}`"
         >
           PR #{{ priorDep.prNumber }}
         </button>
       </div>
       <div v-else-if="!priorDep" class="flex items-center gap-1 text-slate-300 select-none">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-200 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="18" cy="6" r="3"></circle>
-          <circle cx="6" cy="18" r="3"></circle>
-          <path d="M18 9a9 9 0 0 1-9 9"></path>
-        </svg>
-        <span class="text-[9px] text-slate-300 font-mono">-</span>
+        &mdash;
       </div>
     </div>
   </div>

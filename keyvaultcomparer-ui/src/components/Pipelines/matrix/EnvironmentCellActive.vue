@@ -4,7 +4,7 @@ import type { EnvironmentDeploymentInfo, PipelineMatrixRow } from '../../../stor
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useDevopsDataStore } from '../../../stores/devopsDataStore';
 import { openUrlInNewTab } from '../../../utils/urlOpener';
-import { formatTimeAndDate, getCommitUrl, getPrUrl } from '../../../utils/pipelineUrlHelpers';
+import { formatTimeAndDate, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
 import DeploymentStatusIndicator from './DeploymentStatusIndicator.vue';
 import PipelineAuthorBadge from '../PipelineAuthorBadge.vue';
 
@@ -24,6 +24,45 @@ const devopsStore = useDevopsDataStore();
 
 const activeDep = computed<EnvironmentDeploymentInfo | null>(() => {
   return props.deployments.length > 0 ? props.deployments[0] : null;
+});
+
+const priorDep = computed<EnvironmentDeploymentInfo | null>(() => {
+  if (props.deployments.length <= 1) return null;
+  if (devopsStore.priorRunMode === 'distinct') {
+    const active = props.deployments[0];
+    const found = props.deployments.slice(1).find(d => {
+      if (active.commitSha && d.commitSha) {
+        return d.commitSha.toLowerCase() !== active.commitSha.toLowerCase();
+      }
+      if (active.version && d.version) {
+        return d.version !== active.version;
+      }
+      return d.buildId !== active.buildId;
+    });
+    return found || null;
+  }
+  return props.deployments[1];
+});
+
+const isSameRevision = computed(() => {
+  if (!activeDep.value || !priorDep.value) return false;
+  if (activeDep.value.commitSha && priorDep.value.commitSha) {
+    return activeDep.value.commitSha.toLowerCase() === priorDep.value.commitSha.toLowerCase();
+  }
+  if (activeDep.value.version && priorDep.value.version) {
+    return activeDep.value.version === priorDep.value.version;
+  }
+  return false;
+});
+
+const activeBuildUrl = computed(() => {
+  if (!activeDep.value) return null;
+  return getBuildUrl(
+    devopsStore.organization,
+    devopsStore.project,
+    activeDep.value.buildId,
+    activeDep.value.buildUrl
+  );
 });
 
 const commitUrl = computed(() => {
@@ -92,28 +131,30 @@ const lagStatus = computed(() => {
     <div class="h-7 px-3 flex items-center justify-between gap-2 bg-slate-50/60 whitespace-nowrap">
       <div class="flex items-center gap-1.5 whitespace-nowrap">
         <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
-        <span 
+        <button 
           v-if="activeDep.version"
-          class="font-mono font-bold text-xs text-violet-700 whitespace-nowrap"
-          :title="`Version/Tag: ${activeDep.version}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
+          @click.stop="activeBuildUrl ? openUrlInNewTab(activeBuildUrl) : null"
+          class="font-mono font-bold text-xs text-slate-800 whitespace-nowrap transition-colors"
+          :class="activeBuildUrl ? 'hover:underline hover:text-blue-600 cursor-pointer' : 'cursor-default'"
+          :title="activeBuildUrl ? `Open Run #${activeDep.buildNumber} in Azure DevOps (v${activeDep.version})${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}` : `Version/Tag: ${activeDep.version}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           v{{ activeDep.version }}
-        </span>
-        <span 
+        </button>
+        <button 
           v-else-if="activeDep.commitSha"
-          class="font-mono font-bold text-xs text-slate-700 whitespace-nowrap"
+          @click.stop="commitUrl ? openUrlInNewTab(commitUrl) : null"
+          class="font-mono font-bold text-xs text-slate-800 whitespace-nowrap hover:underline hover:text-blue-600 cursor-pointer"
           :title="`Commit: ${activeDep.commitSha}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
-        </span>
-        <span v-if="activeDep.buildNumber" class="text-slate-400 font-mono text-[9px]">#{{ activeDep.buildNumber }}</span>
+        </button>
       </div>
 
       <!-- Open Run in Azure DevOps (External Link Icon) -->
       <button 
-        v-if="activeDep.buildUrl"
-        @click.stop="openUrlInNewTab(activeDep.buildUrl!)"
-        class="p-0.5 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors shrink-0 cursor-pointer flex items-center justify-center"
+        v-if="activeBuildUrl"
+        @click.stop="openUrlInNewTab(activeBuildUrl)"
+        class="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors shrink-0 cursor-pointer flex items-center justify-center"
         :title="activeDep.scanPosition ? `Open Run #${activeDep.buildNumber} in Azure DevOps (Scanned build position: #${activeDep.scanPosition})` : `Open Run #${activeDep.buildNumber} in Azure DevOps`"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -131,18 +172,25 @@ const lagStatus = computed(() => {
         <button 
           v-if="activeDep.commitSha"
           @click.stop="commitUrl ? openUrlInNewTab(commitUrl) : null"
-          class="font-mono text-indigo-700 hover:underline whitespace-nowrap"
+          class="font-mono text-slate-700 hover:text-blue-600 hover:underline whitespace-nowrap"
           :title="`Commit: ${activeDep.commitSha}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
         </button>
-        <span v-else class="text-slate-300">-</span>
+        <span 
+          v-if="activeDep.buildNumber && isSameRevision"
+          class="text-slate-400 font-mono text-[9px] whitespace-nowrap"
+          title="Build number"
+        >
+          (build #{{ activeDep.buildNumber }})
+        </span>
+        <span v-else-if="!activeDep.commitSha" class="text-slate-300">-</span>
       </div>
 
       <button 
         v-if="activeDep.prNumber"
         @click.stop="prUrl ? openUrlInNewTab(prUrl) : null"
-        class="font-semibold text-violet-700 hover:underline shrink-0 text-[9px]"
+        class="font-semibold text-slate-600 hover:text-blue-600 hover:underline shrink-0 text-[9px]"
         :title="`Pull Request #${activeDep.prNumber}`"
       >
         PR #{{ activeDep.prNumber }}
