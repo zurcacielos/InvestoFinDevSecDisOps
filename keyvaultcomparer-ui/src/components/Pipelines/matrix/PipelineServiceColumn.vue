@@ -8,6 +8,7 @@ import { getPipelineDefinitionUrl, getRepoUrl } from '../../../utils/pipelineUrl
 
 const props = defineProps<{
   row: PipelineMatrixRow;
+  isSubsequentRow?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -50,7 +51,8 @@ const refreshDepth = computed(() => {
 <template>
   <td 
     @contextmenu="emit('open-context-menu', $event, row, undefined, '')"
-    class="px-3.5 py-2.5 border-r border-slate-200 bg-white sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.03)] cursor-context-menu align-top"
+    class="px-3.5 border-r border-slate-200 bg-white sticky left-0 z-5 shadow-[2px_0_4px_rgba(0,0,0,0.03)] cursor-context-menu align-top"
+    :class="isSubsequentRow ? 'pt-[14px] pb-2.5' : 'py-2.5'"
     :style="{
       width: `${devopsStore.pipelineColumnWidth}px`,
       minWidth: `${devopsStore.pipelineColumnWidth}px`,
