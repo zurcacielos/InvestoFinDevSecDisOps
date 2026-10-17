@@ -294,7 +294,7 @@ const lagStatus = computed(() => {
     <!-- Row 6: Prior Release Tag (same font size as active) -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-7 px-3 flex items-center justify-between gap-2 border-t border-slate-200/80 bg-slate-50/60 whitespace-nowrap"
+      class="h-7 px-3 flex items-center justify-between gap-2 border-t border-amber-200/60 bg-amber-50/40 whitespace-nowrap"
     >
       <template v-if="priorDep">
         <div class="flex items-center gap-1.5 whitespace-nowrap">
@@ -361,7 +361,7 @@ const lagStatus = computed(() => {
     <!-- Row 7: Prior Deployed Date (directly below release of prior) -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-6 px-3 flex items-center justify-between gap-2 text-[10px] text-slate-500 whitespace-nowrap"
+      class="h-6 px-3 flex items-center justify-between gap-2 text-[10px] text-slate-500 bg-amber-50/20 whitespace-nowrap"
     >
       <template v-if="priorDep">
         <span 
@@ -405,7 +405,7 @@ const lagStatus = computed(() => {
     <!-- Row 8: Prior Branch & SHA/PR -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-6 px-3 flex items-center justify-between gap-1 text-[10px] whitespace-nowrap text-slate-700"
+      class="h-6 px-3 flex items-center justify-between gap-1 text-[10px] whitespace-nowrap text-slate-700 bg-amber-50/20"
     >
       <div v-if="priorDep" class="flex items-center gap-1 min-w-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
