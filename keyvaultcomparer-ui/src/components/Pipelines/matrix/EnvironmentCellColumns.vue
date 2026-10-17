@@ -4,7 +4,7 @@ import type { EnvironmentDeploymentInfo, PipelineMatrixRow } from '../../../stor
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useDevopsDataStore } from '../../../stores/devopsDataStore';
 import { openUrlInNewTab } from '../../../utils/urlOpener';
-import { formatTimeAgo, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
+import { formatTimeAndDate, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
 import DeploymentStatusIndicator from './DeploymentStatusIndicator.vue';
 import PipelineAuthorBadge from '../PipelineAuthorBadge.vue';
 import EmptyEnvironmentCell from './EmptyEnvironmentCell.vue';
@@ -28,7 +28,32 @@ const activeDep = computed<EnvironmentDeploymentInfo | null>(() => {
 });
 
 const priorDep = computed<EnvironmentDeploymentInfo | null>(() => {
-  return props.deployments.length > 1 ? props.deployments[1] : null;
+  if (props.deployments.length <= 1) return null;
+  if (devopsStore.priorRunMode === 'distinct') {
+    const active = props.deployments[0];
+    const found = props.deployments.slice(1).find(d => {
+      if (active.commitSha && d.commitSha) {
+        return d.commitSha.toLowerCase() !== active.commitSha.toLowerCase();
+      }
+      if (active.version && d.version) {
+        return d.version !== active.version;
+      }
+      return d.buildId !== active.buildId;
+    });
+    return found || null;
+  }
+  return props.deployments[1];
+});
+
+const isSameRevision = computed(() => {
+  if (!activeDep.value || !priorDep.value) return false;
+  if (activeDep.value.commitSha && priorDep.value.commitSha) {
+    return activeDep.value.commitSha.toLowerCase() === priorDep.value.commitSha.toLowerCase();
+  }
+  if (activeDep.value.version && priorDep.value.version) {
+    return activeDep.value.version === priorDep.value.version;
+  }
+  return false;
 });
 
 const isScanning = computed(() => {
@@ -97,17 +122,17 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
 <template>
   <div 
     v-if="activeDep"
-    class="flex w-full h-full divide-x divide-slate-200 text-xs select-none min-w-[280px]"
+    class="flex w-full h-full divide-x divide-slate-200 text-xs select-none min-w-max"
   >
-    <!-- Left Column: Prior Run (N-1) (Side-by-Side) -->
+    <!-- Left Column: Prior Run (N-1 or Prior Distinct Revision) -->
     <div 
       v-if="priorDep"
       @contextmenu.stop="emit('open-context-menu', $event, row, priorDep, env)"
-      class="flex-1 p-2 flex flex-col gap-1 min-w-0 bg-amber-50/30"
+      class="flex-1 p-2 flex flex-col gap-1 min-w-max bg-amber-50/30"
     >
-      <!-- Sub-header: Prior Icon & Run Link -->
-      <div class="flex items-center justify-between gap-1 text-[10px] pb-1 border-b border-amber-200/60 whitespace-nowrap">
-        <div class="flex items-center gap-1 min-w-0">
+      <!-- Sub-header: Prior Icon, Run # & Run Link -->
+      <div class="flex items-center justify-between gap-2 text-[10px] pb-1 border-b border-amber-200/60 whitespace-nowrap">
+        <div class="flex items-center gap-1.5 min-w-0">
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
             class="h-2.5 w-2.5 text-amber-600 shrink-0" 
@@ -119,6 +144,8 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
           </svg>
           <span class="font-bold text-amber-900 text-[10px]">Prior</span>
+          <span v-if="priorDep.buildNumber" class="text-amber-800/80 font-mono text-[9px]">#{{ priorDep.buildNumber }}</span>
+          <span v-if="devopsStore.priorRunMode === 'consecutive' && isSameRevision" class="px-1 py-0.2 text-[8px] rounded bg-amber-100 text-amber-800 font-semibold border border-amber-200">same SHA</span>
         </div>
         <button 
           v-if="priorBuildUrl"
@@ -134,12 +161,12 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         </button>
       </div>
 
-      <!-- Line 2: Prior Version / Tag -->
-      <div class="flex items-center gap-1 min-w-0 py-0.5 whitespace-nowrap">
+      <!-- Line 2: Prior Version / Tag (Never Truncate) -->
+      <div class="flex items-center gap-1 py-0.5 whitespace-nowrap">
         <button 
           v-if="priorDep.version"
           @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
-          class="font-mono font-bold text-xs text-amber-950 bg-white/90 px-1.5 py-0.2 rounded border border-amber-200 truncate transition-colors"
+          class="font-mono font-bold text-xs text-amber-950 bg-white/90 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap transition-colors"
           :class="priorBuildUrl ? 'hover:underline hover:text-amber-800 cursor-pointer' : 'cursor-default'"
           :title="priorBuildUrl ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (v${priorDep.version})${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}` : `Previous Version/Tag: ${priorDep.version}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
         >
@@ -147,7 +174,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         </button>
         <span 
           v-else-if="priorDep.commitSha"
-          class="font-mono font-bold text-xs text-slate-700 bg-white px-1 py-0.2 rounded border border-slate-200 truncate"
+          class="font-mono font-bold text-xs text-slate-700 bg-white px-1 py-0.5 rounded border border-slate-200 whitespace-nowrap"
           :title="`Previous Commit: ${priorDep.commitSha}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
         >
           {{ priorDep.commitSha.substring(0, 7) }}
@@ -155,14 +182,14 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         <span v-else class="text-slate-300 font-mono text-xs">-</span>
       </div>
 
-      <!-- Line 3: Prior Commit SHA & PR (SHA on one line) -->
+      <!-- Line 3: Prior Commit SHA & PR -->
       <div class="flex items-center justify-between gap-1 text-[10px] whitespace-nowrap min-w-0">
-        <div class="flex items-center gap-1 min-w-0">
+        <div class="flex items-center gap-1 whitespace-nowrap">
           <span class="text-slate-400 font-mono text-[9px]">SHA:</span>
           <button 
             v-if="priorDep.commitSha"
             @click.stop="getCommitLink(priorDep) ? openUrlInNewTab(getCommitLink(priorDep)!) : null"
-            class="font-mono text-indigo-700 hover:underline truncate"
+            class="font-mono text-indigo-700 hover:underline whitespace-nowrap"
             :title="`Previous Commit: ${priorDep.commitSha}`"
           >
             {{ priorDep.commitSha.substring(0, 7) }}
@@ -180,21 +207,21 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       </div>
 
       <!-- Line 4: Prior Branch on its own line with branch icon -->
-      <div class="flex items-center gap-1 text-[10px] text-amber-950 min-w-0 whitespace-nowrap">
+      <div class="flex items-center gap-1 text-[10px] text-amber-950 whitespace-nowrap">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-amber-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="18" cy="6" r="3"></circle>
           <circle cx="6" cy="18" r="3"></circle>
           <path d="M18 9a9 9 0 0 1-9 9"></path>
         </svg>
-        <span class="truncate font-medium" :title="`Previous Branch: ${priorDep.branch}`">
+        <span class="font-medium whitespace-nowrap" :title="`Previous Branch: ${priorDep.branch}`">
           {{ getCleanBranch(priorDep) || '-' }}
         </span>
       </div>
 
-      <!-- Line 5: Prior Time & Author -->
-      <div class="flex items-center justify-between text-[10px] text-slate-400 mt-auto pt-1 border-t border-amber-200/50 whitespace-nowrap">
-        <span class="text-[9px] font-mono text-amber-800/80" :title="priorDep.deployedAt">
-          {{ formatTimeAgo(priorDep.deployedAt) }}
+      <!-- Line 5: Prior Time & Date (e.g. 5d ago · Jun 18, 2026) & Author -->
+      <div class="flex items-center justify-between gap-2 text-[10px] text-slate-400 mt-auto pt-1 border-t border-amber-200/50 whitespace-nowrap">
+        <span class="text-[9px] font-mono text-amber-800/80 whitespace-nowrap" :title="priorDep.deployedAt">
+          {{ formatTimeAndDate(priorDep.deployedAt) }}
         </span>
         <PipelineAuthorBadge 
           :author="priorDep.author"
@@ -209,16 +236,18 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
     <!-- If No Prior Run -->
     <div 
       v-else
-      class="flex-1 p-2 flex flex-col items-center justify-center text-center bg-slate-50/30 min-w-0 gap-1"
+      class="flex-1 p-2 flex flex-col items-center justify-center text-center bg-slate-50/30 min-w-max gap-1"
       :title="canScanMore 
-        ? `No prior run found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan +50' to search older runs.` 
-        : `No prior run found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`"
+        ? `No prior ${devopsStore.priorRunMode === 'distinct' ? 'distinct revision' : 'run'} found in the last ${currentRunsCount} scanned ${currentRunsCount === 1 ? 'run' : 'runs'} for '${row.pipelineName}' on '${env}'. Click 'Scan +50' to search older runs.` 
+        : `No prior ${devopsStore.priorRunMode === 'distinct' ? 'distinct revision' : 'run'} found across all ${currentRunsCount} ${currentRunsCount === 1 ? 'run' : 'runs'} in pipeline history for '${row.pipelineName}' on '${env}'`"
     >
-      <div class="flex items-center gap-1.5 text-slate-400 text-[10px]">
+      <div class="flex items-center gap-1.5 text-slate-400 text-[10px] whitespace-nowrap">
         <span class="text-amber-500 font-bold font-mono text-xs select-none">&mdash;</span>
-        <span class="font-medium text-slate-500">No prior run</span>
+        <span class="font-medium text-slate-500">
+          {{ devopsStore.priorRunMode === 'distinct' ? 'No prior revision' : 'No prior run' }}
+        </span>
       </div>
-      <span class="text-[9px] text-slate-400 italic">
+      <span class="text-[9px] text-slate-400 italic whitespace-nowrap">
         in {{ currentRunsCount }} {{ currentRunsCount === 1 ? 'run' : 'runs' }}
       </span>
       <button 
@@ -243,13 +272,14 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
     <!-- Right Column: Current Active Run (N) -->
     <div 
       @contextmenu.stop="emit('open-context-menu', $event, row, activeDep, env)"
-      class="flex-1 p-2 flex flex-col gap-1 min-w-0 bg-white"
+      class="flex-1 p-2 flex flex-col gap-1 min-w-max bg-white"
     >
-      <!-- Sub-header: Current Status & Run Link -->
-      <div class="flex items-center justify-between gap-1.5 text-[10px] pb-1 border-b border-slate-100 min-w-0 whitespace-nowrap">
-        <div class="flex items-center gap-1 shrink-0">
+      <!-- Sub-header: Current Status, Active Build # & Run Link -->
+      <div class="flex items-center justify-between gap-2 text-[10px] pb-1 border-b border-slate-100 whitespace-nowrap">
+        <div class="flex items-center gap-1.5 shrink-0">
           <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
           <span class="font-bold text-slate-800 text-[10px] shrink-0">Active</span>
+          <span v-if="activeDep.buildNumber" class="text-slate-500 font-mono text-[9px]">#{{ activeDep.buildNumber }}</span>
         </div>
         <button 
           v-if="activeDep.buildUrl"
@@ -265,18 +295,18 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         </button>
       </div>
 
-      <!-- Line 2: Version / Tag Anchor -->
-      <div class="flex items-center gap-1 min-w-0 py-0.5 whitespace-nowrap">
+      <!-- Line 2: Version / Tag Anchor (Never Truncate or Wrap) -->
+      <div class="flex items-center gap-1 py-0.5 whitespace-nowrap">
         <span 
           v-if="activeDep.version"
-          class="font-mono font-bold text-xs text-violet-700 bg-violet-50 px-1.5 py-0.2 rounded border border-violet-200 truncate"
+          class="font-mono font-bold text-xs text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200 whitespace-nowrap"
           :title="`Version/Tag: ${activeDep.version}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           v{{ activeDep.version }}
         </span>
         <span 
           v-else-if="activeDep.commitSha"
-          class="font-mono font-bold text-xs text-slate-700 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 truncate"
+          class="font-mono font-bold text-xs text-slate-700 bg-slate-100 px-1 py-0.5 rounded border border-slate-200 whitespace-nowrap"
           :title="`Commit: ${activeDep.commitSha}${activeDep.scanPosition ? ` · Scanned Run #${activeDep.scanPosition}` : ''}`"
         >
           {{ activeDep.commitSha.substring(0, 7) }}
@@ -284,14 +314,14 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
         <span v-else class="text-slate-300 font-mono text-xs">-</span>
       </div>
 
-      <!-- Line 3: Commit SHA & PR (SHA on one line) -->
+      <!-- Line 3: Commit SHA & PR -->
       <div class="flex items-center justify-between gap-1 text-[10px] whitespace-nowrap min-w-0">
-        <div class="flex items-center gap-1 min-w-0">
+        <div class="flex items-center gap-1 whitespace-nowrap">
           <span class="text-slate-400 font-mono text-[9px]">SHA:</span>
           <button 
             v-if="activeDep.commitSha"
             @click.stop="getCommitLink(activeDep) ? openUrlInNewTab(getCommitLink(activeDep)!) : null"
-            class="font-mono text-indigo-700 hover:underline truncate"
+            class="font-mono text-indigo-700 hover:underline whitespace-nowrap"
             :title="`Commit: ${activeDep.commitSha}`"
           >
             {{ activeDep.commitSha.substring(0, 7) }}
@@ -309,21 +339,21 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       </div>
 
       <!-- Line 4: Active Branch on its own line with branch icon -->
-      <div class="flex items-center gap-1 text-[10px] text-slate-700 min-w-0 whitespace-nowrap">
+      <div class="flex items-center gap-1 text-[10px] text-slate-700 whitespace-nowrap">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="18" cy="6" r="3"></circle>
           <circle cx="6" cy="18" r="3"></circle>
           <path d="M18 9a9 9 0 0 1-9 9"></path>
         </svg>
-        <span class="truncate font-medium" :title="`Branch: ${activeDep.branch}`">
+        <span class="font-medium whitespace-nowrap" :title="`Branch: ${activeDep.branch}`">
           {{ getCleanBranch(activeDep) || '-' }}
         </span>
       </div>
 
-      <!-- Line 5: Active Time & Author -->
-      <div class="flex items-center justify-between text-[10px] text-slate-400 mt-auto pt-1 border-t border-slate-100 whitespace-nowrap">
-        <span class="text-[9px] font-mono text-slate-500" :title="activeDep.deployedAt">
-          {{ formatTimeAgo(activeDep.deployedAt) }}
+      <!-- Line 5: Active Time & Date (e.g. 5d ago · Jun 18, 2026) & Author -->
+      <div class="flex items-center justify-between gap-2 text-[10px] text-slate-400 mt-auto pt-1 border-t border-slate-100 whitespace-nowrap">
+        <span class="text-[9px] font-mono text-slate-500 whitespace-nowrap" :title="activeDep.deployedAt">
+          {{ formatTimeAndDate(activeDep.deployedAt) }}
         </span>
         <PipelineAuthorBadge 
           :author="activeDep.author"

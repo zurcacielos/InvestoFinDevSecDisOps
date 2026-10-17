@@ -378,39 +378,7 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
           </button>
         </div>
 
-        <div class="h-4 w-px bg-slate-200 mx-0.5"></div>
-
-        <!-- Scan Depth Selector -->
-        <div class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs text-xs">
-          <span class="text-slate-500 font-medium text-[11px]">Scan:</span>
-          <select 
-            v-model.number="devopsStore.scanDepth"
-            @change="handleFilterChange"
-            class="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none cursor-pointer"
-            title="Number of recent builds scanned per pipeline"
-          >
-            <option :value="15">15 runs</option>
-            <option :value="25">25 runs</option>
-            <option :value="50">50 runs</option>
-            <option :value="100">100 runs</option>
-          </select>
-        </div>
-
-        <!-- Only Succeeded Runs Toggle -->
-        <label 
-          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-300 shadow-2xs text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 select-none transition-colors"
-          title="Only scan successful pipeline runs when resolving deployments"
-        >
-          <input 
-            type="checkbox" 
-            v-model="devopsStore.onlySucceeded" 
-            @change="handleFilterChange"
-            class="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
-          />
-          <span class="text-[11px] font-medium">Only Succeeded (✓)</span>
-        </label>
-
-        <!-- Configure Target Environments (Columns) & Presets Group -->
+        <!-- Configure Target Environments (Columns) & Presets Group (Immediately to the right of View Mode) -->
         <div class="inline-flex items-center p-0.5 bg-slate-200/80 rounded-lg shadow-2xs gap-0.5">
           <!-- Columns Config Modal Button -->
           <button 
@@ -451,6 +419,50 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
             <span v-if="devopsStore.activePreset === 'prod'" class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
             <span>Prod</span>
           </button>
+        </div>
+
+        <!-- Only Succeeded Runs Toggle (Immediately to the right of Columns / Presets) -->
+        <label 
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-300 shadow-2xs text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 select-none transition-colors"
+          title="Only scan successful pipeline runs when resolving deployments"
+        >
+          <input 
+            type="checkbox" 
+            v-model="devopsStore.onlySucceeded" 
+            @change="handleFilterChange"
+            class="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+          />
+          <span class="text-[11px] font-medium">Only Succeeded (✓)</span>
+        </label>
+
+        <!-- Prior Run Comparison Mode Combobox -->
+        <div class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs text-xs">
+          <span class="text-slate-500 font-medium text-[11px]">Prior:</span>
+          <select 
+            v-model="devopsStore.priorRunMode"
+            @change="devopsStore.setPriorRunMode(devopsStore.priorRunMode)"
+            class="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none cursor-pointer"
+            title="Comparison mode for prior run: Distinct Revision (skips reruns of same SHA) vs Show SHA + Build (shows immediate previous run)"
+          >
+            <option value="distinct">Distinct Revision</option>
+            <option value="consecutive">Show SHA + Build</option>
+          </select>
+        </div>
+
+        <!-- Scan Depth Selector -->
+        <div class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs text-xs">
+          <span class="text-slate-500 font-medium text-[11px]">Scan:</span>
+          <select 
+            v-model.number="devopsStore.scanDepth"
+            @change="handleFilterChange"
+            class="bg-transparent text-slate-700 text-xs font-semibold focus:outline-none cursor-pointer"
+            title="Number of recent builds scanned per pipeline"
+          >
+            <option :value="15">15 runs</option>
+            <option :value="25">25 runs</option>
+            <option :value="50">50 runs</option>
+            <option :value="100">100 runs</option>
+          </select>
         </div>
       </div>
 

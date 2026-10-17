@@ -156,6 +156,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
     const savedScanDepth = localStorage.getItem('adoScanDepth') ? parseInt(localStorage.getItem('adoScanDepth')!) : 25;
     const savedOnlySucceeded = localStorage.getItem('adoOnlySucceeded') !== 'false';
     const savedShowRollback = localStorage.getItem('adoShowRollbackTarget') !== 'false';
+    const savedPriorRunMode = (localStorage.getItem('adoPriorRunMode') as 'distinct' | 'consecutive') || 'distinct';
 
     const savedColWidth = localStorage.getItem('adoPipelineColWidth') ? parseInt(localStorage.getItem('adoPipelineColWidth')!) : 260;
 
@@ -266,6 +267,7 @@ export const useDevopsDataStore = defineStore('devopsData', {
       scanDepth: savedScanDepth,
       onlySucceeded: savedOnlySucceeded,
       showRollbackTarget: savedShowRollback,
+      priorRunMode: savedPriorRunMode as 'distinct' | 'consecutive',
       pipelineColumnWidth: savedColWidth || 260,
 
       // Parametrization & Profile Configuration
@@ -1074,6 +1076,12 @@ export const useDevopsDataStore = defineStore('devopsData', {
     setShowRollbackTarget(val: boolean) {
       this.showRollbackTarget = val;
       localStorage.setItem('adoShowRollbackTarget', val.toString());
+    },
+
+    setPriorRunMode(mode: 'distinct' | 'consecutive') {
+      this.priorRunMode = mode;
+      localStorage.setItem('adoPriorRunMode', mode);
+      this.hasPendingChanges = true;
     },
 
     clearLocalPipelinesCache() {

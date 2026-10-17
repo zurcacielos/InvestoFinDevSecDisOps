@@ -4,7 +4,7 @@ import type { EnvironmentDeploymentInfo, PipelineMatrixRow } from '../../../stor
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useDevopsDataStore } from '../../../stores/devopsDataStore';
 import { openUrlInNewTab } from '../../../utils/urlOpener';
-import { formatTimeAgo, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
+import { formatTimeAndDate, getCommitUrl, getPrUrl, getBuildUrl } from '../../../utils/pipelineUrlHelpers';
 import PipelineAuthorBadge from '../PipelineAuthorBadge.vue';
 
 const props = defineProps<{
@@ -88,7 +88,7 @@ const cleanBranch = computed(() => {
       <button 
         v-if="deployment.version"
         @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
-        class="font-mono font-bold text-amber-950 truncate px-1 py-0.2 rounded bg-white/70 border border-amber-200/70 transition-colors"
+        class="font-mono font-bold text-amber-950 whitespace-nowrap px-1 py-0.2 rounded bg-white/70 border border-amber-200/70 transition-colors"
         :class="priorBuildUrl ? 'hover:underline hover:text-amber-800 hover:bg-amber-100 cursor-pointer' : 'cursor-default'"
         :title="priorBuildUrl ? `Open Previous Run #${deployment.buildNumber} in Azure DevOps (Tag: v${deployment.version})` : `Previous Version/Tag: v${deployment.version}`"
       >
@@ -98,7 +98,7 @@ const cleanBranch = computed(() => {
       <!-- Previous Branch Badge -->
       <span 
         v-if="cleanBranch"
-        class="inline-flex items-center gap-0.5 text-[9px] font-mono px-1 py-0.2 rounded bg-white/90 text-amber-900 border border-amber-200/70 max-w-[85px] truncate"
+        class="inline-flex items-center gap-0.5 text-[9px] font-mono px-1 py-0.2 rounded bg-white/90 text-amber-900 border border-amber-200/70 whitespace-nowrap"
         :title="`Previous Branch: ${deployment.branch}`"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-2 w-2 text-amber-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -106,14 +106,14 @@ const cleanBranch = computed(() => {
           <circle cx="6" cy="18" r="3"></circle>
           <path d="M18 9a9 9 0 0 1-9 9"></path>
         </svg>
-        <span class="truncate">{{ cleanBranch }}</span>
+        <span class="whitespace-nowrap">{{ cleanBranch }}</span>
       </span>
 
       <!-- Previous Commit Link -->
       <button 
         v-if="deployment.commitSha"
         @click.stop="commitUrl ? openUrlInNewTab(commitUrl) : null"
-        class="font-mono text-[9px] px-1 py-0.2 rounded bg-white/90 text-indigo-700 hover:underline border border-amber-200/60"
+        class="font-mono text-[9px] px-1 py-0.2 rounded bg-white/90 text-indigo-700 hover:underline border border-amber-200/60 whitespace-nowrap"
         :title="`Previous Commit: ${deployment.commitSha}`"
       >
         {{ deployment.commitSha.substring(0, 7) }}
@@ -123,7 +123,7 @@ const cleanBranch = computed(() => {
       <button 
         v-if="deployment.prNumber"
         @click.stop="prUrl ? openUrlInNewTab(prUrl) : null"
-        class="text-[9px] font-semibold px-1 py-0.2 rounded bg-violet-100/90 text-violet-800 hover:underline border border-violet-200/50"
+        class="text-[9px] font-semibold px-1 py-0.2 rounded bg-violet-100/90 text-violet-800 hover:underline border border-violet-200/50 whitespace-nowrap"
         :title="`Previous PR #${deployment.prNumber}`"
       >
         PR #{{ deployment.prNumber }}
@@ -131,12 +131,12 @@ const cleanBranch = computed(() => {
     </div>
 
     <!-- Right: Elapsed time with full date on hover & Author avatar -->
-    <div class="flex items-center gap-1.5 shrink-0 text-slate-500">
+    <div class="flex items-center gap-1.5 shrink-0 text-slate-500 whitespace-nowrap">
       <span 
         :title="formattedFullDate" 
-        class="text-[9px] font-mono text-amber-800/80"
+        class="text-[9px] font-mono text-amber-800/80 whitespace-nowrap"
       >
-        {{ formatTimeAgo(deployment.deployedAt) }}
+        {{ formatTimeAndDate(deployment.deployedAt) }}
       </span>
 
       <!-- Compact Author Badge -->
