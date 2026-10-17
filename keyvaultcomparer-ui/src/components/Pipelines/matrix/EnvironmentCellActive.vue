@@ -128,7 +128,7 @@ const lagStatus = computed(() => {
     class="flex flex-col w-full text-xs select-none divide-y divide-slate-100 min-w-max bg-white"
   >
     <!-- Row 1: Strict Active Version / Tag & Run Link -->
-    <div class="h-7 px-3 flex items-center justify-between gap-2 bg-slate-50/60 whitespace-nowrap">
+    <div class="h-7 px-3 flex items-center justify-between gap-2 bg-white whitespace-nowrap">
       <div class="flex items-center gap-1.5 whitespace-nowrap">
         <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
         <button 
@@ -225,7 +225,7 @@ const lagStatus = computed(() => {
     </div>
 
     <!-- Row 5: Upstream Status -->
-    <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-slate-50/50 whitespace-nowrap">
+    <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-white whitespace-nowrap">
       <div v-if="lagStatus" class="flex items-center gap-1 font-medium whitespace-nowrap">
         <span 
           class="w-1.5 h-1.5 rounded-full" 

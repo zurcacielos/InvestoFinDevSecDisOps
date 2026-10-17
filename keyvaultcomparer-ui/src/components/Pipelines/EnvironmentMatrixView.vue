@@ -227,7 +227,7 @@ onUnmounted(() => {
                 <template v-if="getDeploymentsForEnv(row, env).length > 0">
                   <!-- Prior Column Cell -->
                   <td 
-                    class="border-r border-slate-200 select-none align-top p-0 bg-amber-50/20 whitespace-nowrap min-w-max"
+                    class="border-r border-slate-200 select-none align-top p-0 bg-amber-50/40 whitespace-nowrap min-w-max"
                     :class="rowIdx > 0 ? 'pt-1' : ''"
                   >
                     <EnvironmentCellPrior 

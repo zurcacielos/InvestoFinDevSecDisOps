@@ -178,10 +178,10 @@ const lagStatus = computed(() => {
   <div 
     v-if="activeDep"
     @contextmenu.stop="emit('open-context-menu', $event, row, activeDep, env)"
-    class="flex flex-col w-full text-xs select-none divide-y divide-slate-100 min-w-max"
+    class="flex flex-col w-full text-xs select-none divide-y divide-slate-100 min-w-max bg-white"
   >
     <!-- Row 1: Strict Version / Tag & Run Link (Never Truncate) -->
-    <div class="h-7 px-3 flex items-center justify-between gap-2 bg-slate-50/60 whitespace-nowrap">
+    <div class="h-7 px-3 flex items-center justify-between gap-2 bg-white whitespace-nowrap">
       <div class="flex items-center gap-1.5 whitespace-nowrap">
         <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
         <span 
@@ -275,7 +275,7 @@ const lagStatus = computed(() => {
     </div>
 
     <!-- Row 5: Upstream Status -->
-    <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-slate-50/50 whitespace-nowrap">
+    <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-white whitespace-nowrap">
       <div v-if="lagStatus" class="flex items-center gap-1 font-medium whitespace-nowrap">
         <span 
           class="w-1.5 h-1.5 rounded-full" 
@@ -294,7 +294,7 @@ const lagStatus = computed(() => {
     <!-- Row 6: Prior Release Tag (same font size as active) -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-7 px-3 flex items-center justify-between gap-2 border-t border-amber-200/60 bg-amber-50/40 whitespace-nowrap"
+      class="h-7 px-3 flex items-center justify-between gap-2 border-t border-slate-200 bg-amber-50/40 whitespace-nowrap"
     >
       <template v-if="priorDep">
         <div class="flex items-center gap-1.5 whitespace-nowrap">
@@ -361,7 +361,7 @@ const lagStatus = computed(() => {
     <!-- Row 7: Prior Deployed Date (directly below release of prior) -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-6 px-3 flex items-center justify-between gap-2 text-[10px] text-slate-500 bg-amber-50/20 whitespace-nowrap"
+      class="h-6 px-3 flex items-center justify-between gap-2 text-[10px] text-slate-500 bg-amber-50/40 whitespace-nowrap"
     >
       <template v-if="priorDep">
         <span 
@@ -405,7 +405,7 @@ const lagStatus = computed(() => {
     <!-- Row 8: Prior Branch & SHA/PR -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-6 px-3 flex items-center justify-between gap-1 text-[10px] whitespace-nowrap text-slate-700 bg-amber-50/20"
+      class="h-6 px-3 flex items-center justify-between gap-1 text-[10px] whitespace-nowrap text-slate-700 bg-amber-50/40"
     >
       <div v-if="priorDep" class="flex items-center gap-1 min-w-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
