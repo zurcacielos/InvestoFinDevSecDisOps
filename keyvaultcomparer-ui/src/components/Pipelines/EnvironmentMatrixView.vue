@@ -231,13 +231,13 @@ onUnmounted(() => {
     <!-- Scrollable Matrix Table -->
     <div class="flex-1 overflow-auto">
       <table class="w-full text-left border-collapse table-auto">
-        <thead class="sticky top-0 z-10 shadow-xs">
+        <thead class="sticky top-0 z-10 shadow-[0_1px_0_0_#e2e8f0]">
           <!-- Row 1: Pinned Pipeline Column & Environment Headers -->
-          <tr class="bg-slate-100/95 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs">
             <!-- Pinned Pipeline & Repository Combined Header -->
             <th 
               :rowspan="devopsStore.matrixLayoutMode === 'columns' ? 2 : 1"
-              class="px-3.5 py-2.5 font-bold bg-slate-100 border-r border-slate-200 sticky left-0 z-30 shadow-[2px_0_4px_rgba(0,0,0,0.03)] select-none relative align-middle"
+              class="px-3 py-1.5 font-semibold text-slate-700 bg-slate-50 border-r border-slate-200 sticky left-0 z-30 shadow-[1px_0_0_0_#e2e8f0] select-none relative align-middle uppercase tracking-wider"
               :style="{ width: `${devopsStore.pipelineColumnWidth}px`, minWidth: `${devopsStore.pipelineColumnWidth}px`, maxWidth: `${devopsStore.pipelineColumnWidth}px` }"
             >
               <span>Service / Pipeline</span>
@@ -254,7 +254,7 @@ onUnmounted(() => {
               v-for="env in environments" 
               :key="env"
               :colspan="devopsStore.matrixLayoutMode === 'columns' ? 2 : 1"
-              class="px-3 py-2 font-bold bg-slate-100 border-r border-slate-200 text-center cursor-context-menu select-none hover:bg-slate-200/70 transition-colors"
+              class="px-3 py-1.5 font-semibold text-slate-700 bg-slate-50 border-r border-slate-200 text-center cursor-context-menu select-none hover:bg-slate-100 transition-colors uppercase tracking-wider text-xs"
               :class="[
                 devopsStore.matrixLayoutMode === 'columns' 
                   ? 'whitespace-nowrap' 
@@ -265,41 +265,30 @@ onUnmounted(() => {
               @contextmenu.prevent="openHeaderContextMenu($event, env)"
               :title="`Right-click to configure column options for ${env}`"
             >
-              <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white border border-slate-200 shadow-2xs text-slate-800 font-mono font-bold text-xs uppercase">
-                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                {{ env }}
-              </div>
+              {{ env }}
             </th>
 
             <!-- Spacer column to absorb extra horizontal space when only a few columns are visible -->
             <th 
               :rowspan="devopsStore.matrixLayoutMode === 'columns' ? 2 : 1"
-              class="bg-slate-100/90 border-b border-slate-200 w-full min-w-0 p-0"
+              class="bg-slate-50 border-b border-slate-200 w-full min-w-0 p-0"
             ></th>
           </tr>
 
           <!-- Row 2: Sub-headers for Prior/Active mode -->
           <tr 
             v-if="devopsStore.matrixLayoutMode === 'columns'"
-            class="bg-slate-100 border-b border-slate-200 text-[10px] uppercase tracking-wider"
+            class="bg-slate-50/90 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500"
           >
             <template v-for="env in environments" :key="`sub-${env}`">
               <!-- Prior Sub-header -->
-              <th class="px-3 py-1 font-bold text-center text-amber-900 bg-amber-50/70 border-r border-slate-200 whitespace-nowrap min-w-max">
-                <div class="flex items-center justify-center gap-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                  </svg>
-                  <span>Prior</span>
-                </div>
+              <th class="px-2 py-1 font-medium text-center text-slate-500 border-r border-slate-200 whitespace-nowrap min-w-max">
+                Prior
               </th>
 
               <!-- Active Sub-header -->
-              <th class="px-3 py-1 font-bold text-center text-slate-800 bg-white border-r border-slate-200 whitespace-nowrap min-w-max">
-                <div class="flex items-center justify-center gap-1">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                  <span>Active</span>
-                </div>
+              <th class="px-2 py-1 font-medium text-center text-slate-600 border-r border-slate-200 whitespace-nowrap min-w-max">
+                Active
               </th>
             </template>
           </tr>
@@ -348,7 +337,7 @@ onUnmounted(() => {
                 <template v-if="getDeploymentsForEnv(row, env).length > 0">
                   <!-- Prior Column Cell -->
                   <td 
-                    class="border-r border-slate-200 select-none align-top p-0 bg-amber-50/20 whitespace-nowrap min-w-max"
+                    class="border-r border-slate-200 select-none align-top p-0 bg-white whitespace-nowrap min-w-max"
                     :class="rowIdx > 0 ? 'pt-1' : ''"
                   >
                     <EnvironmentCellPrior 

@@ -129,14 +129,14 @@ const formattedFullDate = computed(() => {
   <div 
     v-if="priorDep"
     @contextmenu.stop="emit('open-context-menu', $event, row, priorDep, env)"
-    class="flex flex-col w-full text-xs select-none divide-y divide-amber-100 min-w-max bg-amber-50/20"
+    class="flex flex-col w-full text-xs select-none divide-y divide-slate-100 min-w-max bg-white"
   >
     <!-- Row 1: Strict Prior Version / Tag & Run Link -->
-    <div class="h-7 px-3 flex items-center justify-between gap-2 bg-amber-50/60 whitespace-nowrap">
+    <div class="h-7 px-3 flex items-center justify-between gap-2 bg-slate-50/60 whitespace-nowrap">
       <div class="flex items-center gap-1.5 whitespace-nowrap">
         <svg 
           xmlns="http://www.w3.org/2000/svg" 
-          class="h-3 w-3 text-amber-600 shrink-0" 
+          class="h-3 w-3 text-slate-400 shrink-0" 
           fill="none" 
           viewBox="0 0 24 24" 
           stroke="currentColor"
@@ -144,28 +144,30 @@ const formattedFullDate = computed(() => {
         >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
         </svg>
-        <span 
+        <button 
           v-if="priorDep.version"
-          class="font-mono font-bold text-xs text-amber-950 whitespace-nowrap"
-          :title="`Previous Version/Tag: ${priorDep.version}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
+          @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
+          class="font-mono font-bold text-xs text-slate-800 whitespace-nowrap transition-colors"
+          :class="priorBuildUrl ? 'hover:underline hover:text-blue-600 cursor-pointer' : 'cursor-default'"
+          :title="priorBuildUrl ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (v${priorDep.version})${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}` : `Previous Version/Tag: ${priorDep.version}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
         >
           v{{ priorDep.version }}
-        </span>
-        <span 
+        </button>
+        <button 
           v-else-if="priorDep.commitSha"
-          class="font-mono font-bold text-xs text-slate-700 whitespace-nowrap"
+          @click.stop="commitUrl ? openUrlInNewTab(commitUrl) : null"
+          class="font-mono font-bold text-xs text-slate-800 whitespace-nowrap hover:underline hover:text-blue-600 cursor-pointer"
           :title="`Previous Commit: ${priorDep.commitSha}${priorDep.scanPosition ? ` · Scanned Run #${priorDep.scanPosition}` : ''}`"
         >
           {{ priorDep.commitSha.substring(0, 7) }}
-        </span>
-        <span v-if="priorDep.buildNumber" class="text-amber-800/80 font-mono text-[9px]">#{{ priorDep.buildNumber }}</span>
+        </button>
       </div>
 
       <!-- Open Prior Run in Azure DevOps (External Link Icon) -->
       <button 
         v-if="priorBuildUrl"
         @click.stop="openUrlInNewTab(priorBuildUrl)"
-        class="p-0.5 rounded text-amber-700 hover:text-amber-900 hover:bg-amber-100/60 transition-colors shrink-0 cursor-pointer flex items-center justify-center"
+        class="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors shrink-0 cursor-pointer flex items-center justify-center"
         :title="priorDep.scanPosition ? `Open Previous Run #${priorDep.buildNumber} in Azure DevOps (Scanned build position: #${priorDep.scanPosition})` : `Open Previous Run #${priorDep.buildNumber} in Azure DevOps`"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -183,18 +185,25 @@ const formattedFullDate = computed(() => {
         <button 
           v-if="priorDep.commitSha"
           @click.stop="commitUrl ? openUrlInNewTab(commitUrl) : null"
-          class="font-mono text-indigo-700 hover:underline whitespace-nowrap"
+          class="font-mono text-slate-700 hover:text-blue-600 hover:underline whitespace-nowrap"
           :title="`Previous Commit: ${priorDep.commitSha}`"
         >
           {{ priorDep.commitSha.substring(0, 7) }}
         </button>
-        <span v-else class="text-slate-300">-</span>
+        <span 
+          v-if="priorDep.buildNumber && isSameRevision"
+          class="text-slate-400 font-mono text-[9px] whitespace-nowrap"
+          title="Build number"
+        >
+          (build #{{ priorDep.buildNumber }})
+        </span>
+        <span v-else-if="!priorDep.commitSha" class="text-slate-300">-</span>
       </div>
 
       <button 
         v-if="priorDep.prNumber"
         @click.stop="prUrl ? openUrlInNewTab(prUrl) : null"
-        class="font-semibold text-violet-700 hover:underline shrink-0 text-[9px]"
+        class="font-semibold text-slate-600 hover:text-blue-600 hover:underline shrink-0 text-[9px]"
         :title="`Previous Pull Request #${priorDep.prNumber}`"
       >
         PR #{{ priorDep.prNumber }}
@@ -202,8 +211,8 @@ const formattedFullDate = computed(() => {
     </div>
 
     <!-- Row 3: Strict Prior Branch -->
-    <div class="h-6 px-3 flex items-center gap-1 text-[10px] text-amber-950 whitespace-nowrap">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-amber-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <div class="h-6 px-3 flex items-center gap-1 text-[10px] text-slate-700 whitespace-nowrap">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="18" cy="6" r="3"></circle>
         <circle cx="6" cy="18" r="3"></circle>
         <path d="M18 9a9 9 0 0 1-9 9"></path>
@@ -214,7 +223,7 @@ const formattedFullDate = computed(() => {
     </div>
 
     <!-- Row 4: Strict Prior Date / Time & Author (e.g. 9d ago · Jun 14, 2026) -->
-    <div class="h-6 px-3 flex items-center justify-between gap-2 text-[10px] text-amber-800/80 whitespace-nowrap">
+    <div class="h-6 px-3 flex items-center justify-between gap-2 text-[10px] text-slate-500 whitespace-nowrap">
       <span :title="formattedFullDate" class="text-[9px] font-mono whitespace-nowrap">
         {{ formatTimeAndDate(priorDep.deployedAt) }}
       </span>
@@ -228,13 +237,10 @@ const formattedFullDate = computed(() => {
       />
     </div>
 
-    <!-- Row 5: Prior Baseline / same SHA badge -->
-    <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-amber-100/30 whitespace-nowrap">
-      <div v-if="devopsStore.priorRunMode === 'consecutive' && isSameRevision" class="flex items-center gap-1">
-        <span class="px-1 py-0.2 text-[8px] rounded bg-amber-100 text-amber-800 font-semibold border border-amber-200">same SHA</span>
-      </div>
-      <div v-else class="flex items-center gap-1 text-amber-800/80 font-medium text-[9px]">
-        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+    <!-- Row 5: Prior Baseline Line -->
+    <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-slate-50/50 whitespace-nowrap text-slate-500">
+      <div class="flex items-center gap-1 font-medium">
+        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
         <span>Prior return point</span>
       </div>
     </div>
@@ -250,7 +256,7 @@ const formattedFullDate = computed(() => {
   >
     <!-- Row 1: Header / Label -->
     <div class="h-7 px-3 flex items-center justify-center gap-1.5 text-slate-400 text-[10px] bg-slate-50/40 whitespace-nowrap">
-      <span class="text-amber-500 font-bold font-mono text-xs select-none">&mdash;</span>
+      <span class="text-slate-400 font-bold font-mono text-xs select-none">&mdash;</span>
       <span class="font-medium text-slate-500">
         {{ devopsStore.priorRunMode === 'distinct' ? 'No prior revision' : 'No prior run' }}
       </span>
