@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useFilterStore } from '../stores/filterStore'
 
 const props = defineProps<{
@@ -15,6 +16,13 @@ const setTab = (tab: 'select' | 'analyze' | 'inspections-tool' | 'staged' | 'log
 }
 
 const filterStore = useFilterStore()
+
+const isRibbonCollapsed = ref(localStorage.getItem('kvcRibbonCollapsed') === 'true')
+
+const toggleRibbonCollapse = () => {
+  isRibbonCollapsed.value = !isRibbonCollapsed.value
+  localStorage.setItem('kvcRibbonCollapsed', String(isRibbonCollapsed.value))
+}
 </script>
 
 <template>
@@ -22,14 +30,23 @@ const filterStore = useFilterStore()
     <!-- Ribbon Tabs and Header -->
     <div class="flex items-center justify-between px-2 pt-1 bg-slate-50 border-b border-slate-200">
       
-      <div class="flex items-center gap-6">
-        <!-- Logo -->
-        <div class="flex items-center gap-2 font-bold text-slate-800 tracking-tight shrink-0 pb-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+      <div class="flex items-center gap-4">
+        <!-- Collapse / Show Ribbon Button (replaces logo) -->
+        <button 
+          @click="toggleRibbonCollapse"
+          class="p-1 rounded-md text-slate-500 hover:text-blue-600 hover:bg-slate-200/70 transition-colors shrink-0 mb-1 cursor-pointer flex items-center justify-center"
+          :title="isRibbonCollapsed ? 'Show ribbon' : 'Collapse ribbon'"
+          :aria-label="isRibbonCollapsed ? 'Show ribbon' : 'Collapse ribbon'"
+        >
+          <!-- Double Chevron Up (when expanded, clicking collapses) -->
+          <svg v-if="!isRibbonCollapsed" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 11l7-7 7 7M5 19l7-7 7 7" />
           </svg>
-          <!-- <span class="hidden sm:inline-block">KV Comparer</span> -->
-        </div>
+          <!-- Double Chevron Down (when collapsed, clicking shows) -->
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 13l-7 7-7-7m14-8l-7 7-7-7" />
+          </svg>
+        </button>
 
         <!-- Tabs -->
         <div class="flex gap-1">
@@ -117,7 +134,7 @@ const filterStore = useFilterStore()
     </div>
 
     <!-- Ribbon Content -->
-    <div v-show="modelValue !== 'logs'" class="px-3 py-2 bg-white rounded-b-xl min-h-[100px]">
+    <div v-show="!isRibbonCollapsed && modelValue !== 'logs'" class="px-3 py-2 bg-white rounded-b-xl min-h-[100px]">
       <div v-show="modelValue === 'select'">
         <slot name="select-vaults"></slot>
       </div>
