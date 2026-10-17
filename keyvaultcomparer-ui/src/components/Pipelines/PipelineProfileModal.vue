@@ -114,7 +114,7 @@ const closeModal = () => {
                 @click="applyPreset('standard')"
                 class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 border border-slate-200 transition-colors"
               >
-                Standard
+                Default
               </button>
               <button 
                 @click="applyPreset('simple')"

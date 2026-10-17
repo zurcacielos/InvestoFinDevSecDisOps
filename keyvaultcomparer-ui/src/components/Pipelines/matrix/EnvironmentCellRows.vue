@@ -156,7 +156,7 @@ const lagStatus = computed(() => {
     class="flex flex-col w-full text-xs select-none divide-y divide-slate-100"
   >
     <!-- Row 1: Strict Version / Tag & Run Link -->
-    <div class="h-7 px-3 flex items-center justify-between gap-1 bg-slate-50/60">
+    <div class="h-7 px-3 flex items-center justify-between gap-1 bg-slate-50/60 whitespace-nowrap">
       <div class="flex items-center gap-1.5 min-w-0">
         <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
         <span 
@@ -191,7 +191,7 @@ const lagStatus = computed(() => {
     </div>
 
     <!-- Row 2: Strict Commit SHA & PR -->
-    <div class="h-6 px-3 flex items-center justify-between gap-1 text-[10px]">
+    <div class="h-6 px-3 flex items-center justify-between gap-1 text-[10px] whitespace-nowrap">
       <div class="flex items-center gap-1 min-w-0">
         <span class="text-slate-400 font-mono text-[9px]">SHA:</span>
         <button 
@@ -216,7 +216,7 @@ const lagStatus = computed(() => {
     </div>
 
     <!-- Row 3: Strict Branch -->
-    <div class="h-6 px-3 flex items-center gap-1 text-[10px] text-slate-700 min-w-0">
+    <div class="h-6 px-3 flex items-center gap-1 text-[10px] text-slate-700 min-w-0 whitespace-nowrap">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="18" cy="6" r="3"></circle>
         <circle cx="6" cy="18" r="3"></circle>
@@ -228,7 +228,7 @@ const lagStatus = computed(() => {
     </div>
 
     <!-- Row 4: Strict Date / Time & Author -->
-    <div class="h-6 px-3 flex items-center justify-between gap-1 text-[10px] text-slate-500">
+    <div class="h-6 px-3 flex items-center justify-between gap-1 text-[10px] text-slate-500 whitespace-nowrap">
       <span :title="formattedFullDate" class="text-[9px] font-mono truncate">
         {{ formatTimeAgo(activeDep.deployedAt) }}
       </span>
@@ -243,7 +243,7 @@ const lagStatus = computed(() => {
     </div>
 
     <!-- Row 5: Upstream Status -->
-    <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-slate-50/50">
+    <div class="h-5 px-3 flex items-center justify-between text-[9px] bg-slate-50/50 whitespace-nowrap">
       <div v-if="lagStatus" class="flex items-center gap-1 font-medium">
         <span 
           class="w-1.5 h-1.5 rounded-full" 
@@ -262,7 +262,7 @@ const lagStatus = computed(() => {
     <!-- Row 6: Prior Release Tag & Date (when enabled) -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-6 px-3 flex items-center justify-between gap-1 text-[9px] border-t border-slate-100"
+      class="h-6 px-3 flex items-center justify-between gap-1 text-[9px] border-t border-slate-100 whitespace-nowrap"
       :class="priorDep 
         ? 'bg-amber-50/60 text-amber-900' 
         : 'bg-white text-slate-400'"
@@ -341,7 +341,7 @@ const lagStatus = computed(() => {
     <!-- Row 7: Prior Deployed Branch (when enabled) -->
     <div 
       v-if="devopsStore.showRollbackTarget"
-      class="h-6 px-3 flex items-center justify-between gap-1 text-[9px] border-t border-slate-100"
+      class="h-6 px-3 flex items-center justify-between gap-1 text-[9px] border-t border-slate-100 whitespace-nowrap"
       :class="priorDep 
         ? 'bg-amber-50/40 text-amber-900' 
         : 'bg-white text-slate-300'"

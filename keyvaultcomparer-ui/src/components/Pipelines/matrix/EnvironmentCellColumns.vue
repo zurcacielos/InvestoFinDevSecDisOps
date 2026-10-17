@@ -135,7 +135,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       </div>
 
       <!-- Prior Version / Tag & Branch -->
-      <div class="flex items-center gap-1 min-w-0 py-0.5 flex-wrap">
+      <div class="flex items-center gap-1 min-w-0 py-0.5 whitespace-nowrap">
         <button 
           v-if="priorDep.version"
           @click.stop="priorBuildUrl ? openUrlInNewTab(priorBuildUrl) : null"
@@ -169,7 +169,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       </div>
 
       <!-- Prior Commit & PR -->
-      <div class="flex items-center gap-1 text-[10px] flex-wrap">
+      <div class="flex items-center gap-1 text-[10px] whitespace-nowrap">
         <button 
           v-if="priorDep.commitSha"
           @click.stop="getCommitLink(priorDep) ? openUrlInNewTab(getCommitLink(priorDep)!) : null"
@@ -189,7 +189,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       </div>
 
       <!-- Prior Time & Author -->
-      <div class="flex items-center justify-between text-[10px] text-slate-400 mt-auto pt-1 border-t border-amber-200/50">
+      <div class="flex items-center justify-between text-[10px] text-slate-400 mt-auto pt-1 border-t border-amber-200/50 whitespace-nowrap">
         <span class="text-[9px] font-mono text-amber-800/80" :title="priorDep.deployedAt">
           {{ formatTimeAgo(priorDep.deployedAt) }}
         </span>
@@ -247,7 +247,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       class="flex-1 p-2 flex flex-col gap-1 min-w-0 bg-white"
     >
       <!-- Sub-header: Current Status & Run -->
-      <div class="flex items-center justify-between gap-1.5 text-[10px] pb-1 border-b border-slate-100 min-w-0">
+      <div class="flex items-center justify-between gap-1.5 text-[10px] pb-1 border-b border-slate-100 min-w-0 whitespace-nowrap">
         <div class="flex items-center gap-1 shrink-0">
           <DeploymentStatusIndicator :status="activeDep.status" :scan-position="activeDep.scanPosition" />
           <span class="font-bold text-slate-800 text-[10px] shrink-0">Active</span>
@@ -267,7 +267,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       </div>
 
       <!-- Version / Tag Anchor -->
-      <div class="flex items-center gap-1 min-w-0 py-0.5">
+      <div class="flex items-center gap-1 min-w-0 py-0.5 whitespace-nowrap">
         <span 
           v-if="activeDep.version"
           class="font-mono font-bold text-xs text-violet-700 bg-violet-50 px-1.5 py-0.2 rounded border border-violet-200 truncate"
@@ -285,7 +285,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       </div>
 
       <!-- Commit & Branch -->
-      <div class="flex items-center gap-1 text-[10px] flex-wrap">
+      <div class="flex items-center gap-1 text-[10px] whitespace-nowrap">
         <button 
           v-if="activeDep.commitSha"
           @click.stop="getCommitLink(activeDep) ? openUrlInNewTab(getCommitLink(activeDep)!) : null"
@@ -309,7 +309,7 @@ const getCleanBranch = (dep: EnvironmentDeploymentInfo | null) => {
       </div>
 
       <!-- Time & Author -->
-      <div class="flex items-center justify-between text-[10px] text-slate-400 mt-auto pt-1 border-t border-slate-100">
+      <div class="flex items-center justify-between text-[10px] text-slate-400 mt-auto pt-1 border-t border-slate-100 whitespace-nowrap">
         <span class="text-[9px] font-mono text-slate-500" :title="activeDep.deployedAt">
           {{ formatTimeAgo(activeDep.deployedAt) }}
         </span>

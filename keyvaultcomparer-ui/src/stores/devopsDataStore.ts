@@ -1114,6 +1114,24 @@ export const useDevopsDataStore = defineStore('devopsData', {
       localStorage.setItem('adoPipelineColWidth', width.toString());
     },
 
+    applyEnvironmentPreset(preset: 'default' | 'standard' | 'prod' | 'simple' | 'extended') {
+      let envs: string[] = [];
+      if (preset === 'default' || preset === 'standard') {
+        envs = ['dev', 'uat', 'uat1', 'uat2', 'stg', 'stg1', 'prd', 'prd1'];
+      } else if (preset === 'prod') {
+        envs = ['prd', 'prd1'];
+      } else if (preset === 'simple') {
+        envs = ['dev', 'test', 'staging', 'prod'];
+      } else if (preset === 'extended') {
+        envs = ['dev', 'qa', 'uat', 'uat1', 'uat2', 'stg', 'preprod', 'prd'];
+      }
+      this.updateProfileConfig({
+        environmentParameterName: this.profileConfig.environmentParameterName || localStorage.getItem('adoEnvParamName') || 'Environment',
+        operationParameterName: this.profileConfig.operationParameterName || localStorage.getItem('adoOpParamName') || 'Operation',
+        environments: envs
+      });
+    },
+
     cleanPipelineName(name: string, repositoryName?: string): string {
       if (!name) return '';
       let cleaned = name.trim();
@@ -1244,6 +1262,18 @@ export const useDevopsDataStore = defineStore('devopsData', {
           return null;
         })
         .filter((p): p is PipelineSummary => !!p);
+    },
+    activePreset: (state): 'default' | 'prod' | 'simple' | 'extended' | null => {
+      const current = (state.profileConfig?.environments || []).map(e => e.toLowerCase());
+      const isMatch = (target: string[]) => {
+        if (current.length !== target.length) return false;
+        return target.every((t, i) => current[i] === t);
+      };
+      if (isMatch(['dev', 'uat', 'uat1', 'uat2', 'stg', 'stg1', 'prd', 'prd1'])) return 'default';
+      if (isMatch(['prd', 'prd1'])) return 'prod';
+      if (isMatch(['dev', 'test', 'staging', 'prod'])) return 'simple';
+      if (isMatch(['dev', 'qa', 'uat', 'uat1', 'uat2', 'stg', 'preprod', 'prd'])) return 'extended';
+      return null;
     }
   }
 });

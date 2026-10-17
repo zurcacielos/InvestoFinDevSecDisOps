@@ -410,17 +410,48 @@ const triggerCopyYaml = async (pipelineId: number, pipelineName: string) => {
           <span class="text-[11px] font-medium">Only Succeeded (✓)</span>
         </label>
 
-        <!-- Configure Target Environments (Columns) -->
-        <button 
-          @click="devopsStore.setProfileModalOpen(true)"
-          class="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
-          title="Configure target environment columns order and presets"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
-          </svg>
-          <span class="text-[11px]">Columns</span>
-        </button>
+        <!-- Configure Target Environments (Columns) & Presets Group -->
+        <div class="inline-flex items-center p-0.5 bg-slate-200/80 rounded-lg shadow-2xs gap-0.5">
+          <!-- Columns Config Modal Button -->
+          <button 
+            @click="devopsStore.setProfileModalOpen(true)"
+            class="px-2 py-0.5 rounded-md text-[11px] font-medium text-slate-700 hover:text-slate-900 hover:bg-white/80 transition-all flex items-center gap-1.5 cursor-pointer"
+            title="Configure target environment columns order and presets"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+            <span>Columns</span>
+          </button>
+
+          <div class="h-3.5 w-px bg-slate-300 mx-0.5"></div>
+
+          <!-- Preset: Default -->
+          <button 
+            @click="devopsStore.applyEnvironmentPreset('default')"
+            class="px-2 py-0.5 rounded-md text-[11px] transition-all flex items-center gap-1 cursor-pointer"
+            :class="devopsStore.activePreset === 'default'
+              ? 'bg-white text-blue-700 font-bold shadow-xs' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-medium'"
+            title="Preset Default: dev, uat, uat1, uat2, stg, stg1, prd, prd1"
+          >
+            <span v-if="devopsStore.activePreset === 'default'" class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+            <span>Default</span>
+          </button>
+
+          <!-- Preset: Prod -->
+          <button 
+            @click="devopsStore.applyEnvironmentPreset('prod')"
+            class="px-2 py-0.5 rounded-md text-[11px] transition-all flex items-center gap-1 cursor-pointer"
+            :class="devopsStore.activePreset === 'prod'
+              ? 'bg-white text-amber-700 font-bold shadow-xs' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-medium'"
+            title="Preset Prod: prd, prd1"
+          >
+            <span v-if="devopsStore.activePreset === 'prod'" class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            <span>Prod</span>
+          </button>
+        </div>
       </div>
 
       <!-- Right: Refresh Matrix Button (aligned vertically under Clear Cache) -->

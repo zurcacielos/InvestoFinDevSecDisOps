@@ -250,7 +250,13 @@ onUnmounted(() => {
               v-for="env in environments" 
               :key="env"
               class="px-3 py-2 font-bold bg-slate-100 border-r border-slate-200 text-center cursor-context-menu select-none hover:bg-slate-200/70 transition-colors"
-              :class="devopsStore.matrixLayoutMode === 'columns' ? 'min-w-[270px]' : 'min-w-[210px]'"
+              :class="[
+                devopsStore.matrixLayoutMode === 'columns' 
+                  ? 'w-[300px] min-w-[280px] max-w-[340px]' 
+                  : devopsStore.matrixLayoutMode === 'rows'
+                    ? 'w-[230px] min-w-[210px] max-w-[260px]'
+                    : 'w-[250px] min-w-[230px] max-w-[280px]'
+              ]"
               @contextmenu.prevent="openHeaderContextMenu($event, env)"
               :title="`Right-click to configure column options for ${env}`"
             >
@@ -259,13 +265,16 @@ onUnmounted(() => {
                 {{ env }}
               </div>
             </th>
+
+            <!-- Spacer column to absorb extra horizontal space when only a few columns are visible -->
+            <th class="bg-slate-100/90 border-b border-slate-200 w-full min-w-0 p-0"></th>
           </tr>
         </thead>
 
         <tbody class="divide-y divide-slate-200 text-xs">
           <!-- Fallback when all environments are hidden -->
           <tr v-if="environments.length === 0">
-            <td :colspan="2" class="p-8 text-center bg-slate-50 text-slate-500">
+            <td :colspan="100" class="p-8 text-center bg-slate-50 text-slate-500">
               <div class="flex flex-col items-center justify-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
@@ -305,7 +314,11 @@ onUnmounted(() => {
               :class="[
                 devopsStore.matrixLayoutMode === 'rows' ? 'p-0' : 'px-2.5 py-2',
                 getDeploymentsForEnv(row, env).length ? 'bg-white' : 'bg-slate-50/40',
-                devopsStore.matrixLayoutMode === 'columns' ? 'min-w-[270px]' : 'min-w-[210px]'
+                devopsStore.matrixLayoutMode === 'columns' 
+                  ? 'w-[300px] min-w-[280px] max-w-[340px]' 
+                  : devopsStore.matrixLayoutMode === 'rows'
+                    ? 'w-[230px] min-w-[210px] max-w-[260px]'
+                    : 'w-[250px] min-w-[230px] max-w-[280px]'
               ]"
             >
               <!-- Cards Mode -->
@@ -338,6 +351,9 @@ onUnmounted(() => {
                 @open-context-menu="(e, r, c, envName) => emit('open-context-menu', e, r, c, envName)"
               />
             </td>
+
+            <!-- Spacer cell to absorb remaining width -->
+            <td class="bg-slate-50/20 border-b border-slate-200 p-0"></td>
           </tr>
         </tbody>
       </table>
