@@ -5,7 +5,9 @@ import type { PipelineMatrixRow, EnvironmentDeploymentInfo } from '../../stores/
 import PipelineServiceColumn from './matrix/PipelineServiceColumn.vue';
 import EnvironmentCellCards from './matrix/EnvironmentCellCards.vue';
 import EnvironmentCellRows from './matrix/EnvironmentCellRows.vue';
-import EnvironmentCellColumns from './matrix/EnvironmentCellColumns.vue';
+import EnvironmentCellPrior from './matrix/EnvironmentCellPrior.vue';
+import EnvironmentCellActive from './matrix/EnvironmentCellActive.vue';
+import EmptyEnvironmentCell from './matrix/EmptyEnvironmentCell.vue';
 
 const devopsStore = useDevopsDataStore();
 
@@ -229,11 +231,13 @@ onUnmounted(() => {
     <!-- Scrollable Matrix Table -->
     <div class="flex-1 overflow-auto">
       <table class="w-full text-left border-collapse table-auto">
-        <thead>
-          <tr class="bg-slate-100/90 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider sticky top-0 shadow-xs z-10">
+        <thead class="sticky top-0 z-10 shadow-xs">
+          <!-- Row 1: Pinned Pipeline Column & Environment Headers -->
+          <tr class="bg-slate-100/95 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
             <!-- Pinned Pipeline & Repository Combined Header -->
             <th 
-              class="px-3.5 py-2.5 font-bold bg-slate-100 border-r border-slate-200 sticky left-0 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.03)] select-none relative"
+              :rowspan="devopsStore.matrixLayoutMode === 'columns' ? 2 : 1"
+              class="px-3.5 py-2.5 font-bold bg-slate-100 border-r border-slate-200 sticky left-0 z-30 shadow-[2px_0_4px_rgba(0,0,0,0.03)] select-none relative align-middle"
               :style="{ width: `${devopsStore.pipelineColumnWidth}px`, minWidth: `${devopsStore.pipelineColumnWidth}px`, maxWidth: `${devopsStore.pipelineColumnWidth}px` }"
             >
               <span>Service / Pipeline</span>
@@ -249,10 +253,11 @@ onUnmounted(() => {
             <th 
               v-for="env in environments" 
               :key="env"
+              :colspan="devopsStore.matrixLayoutMode === 'columns' ? 2 : 1"
               class="px-3 py-2 font-bold bg-slate-100 border-r border-slate-200 text-center cursor-context-menu select-none hover:bg-slate-200/70 transition-colors"
               :class="[
                 devopsStore.matrixLayoutMode === 'columns' 
-                  ? 'min-w-[300px] whitespace-nowrap' 
+                  ? 'whitespace-nowrap' 
                   : devopsStore.matrixLayoutMode === 'rows'
                     ? 'min-w-[230px] whitespace-nowrap'
                     : 'min-w-[250px] whitespace-nowrap'
@@ -267,7 +272,36 @@ onUnmounted(() => {
             </th>
 
             <!-- Spacer column to absorb extra horizontal space when only a few columns are visible -->
-            <th class="bg-slate-100/90 border-b border-slate-200 w-full min-w-0 p-0"></th>
+            <th 
+              :rowspan="devopsStore.matrixLayoutMode === 'columns' ? 2 : 1"
+              class="bg-slate-100/90 border-b border-slate-200 w-full min-w-0 p-0"
+            ></th>
+          </tr>
+
+          <!-- Row 2: Sub-headers for Prior/Active mode -->
+          <tr 
+            v-if="devopsStore.matrixLayoutMode === 'columns'"
+            class="bg-slate-100 border-b border-slate-200 text-[10px] uppercase tracking-wider"
+          >
+            <template v-for="env in environments" :key="`sub-${env}`">
+              <!-- Prior Sub-header -->
+              <th class="px-3 py-1 font-bold text-center text-amber-900 bg-amber-50/70 border-r border-slate-200 whitespace-nowrap min-w-max">
+                <div class="flex items-center justify-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  </svg>
+                  <span>Prior</span>
+                </div>
+              </th>
+
+              <!-- Active Sub-header -->
+              <th class="px-3 py-1 font-bold text-center text-slate-800 bg-white border-r border-slate-200 whitespace-nowrap min-w-max">
+                <div class="flex items-center justify-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span>Active</span>
+                </div>
+              </th>
+            </template>
           </tr>
         </thead>
 
@@ -308,52 +342,85 @@ onUnmounted(() => {
             />
 
             <!-- 2. Dynamic Environment Cells -->
-            <td 
-              v-for="(env, envIdx) in environments" 
-              :key="env"
-              class="border-r border-slate-200 select-none align-top"
-              :class="[
-                (devopsStore.matrixLayoutMode === 'rows' || devopsStore.matrixLayoutMode === 'columns') 
-                  ? (rowIdx > 0 ? 'pt-1 p-0' : 'p-0')
-                  : (rowIdx > 0 ? 'px-2.5 pt-3 pb-2' : 'px-2.5 py-2'),
-                getDeploymentsForEnv(row, env).length ? 'bg-white' : 'bg-slate-50/40',
-                devopsStore.matrixLayoutMode === 'columns' 
-                  ? 'min-w-[300px] whitespace-nowrap' 
-                  : devopsStore.matrixLayoutMode === 'rows'
+            <template v-for="(env, envIdx) in environments" :key="env">
+              <!-- Prior/Active Mode: Two Distinct Table Columns (Prior then Active) -->
+              <template v-if="devopsStore.matrixLayoutMode === 'columns'">
+                <template v-if="getDeploymentsForEnv(row, env).length > 0">
+                  <!-- Prior Column Cell -->
+                  <td 
+                    class="border-r border-slate-200 select-none align-top p-0 bg-amber-50/20 whitespace-nowrap min-w-max"
+                    :class="rowIdx > 0 ? 'pt-1' : ''"
+                  >
+                    <EnvironmentCellPrior 
+                      :row="row"
+                      :deployments="getDeploymentsForEnv(row, env)"
+                      :env="env"
+                      :env-index="envIdx"
+                      @open-context-menu="(e, r, c, envName) => emit('open-context-menu', e, r, c, envName)"
+                    />
+                  </td>
+
+                  <!-- Active Column Cell -->
+                  <td 
+                    class="border-r border-slate-200 select-none align-top p-0 bg-white whitespace-nowrap min-w-max"
+                    :class="rowIdx > 0 ? 'pt-1' : ''"
+                  >
+                    <EnvironmentCellActive 
+                      :row="row"
+                      :deployments="getDeploymentsForEnv(row, env)"
+                      :env="env"
+                      :env-index="envIdx"
+                      @open-context-menu="(e, r, c, envName) => emit('open-context-menu', e, r, c, envName)"
+                    />
+                  </td>
+                </template>
+
+                <!-- If Environment has no deployments at all -->
+                <td 
+                  v-else 
+                  :colspan="2" 
+                  class="border-r border-slate-200 bg-slate-50/40 select-none align-top p-0"
+                  :class="rowIdx > 0 ? 'pt-1' : ''"
+                >
+                  <EmptyEnvironmentCell :row="row" :env="env" />
+                </td>
+              </template>
+
+              <!-- Cards / Rows Modes: Single Column per Environment -->
+              <td 
+                v-else
+                class="border-r border-slate-200 select-none align-top"
+                :class="[
+                  devopsStore.matrixLayoutMode === 'rows' 
+                    ? (rowIdx > 0 ? 'pt-1 p-0' : 'p-0')
+                    : (rowIdx > 0 ? 'px-2.5 pt-3 pb-2' : 'px-2.5 py-2'),
+                  getDeploymentsForEnv(row, env).length ? 'bg-white' : 'bg-slate-50/40',
+                  devopsStore.matrixLayoutMode === 'rows'
                     ? 'min-w-[230px] whitespace-nowrap'
                     : 'min-w-[250px] whitespace-nowrap'
-              ]"
-            >
-              <!-- Cards Mode -->
-              <EnvironmentCellCards 
-                v-if="devopsStore.matrixLayoutMode === 'cards'"
-                :row="row"
-                :deployments="getDeploymentsForEnv(row, env)"
-                :env="env"
-                :env-index="envIdx"
-                @open-context-menu="(e, r, c, envName) => emit('open-context-menu', e, r, c, envName)"
-              />
+                ]"
+              >
+                <!-- Cards Mode -->
+                <EnvironmentCellCards 
+                  v-if="devopsStore.matrixLayoutMode === 'cards'"
+                  :row="row"
+                  :deployments="getDeploymentsForEnv(row, env)"
+                  :env="env"
+                  :env-index="envIdx"
+                  @open-context-menu="(e, r, c, envName) => emit('open-context-menu', e, r, c, envName)"
+                />
 
-              <!-- Rows Mode (Cross-Environment Comparison) -->
-              <EnvironmentCellRows 
-                v-else-if="devopsStore.matrixLayoutMode === 'rows'"
-                :row="row"
-                :deployments="getDeploymentsForEnv(row, env)"
-                :env="env"
-                :env-index="envIdx"
-                @open-context-menu="(e, r, c, envName) => emit('open-context-menu', e, r, c, envName)"
-              />
-
-              <!-- Columns Mode (Temporal In-Environment Comparison) -->
-              <EnvironmentCellColumns 
-                v-else-if="devopsStore.matrixLayoutMode === 'columns'"
-                :row="row"
-                :deployments="getDeploymentsForEnv(row, env)"
-                :env="env"
-                :env-index="envIdx"
-                @open-context-menu="(e, r, c, envName) => emit('open-context-menu', e, r, c, envName)"
-              />
-            </td>
+                <!-- Rows Mode (Cross-Environment Comparison) -->
+                <EnvironmentCellRows 
+                  v-else-if="devopsStore.matrixLayoutMode === 'rows'"
+                  :row="row"
+                  :deployments="getDeploymentsForEnv(row, env)"
+                  :env="env"
+                  :env-index="envIdx"
+                  @open-context-menu="(e, r, c, envName) => emit('open-context-menu', e, r, c, envName)"
+                />
+              </td>
+            </template>
 
             <!-- Spacer cell to absorb remaining width -->
             <td 
