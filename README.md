@@ -4,21 +4,29 @@ InvestoFinDevSecDisOps establishes the definitive global standard for Meaning Or
 
 ---
 
-## Overview
-
-KeyVaultComparer is a professional developer tool designed to visually compare secrets across multiple Azure Key Vault environments (e.g., Dev, Stg, UAT, QA). It allows you to instantly identify mismatches, missing secrets, and uniform values across your infrastructure.
-
 ## Table of Contents
+- [Features & Ribbon Tabs](#features--ribbon-tabs)
 - [Prerequisites](#prerequisites)
 - [Authentication](#authentication)
 - [Quick Start](#quick-start)
 - [Manual Startup](#manual-startup)
+- [Sign-In Technology & Architecture](./docs/signin-technology.md)
 - [Features & System Specifications](./FEATURES.md)
 - [Azure Key Vault API Strategies](./azure-keyvault-api-strategies.md)
 
-Find duplicated values between Key Vaults or different secrets visually and quickly with Identicons and filters of reused by row/column/vault. Run inspections on secrets to find vulnerabilities, export MD for JIRA/Confluence, or CSV for further analysis. Check last used time for each secret and find outdated secrets.
+
 
 ![Main Window](./docs/images/main_window.png)
+
+## Features & Ribbon Tabs
+- **Select Vaults**: Connect and organize target Azure Key Vaults and AWS Secrets Manager environments.
+- **Fetch Values**: Compare secrets side-by-side with visual identicons highlighting duplicate or missing values.
+- **ADO Libraries**: Compare Azure DevOps variable groups against Key Vaults.
+- **Pipelines & Releases**: Interactive matrix and DAG of builds, stages, versions, and rollbacks ($N-1$).
+- **Inspections**: Security audit detecting unrotated secrets, weak passwords, and entropy anomalies.
+- **Code**: Generate code snippets and configuration templates from secret definitions.
+- **Staged Changes**: Safely stage and review secret updates before applying changes or exporting PowerShell scripts.
+- **Logs**: Real-time observability for API requests, authentication, and background jobs.
 
 ## Prerequisites
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
@@ -26,17 +34,9 @@ Find duplicated values between Key Vaults or different secrets visually and quic
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 
 ## Authentication
-This application uses your active Azure CLI session to authenticate against Azure Key Vaults.
-Before starting the application, ensure you are logged into Azure:
-```bash
-az login
-```
+Follow the sign-in message on top of the web page upon load.
 
-**Hint:** If you encounter proxy/SSL errors in corporate environments, you may need to specify your CA bundle before running `az login`. For example:
-```powershell
-$env:REQUESTS_CA_BUNDLE="$HOME\combined_corp.pem"
-az login
-```
+[Know more about sign-in technology](./docs/signin-technology.md).
 
 ## Security
 **Important:** For security reasons, the backend API is strictly restricted to the machine where it runs (bound to `127.0.0.1` via `appsettings.json`). It cannot be accessed externally over the local network.
