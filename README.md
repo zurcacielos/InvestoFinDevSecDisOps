@@ -1,7 +1,7 @@
-# InvestoFinDevSecDisOps (MOP & MOB Edition)
+# InvestoFinDevSecDisOps
 
 An Azure Operations Helper, made with .NET 10 and Vue.js to help you navigate Azure environments, vaults, pipelines and Azure Dev Ops Libraries, and variable groups. Including a release matrix, an approval matrix to see all your last and previous deployments and compare them side-by-side, by branch, repo, version, tag, container version, etc.
----
+
 
 ## Table of Contents
 - [Features & Ribbon Tabs](#features--ribbon-tabs)
